@@ -9,8 +9,8 @@ generator client {
 // enough when changing adapters.
 // See https://www.prisma.io/docs/orm/reference/prisma-schema-reference#string for more information
 datasource db {
-  provider = "sqlite"
-  url      = "file:dev.sqlite"
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
 model Session {
@@ -31,4 +31,72 @@ model Session {
   emailVerified Boolean?  @default(false)
   refreshToken        String?
   refreshTokenExpires DateTime?
+}
+
+enum BoardStatus {
+  DRAFT
+  SHARED
+  VOTED
+}
+
+enum Verdict {
+  LOVE
+  MAYBE
+  PASS
+}
+
+model Board {
+  id                String      @id @default(cuid())
+  shop              String
+  shareToken        String      @unique
+  customerId        String?
+  ownerFirstName    String?
+  ownerEmail        String?
+  partnerFirstName  String?
+  name              String
+  note              String?
+  status            BoardStatus @default(DRAFT)
+  sharedAt          DateTime?
+  votingCompletedAt DateTime?
+  notifiedAt        DateTime?
+  expiresAt         DateTime
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+
+  items             BoardItem[]
+
+  @@index([shop, customerId])
+  @@index([expiresAt])
+  @@map("boards")
+}
+
+model BoardItem {
+  id        String   @id @default(cuid())
+  boardId   String
+  productId String
+  variantId String
+  position  Int
+  createdAt DateTime @default(now())
+
+  board     Board    @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  votes     Vote[]
+
+  @@unique([boardId, variantId])
+  @@index([boardId])
+  @@map("board_items")
+}
+
+model Vote {
+  id          String    @id @default(cuid())
+  boardItemId String
+  verdict     Verdict
+  note        String?
+  voterName   String
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  boardItem   BoardItem @relation(fields: [boardItemId], references: [id], onDelete: Cascade)
+
+  @@unique([boardItemId])
+  @@map("votes")
 }
