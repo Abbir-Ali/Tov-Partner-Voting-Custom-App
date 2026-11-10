@@ -126,6 +126,14 @@ NOT in Phase 1: SMS, "Start your own board", multiple voters, B2B.
 
   Never bundle unrelated changes into a task's commit.
 
+- Client-side code (route components) must never import from *.server.js.
+
+  Shared constants go in *.shared.js.
+
+- Lint passing isn't enough: after any app change, check the
+
+  `shopify app dev` terminal for Vite/build errors before asking me to test.
+
 ## Brand (for any storefront UI or email)
 
 Colors: Cream #FEFBF6, Soft Taupe #F1ECE5, Blush #F9D2D2, Truffle #82736C,

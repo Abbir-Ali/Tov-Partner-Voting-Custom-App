@@ -100,3 +100,21 @@ model Vote {
   @@unique([boardItemId])
   @@map("votes")
 }
+
+model ShopSettings {
+  id                   String   @id @default(cuid())
+  shop                 String   @unique
+  enabled              Boolean  @default(false)
+  abTestEnabled        Boolean  @default(false)
+  abTestPercent        Int      @default(50)
+  boardExpiryDays      Int      @default(30)
+  maxItemsPerBoard     Int      @default(12)
+  maxSharesPerDay      Int      @default(10)
+  notificationsEnabled Boolean  @default(true)
+  excludeTag           String   @default("pvb-exclude")
+  copy                 Json     @default("{}")
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  @@map("shop_settings")
+}
