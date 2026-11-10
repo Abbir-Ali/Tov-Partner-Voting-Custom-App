@@ -68,13 +68,31 @@ This is NOT an admin voting tool and NOT about Shopify Partners.
 
 - Only first names are shown to the other person. No personal data in URLs.
 
-## Phase 1 (MVP) scope
+## Phase 1 scope (updated)
 
-Share a board, vote page, "voting done" email, cart hand-off. NOT in Phase 1:
+Share a board, vote page, "voting done" email, cart hand-off, PLUS:
 
-PDP/cart entry points, SMS, "Start your own board", multiple voters,
+- Admin Settings page: on/off, A/B split, expiry, limits, exclusions,
 
-B2B portal version.
+  vote page copy. Day-to-day changes must not need code.
+
+- Storefront UI as a theme app extension (app embed + app blocks) so the
+
+  team configures labels/colors/placement in the theme editor.
+
+- Tracking: Web Pixel extension + events endpoint + orders webhook with
+
+  cart-attribute attribution. Admin dashboard: impressions, clicks,
+
+  shares, partner opens, votes completed, cart opens, checkouts, orders,
+
+  revenue, AOV, A/B comparison.
+
+Decisions: boards expire 30 days after sharing (configurable). Guests can
+
+save; the board is created on the server only when shared.
+
+NOT in Phase 1: SMS, "Start your own board", multiple voters, B2B.
 
 ## How we work (important)
 
