@@ -104,6 +104,10 @@ B2B portal version.
 
   state it instead of guessing.
 
+- If a change outside the current task seems needed, stop and ask first.
+
+  Never bundle unrelated changes into a task's commit.
+
 ## Brand (for any storefront UI or email)
 
 Colors: Cream #FEFBF6, Soft Taupe #F1ECE5, Blush #F9D2D2, Truffle #82736C,
