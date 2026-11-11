@@ -49,6 +49,8 @@ model Board {
   id                String      @id @default(cuid())
   shop              String
   shareToken        String      @unique
+  ownerToken        String      @unique   // lets the shopper view results; never sent to the partner
+  creatorKey        String               // sha256 hash of shop + customer id or lowercased email; never raw
   customerId        String?
   ownerFirstName    String?
   ownerEmail        String?
@@ -67,6 +69,7 @@ model Board {
 
   @@index([shop, customerId])
   @@index([expiresAt])
+  @@index([shop, creatorKey, createdAt])
   @@map("boards")
 }
 

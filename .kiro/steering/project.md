@@ -134,6 +134,12 @@ NOT in Phase 1: SMS, "Start your own board", multiple voters, B2B.
 
   `shopify app dev` terminal for Vite/build errors before asking me to test.
 
+- Testing reference: docs/TESTING.md. Update it whenever a task adds
+
+  URLs, endpoints, test scripts or checks. Browser test steps must be
+
+  specific: exact URLs, scripts and expected results.
+
 ## Brand (for any storefront UI or email)
 
 Colors: Cream #FEFBF6, Soft Taupe #F1ECE5, Blush #F9D2D2, Truffle #82736C,
