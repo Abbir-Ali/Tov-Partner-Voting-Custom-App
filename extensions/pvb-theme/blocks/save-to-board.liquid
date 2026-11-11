@@ -1,0 +1,88 @@
+{% comment %}
+  Save to Board button — app block for product pages.
+  JS loaded via schema; no inline script.
+{% endcomment %}
+
+{% assign config_raw = app.metafields.pvb.config.value %}
+{% if config_raw != blank and config_raw.enabled %}
+  <div
+    class="pvb-save-button"
+    data-pvb-save-button
+    data-product-id="{{ product.id }}"
+    data-product-handle="{{ product.handle | escape }}"
+    data-max-items="{{ config_raw.maxItemsPerBoard }}"
+    data-style="{{ block.settings.style }}"
+    data-label-save="{{ block.settings.label_save | escape }}"
+    data-label-saved="{{ block.settings.label_saved | escape }}"
+    data-label-full="{{ block.settings.label_full | escape }}"
+  >
+    <button
+      type="button"
+      class="pvb-heart-btn"
+      aria-pressed="false"
+      aria-label="{{ block.settings.label_save | escape }}"
+      style="
+        --pvb-btn-text: {{ block.settings.text_color }};
+        --pvb-btn-bg: {{ block.settings.accent_color | color_modify: 'alpha', 0.2 }};
+        --pvb-btn-bg-hover: {{ block.settings.accent_color }};
+      "
+    >
+      <svg class="pvb-heart-icon" viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+      </svg>
+      <span class="pvb-btn-label">{{ block.settings.label_save | escape }}</span>
+    </button>
+    <p class="pvb-full-msg">{{ block.settings.label_full | escape }}</p>
+  </div>
+{% endif %}
+
+{% schema %}
+{
+  "name": "Save to Board",
+  "target": "section",
+  "javascript": "pvb-board.js",
+  "stylesheet": "pvb-board.css",
+  "settings": [
+    {
+      "type": "text",
+      "id": "label_save",
+      "label": "Save label",
+      "default": "Save to Board"
+    },
+    {
+      "type": "text",
+      "id": "label_saved",
+      "label": "Saved label",
+      "default": "Saved to Board"
+    },
+    {
+      "type": "text",
+      "id": "label_full",
+      "label": "Board full message",
+      "default": "Your board is full. Remove a piece to add another."
+    },
+    {
+      "type": "select",
+      "id": "style",
+      "label": "Style",
+      "options": [
+        { "value": "icon-text", "label": "Icon + text" },
+        { "value": "icon-only", "label": "Icon only" }
+      ],
+      "default": "icon-text"
+    },
+    {
+      "type": "color",
+      "id": "text_color",
+      "label": "Text color",
+      "default": "#3F3D3E"
+    },
+    {
+      "type": "color",
+      "id": "accent_color",
+      "label": "Accent color",
+      "default": "#F9D2D2"
+    }
+  ]
+}
+{% endschema %}

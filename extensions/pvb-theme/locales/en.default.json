@@ -1,0 +1,75 @@
+{
+  "save_to_board": {
+    "name": "Save to Board",
+    "settings": {
+      "label_save": {
+        "label": "Save label"
+      },
+      "label_saved": {
+        "label": "Saved label"
+      },
+      "label_full": {
+        "label": "Board full message"
+      },
+      "style": {
+        "label": "Style",
+        "options__1": {
+          "label": "Icon + text"
+        },
+        "options__2": {
+          "label": "Icon only"
+        }
+      },
+      "text_color": {
+        "label": "Text color"
+      },
+      "accent_color": {
+        "label": "Accent color"
+      }
+    }
+  },
+  "board_drawer": {
+    "name": "Your Board",
+    "settings": {
+      "pill_label": {
+        "label": "Pill label"
+      },
+      "drawer_title": {
+        "label": "Drawer title"
+      },
+      "empty_message": {
+        "label": "Empty state message"
+      },
+      "share_label": {
+        "label": "Share button label"
+      },
+      "share_helper": {
+        "label": "Share button helper text"
+      },
+      "pill_position": {
+        "label": "Pill position",
+        "options__1": {
+          "label": "Bottom right"
+        },
+        "options__2": {
+          "label": "Bottom left"
+        }
+      },
+      "pill_bottom": {
+        "label": "Distance from bottom (px)"
+      },
+      "pill_color": {
+        "label": "Pill background color"
+      },
+      "pill_text_color": {
+        "label": "Pill text color"
+      },
+      "drawer_bg_color": {
+        "label": "Drawer background color"
+      },
+      "drawer_text_color": {
+        "label": "Drawer text color"
+      }
+    }
+  }
+}

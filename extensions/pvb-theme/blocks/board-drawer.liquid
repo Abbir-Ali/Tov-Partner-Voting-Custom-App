@@ -1,0 +1,157 @@
+{% comment %}
+  Your Board — app embed with floating pill and slide-out drawer.
+  JS loaded via schema; no inline script.
+{% endcomment %}
+
+{% assign config_raw = app.metafields.pvb.config.value %}
+{% if config_raw != blank and config_raw.enabled %}
+  <div
+    class="pvb-drawer"
+    data-pvb-drawer
+    data-max-items="{{ config_raw.maxItemsPerBoard }}"
+    data-money-format="{{ shop.money_format | escape }}"
+    data-pill-label="{{ block.settings.pill_label | escape }}"
+    data-drawer-title="{{ block.settings.drawer_title | escape }}"
+    data-empty-message="{{ block.settings.empty_message | escape }}"
+    data-share-label="{{ block.settings.share_label | escape }}"
+    data-share-helper="{{ block.settings.share_helper | escape }}"
+    style="
+      --pvb-pill-bottom: {{ block.settings.pill_bottom }}px;
+      {% if block.settings.pill_position == 'bottom-left' %}
+        --pvb-pill-right: auto;
+        --pvb-pill-left: 1.5rem;
+      {% endif %}
+      --pvb-pill-bg: {{ block.settings.pill_color }};
+      --pvb-pill-text: {{ block.settings.pill_text_color }};
+      --pvb-drawer-bg: {{ block.settings.drawer_bg_color }};
+      --pvb-drawer-text: {{ block.settings.drawer_text_color }};
+    "
+  >
+    <!-- Pill button -->
+    <button
+      type="button"
+      class="pvb-pill"
+      aria-expanded="false"
+      aria-controls="pvb-drawer-panel"
+      hidden
+    >
+      <span class="pvb-pill-label">{{ block.settings.pill_label | escape }}</span> (<span class="pvb-pill-count" aria-live="polite">0</span>)
+    </button>
+
+    <!-- Drawer overlay + panel -->
+    <div class="pvb-drawer-overlay" data-open="false">
+      <aside
+        id="pvb-drawer-panel"
+        class="pvb-drawer-panel"
+        role="dialog"
+        aria-modal="true"
+        aria-label="{{ block.settings.drawer_title | escape }}"
+      >
+        <header class="pvb-drawer-header">
+          <h2 class="pvb-drawer-title">{{ block.settings.drawer_title | escape }}</h2>
+          <button type="button" class="pvb-drawer-close" aria-label="Close">
+            <svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true">
+              <path fill="currentColor" d="M15.8 4.2a.75.75 0 010 1.06L11.06 10l4.74 4.74a.75.75 0 11-1.06 1.06L10 11.06l-4.74 4.74a.75.75 0 01-1.06-1.06L8.94 10 4.2 5.26a.75.75 0 011.06-1.06L10 8.94l4.74-4.74a.75.75 0 011.06 0z"/>
+            </svg>
+          </button>
+        </header>
+
+        <div class="pvb-drawer-body">
+          <p class="pvb-drawer-empty">{{ block.settings.empty_message | escape }}</p>
+          <ul class="pvb-drawer-items" role="list"></ul>
+        </div>
+
+        <footer class="pvb-drawer-footer">
+          <button type="button" class="pvb-share-btn" disabled>
+            {{ block.settings.share_label | escape }}
+          </button>
+          <span class="pvb-share-helper">{{ block.settings.share_helper | escape }}</span>
+        </footer>
+      </aside>
+    </div>
+  </div>
+{% endif %}
+
+{% schema %}
+{
+  "name": "Your Board",
+  "target": "body",
+  "javascript": "pvb-board.js",
+  "stylesheet": "pvb-board.css",
+  "settings": [
+    {
+      "type": "text",
+      "id": "pill_label",
+      "label": "Pill label",
+      "default": "Your Board"
+    },
+    {
+      "type": "text",
+      "id": "drawer_title",
+      "label": "Drawer title",
+      "default": "Your Board"
+    },
+    {
+      "type": "text",
+      "id": "empty_message",
+      "label": "Empty state message",
+      "default": "Save pieces you love and they'll appear here."
+    },
+    {
+      "type": "text",
+      "id": "share_label",
+      "label": "Share button label",
+      "default": "Get a Second Opinion"
+    },
+    {
+      "type": "text",
+      "id": "share_helper",
+      "label": "Share button helper text",
+      "default": "Sharing is coming soon."
+    },
+    {
+      "type": "select",
+      "id": "pill_position",
+      "label": "Pill position",
+      "options": [
+        { "value": "bottom-right", "label": "Bottom right" },
+        { "value": "bottom-left", "label": "Bottom left" }
+      ],
+      "default": "bottom-right"
+    },
+    {
+      "type": "range",
+      "id": "pill_bottom",
+      "label": "Distance from bottom (px)",
+      "min": 16,
+      "max": 120,
+      "step": 8,
+      "default": 72
+    },
+    {
+      "type": "color",
+      "id": "pill_color",
+      "label": "Pill background color",
+      "default": "#F9D2D2"
+    },
+    {
+      "type": "color",
+      "id": "pill_text_color",
+      "label": "Pill text color",
+      "default": "#3F3D3E"
+    },
+    {
+      "type": "color",
+      "id": "drawer_bg_color",
+      "label": "Drawer background color",
+      "default": "#FEFBF6"
+    },
+    {
+      "type": "color",
+      "id": "drawer_text_color",
+      "label": "Drawer text color",
+      "default": "#3F3D3E"
+    }
+  ]
+}
+{% endschema %}

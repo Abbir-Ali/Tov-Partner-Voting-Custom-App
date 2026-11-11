@@ -134,3 +134,70 @@ Note: Logged-in shoppers are counted by customer ID, guests by email.
 ```
 
 Never log emails, names, notes, or tokens.
+
+## Theme App Extension Test
+
+### Setup (one time per session)
+
+1. **Save Settings once** to sync the metafield to the storefront:
+   - Go to Admin settings: https://admin.shopify.com/store/abbir-official-dev-store/apps/partner-voting-board/app/settings
+   - Set "Max pieces per board" = 2 (for the "board is full" test)
+   - Ensure "Enable Partner Voting Board" is ON
+   - Click Save. Toast should say "Settings saved" (not "sync failed")
+
+2. **Enable the app embed:**
+   - Go to Theme Editor: Online Store → Themes → Customize
+   - Click "App embeds" (left sidebar, bottom)
+   - Toggle ON "Your Board"
+   - Click Save
+
+3. **Add the app block to product template:**
+   - In Theme Editor, go to a product page (use the page selector dropdown)
+   - In the left sidebar, find a section that accepts blocks (e.g., "Product information")
+   - Click "Add block" → Apps → "Save to Board"
+   - Position it where you want the heart button
+   - Click Save
+
+### Test steps
+
+| Step | Action | Expected |
+|------|--------|----------|
+| 1 | Visit a product page | Heart button "Save to Board" is visible |
+| 2 | Click the heart button | Button changes to "Saved", pill appears "Your Board (1)" |
+| 3 | Click the pill | Drawer slides in from right with the item (image, title, price) |
+| 4 | Press Escape | Drawer closes, focus returns to pill |
+| 5 | Click pill again, then click overlay | Drawer closes |
+| 6 | Change variant (if product has variants) | Heart button state updates for new variant |
+| 7 | Click heart on the new variant | Pill count goes to 2 |
+| 8 | Try to add a third item | Message "Your board is full. Remove a piece to add another." appears |
+| 9 | Open drawer, click "Remove" on one item | Item removed, count updates, heart on that product page updates |
+| 10 | Click "Get a Second Opinion" button | Button is disabled, helper text "Sharing is coming soon." visible |
+| 11 | Tab through the drawer | Focus stays trapped inside the drawer |
+| 12 | Test on mobile (responsive mode or real device) | Pill and drawer are responsive, drawer fills width on small screens |
+
+### localStorage check (F12 Console)
+
+```javascript
+// View stored board
+JSON.parse(localStorage.getItem('pvb:board:v1'))
+// Expected: { items: [{ variantId, productId, handle, addedAt }, ...] }
+
+// Clear board for fresh test
+localStorage.removeItem('pvb:board:v1')
+```
+
+### Regression checks
+
+| Issue | Repro steps | Expected |
+|-------|-------------|----------|
+| Duplicate after Remove | Save 2 items, open drawer, Remove one | Exactly 1 item remains in order, no duplicates |
+| Price formatting | Save item priced $1,199.20 or similar | Price shows comma thousand separator (not "$1199.20") |
+| Pill whitespace | Pill shows count | Text is "Your Board(1)" not "Your Board ( 1 )" |
+| Save button styling | View Save to Board button | Full-width outline pill, min-height 44px, matches page font |
+| Remove tap target | Tap Remove on mobile | Easy to tap (44×44px minimum) |
+| Pill position | Check pill on desktop | 72px from bottom by default |
+
+### Reset after testing
+
+- Set "Max pieces per board" back to 10 in Settings
+

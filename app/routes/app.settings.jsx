@@ -53,7 +53,7 @@ export const loader = async ({ request }) => {
 // ─── Action ──────────────────────────────────────────────────────────────────
 
 export const action = async ({ request }) => {
-  const { session } = await authenticate.admin(request);
+  const { session, admin } = await authenticate.admin(request);
   const formData = await request.formData();
 
   // Build flat input object from formData.
@@ -78,9 +78,57 @@ export const action = async ({ request }) => {
   }
 
   await saveSettings(session.shop, data);
-  // savedAt is unique per save — the component depends on it to fire the toast
-  // on every successful save, not just when the actionData reference changes.
-  return Response.json({ ok: true, savedAt: Date.now() });
+
+  // Sync storefront config to app metafield (theme extensions read this).
+  let syncWarning = false;
+  try {
+    const appIdRes = await admin.graphql(`
+      query { currentAppInstallation { id } }
+    `);
+    const appIdJson = await appIdRes.json();
+    const appInstallationId = appIdJson.data?.currentAppInstallation?.id;
+
+    if (appInstallationId) {
+      const configValue = JSON.stringify({
+        enabled: data.enabled,
+        maxItemsPerBoard: data.maxItemsPerBoard,
+        abTestEnabled: data.abTestEnabled,
+        abTestPercent: data.abTestPercent,
+      });
+
+      const syncRes = await admin.graphql(`
+        mutation SyncConfigMetafield($metafields: [MetafieldsSetInput!]!) {
+          metafieldsSet(metafields: $metafields) {
+            metafields { id }
+            userErrors { field message code }
+          }
+        }
+      `, {
+        variables: {
+          metafields: [{
+            ownerId: appInstallationId,
+            namespace: "pvb",
+            key: "config",
+            type: "json",
+            value: configValue,
+          }],
+        },
+      });
+
+      const syncJson = await syncRes.json();
+      const userErrors = syncJson.data?.metafieldsSet?.userErrors ?? [];
+      if (userErrors.length > 0) {
+        console.error(`[settings.sync] metafield error code=${userErrors[0].code}`);
+        syncWarning = true;
+      }
+    }
+  } catch (err) {
+    console.error(`[settings.sync] error code=${err.code ?? "unknown"}`);
+    syncWarning = true;
+  }
+
+  // savedAt is unique per save so the toast fires on every save.
+  return Response.json({ ok: true, savedAt: Date.now(), syncWarning });
 };
 
 // ─── Component ───────────────────────────────────────────────────────────────
@@ -114,13 +162,23 @@ export default function SettingsPage() {
   // (Date.now()), so the effect reliably re-fires even on back-to-back saves.
   useEffect(() => {
     if (actionData?.ok) {
-      shopify.toast.show("Settings saved");
+      shopify.toast.show(actionData?.syncWarning
+        ? "Settings saved (storefront sync failed)"
+        : "Settings saved"
+      );
     }
-  }, [actionData?.savedAt, actionData?.ok, shopify]);
+  }, [actionData?.savedAt, actionData?.ok, actionData?.syncWarning, shopify]);
 
   return (
     <Form method="post" data-save-bar>
       <s-page heading="Settings">
+
+        {/* Sync warning banner */}
+        {actionData?.syncWarning && (
+          <s-banner tone="warning" heading="Storefront didn't update">
+            Settings saved, but the storefront config didn&apos;t sync. Save again to retry.
+          </s-banner>
+        )}
 
         {/* Error banner — shown when the action returns validation errors */}
         {hasErrors && (
