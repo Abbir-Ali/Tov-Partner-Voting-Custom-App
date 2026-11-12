@@ -12,5 +12,12 @@ export const action = async ({ request }) => {
     await db.session.deleteMany({ where: { shop } });
   }
 
+  // Shopify deletes app metafields on uninstall, so reset sync status.
+  // Safe to run even if settings row doesn't exist or was already reset.
+  await db.shopSettings.updateMany({
+    where: { shop },
+    data: { storefrontSyncedVersion: null },
+  });
+
   return new Response();
 };

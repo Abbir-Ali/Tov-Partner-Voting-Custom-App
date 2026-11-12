@@ -9,6 +9,7 @@ import {
   validateSettings,
   saveSettings,
 } from "../models/settings.server.js";
+import { syncStorefrontConfig } from "../services/storefront-config.server.js";
 
 // Labels and help text for vote-page copy fields.
 const COPY_FIELDS = [
@@ -80,53 +81,8 @@ export const action = async ({ request }) => {
   await saveSettings(session.shop, data);
 
   // Sync storefront config to app metafield (theme extensions read this).
-  let syncWarning = false;
-  try {
-    const appIdRes = await admin.graphql(`
-      query { currentAppInstallation { id } }
-    `);
-    const appIdJson = await appIdRes.json();
-    const appInstallationId = appIdJson.data?.currentAppInstallation?.id;
-
-    if (appInstallationId) {
-      const configValue = JSON.stringify({
-        enabled: data.enabled,
-        maxItemsPerBoard: data.maxItemsPerBoard,
-        abTestEnabled: data.abTestEnabled,
-        abTestPercent: data.abTestPercent,
-        excludeTag: data.excludeTag,
-      });
-
-      const syncRes = await admin.graphql(`
-        mutation SyncConfigMetafield($metafields: [MetafieldsSetInput!]!) {
-          metafieldsSet(metafields: $metafields) {
-            metafields { id }
-            userErrors { field message code }
-          }
-        }
-      `, {
-        variables: {
-          metafields: [{
-            ownerId: appInstallationId,
-            namespace: "pvb",
-            key: "config",
-            type: "json",
-            value: configValue,
-          }],
-        },
-      });
-
-      const syncJson = await syncRes.json();
-      const userErrors = syncJson.data?.metafieldsSet?.userErrors ?? [];
-      if (userErrors.length > 0) {
-        console.error(`[settings.sync] metafield error code=${userErrors[0].code}`);
-        syncWarning = true;
-      }
-    }
-  } catch (err) {
-    console.error(`[settings.sync] error code=${err.code ?? "unknown"}`);
-    syncWarning = true;
-  }
+  const syncResult = await syncStorefrontConfig(admin, session.shop);
+  const syncWarning = !syncResult.ok;
 
   // savedAt is unique per save so the toast fires on every save.
   return Response.json({ ok: true, savedAt: Date.now(), syncWarning });
