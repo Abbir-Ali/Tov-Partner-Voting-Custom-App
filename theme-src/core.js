@@ -211,6 +211,36 @@
       .replace(/\{\{\s*amount\s*\}\}/g, amt);
   }
 
+  // Shared scroll lock with counter for nested modals
+  var scrollLockCount = 0;
+  var scrollLockY = 0;
+
+  function lockScroll() {
+    if (scrollLockCount === 0) {
+      scrollLockY = window.scrollY;
+      document.body.style.overflow = 'hidden';
+      document.body.style.position = 'fixed';
+      document.body.style.top = '-' + scrollLockY + 'px';
+      document.body.style.left = '0';
+      document.body.style.right = '0';
+    }
+    scrollLockCount++;
+  }
+
+  function unlockScroll() {
+    if (scrollLockCount > 0) {
+      scrollLockCount--;
+      if (scrollLockCount === 0) {
+        document.body.style.overflow = '';
+        document.body.style.position = '';
+        document.body.style.top = '';
+        document.body.style.left = '';
+        document.body.style.right = '';
+        window.scrollTo(0, scrollLockY);
+      }
+    }
+  }
+
   loadBoard();
 
   window.__pvb = {
@@ -227,7 +257,9 @@
     toNumericId: toNumericId,
     escapeHtml: escapeHtml,
     safeImageUrl: safeImageUrl,
-    formatMoney: formatMoney
+    formatMoney: formatMoney,
+    lockScroll: lockScroll,
+    unlockScroll: unlockScroll
   };
 
   window.PVBBoard = window.__pvb;

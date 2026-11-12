@@ -305,7 +305,8 @@
     bottom: 0;
     left: 0;
     max-width: 100%;
-    max-height: 88vh;
+    max-height: 100vh;
+    max-height: 100dvh;
     border-radius: 22px 22px 0 0;
     transform: translateY(100%);
   }
@@ -583,6 +584,7 @@
 
 .pvb-drawer-footer {
   padding: 1rem 1.5rem 1.5rem;
+  padding-bottom: max(1.5rem, env(safe-area-inset-bottom));
   border-top: 1px solid var(--pvb-border);
   background: var(--pvb-cream);
 }
@@ -727,7 +729,8 @@
 .pvb-share-panel {
   width: 100%;
   max-width: 100%;
-  max-height: 90vh;
+  max-height: 100vh;
+  max-height: 100dvh;
   background: var(--pvb-cream);
   color: var(--pvb-not-black);
   border-radius: 22px 22px 0 0;
@@ -868,6 +871,14 @@
   font-size: 15px;
   color: var(--pvb-not-black);
   transition: border-color 0.15s;
+}
+
+/* Prevent iPhone auto-zoom on focus - inputs must be 16px+ */
+@media (max-width: 749px) {
+  .pvb-field-input,
+  .pvb-field-textarea {
+    font-size: 16px;
+  }
 }
 
 .pvb-field-input:focus {
@@ -1127,6 +1138,7 @@
 
 .pvb-share-footer {
   padding: 1rem 1.5rem 1.5rem;
+  padding-bottom: max(1.5rem, env(safe-area-inset-bottom));
   border-top: 1px solid var(--pvb-border);
 }
 

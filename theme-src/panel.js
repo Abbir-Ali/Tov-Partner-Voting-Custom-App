@@ -176,19 +176,21 @@
 
   // ─── Open / Close ─────────────────────────────────────────────────────────
   function openDrawer() {
+    if (overlay.dataset.open === 'true') return;
     lastFocused = document.activeElement;
     overlay.dataset.open = 'true';
     pill.setAttribute('aria-expanded', 'true');
     panel.focus();
     pvb.dispatchEvent('pvb:drawer-open', { count: pvb.getCount() });
-    document.body.style.overflow = 'hidden';
+    pvb.lockScroll();
     renderItems();
   }
 
   function closeDrawer() {
+    if (overlay.dataset.open !== 'true') return;
     overlay.dataset.open = 'false';
     pill.setAttribute('aria-expanded', 'false');
-    document.body.style.overflow = '';
+    pvb.unlockScroll();
     if (lastFocused) {
       lastFocused.focus();
       lastFocused = null;
@@ -375,7 +377,9 @@
   });
 
   document.addEventListener('keydown', function (e) {
-    if (e.key === 'Escape' && overlay.dataset.open === 'true') closeDrawer();
+    // Don't close drawer on Escape if share sheet is open (it handles its own Escape)
+    var shareOpen = document.querySelector('.pvb-share-overlay[data-open="true"]');
+    if (e.key === 'Escape' && overlay.dataset.open === 'true' && !shareOpen) closeDrawer();
     if (e.key === 'Tab' && overlay.dataset.open === 'true') trapFocus(e);
   });
 

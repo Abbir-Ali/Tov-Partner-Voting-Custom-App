@@ -24,6 +24,7 @@
   var lastFocusedElement = null;
   var isSubmitting = false;
   var currentShareData = null;
+  var sheetIsOpen = false;
 
   // Config loaded from drawer data attributes
   var config = {
@@ -84,6 +85,17 @@
     if (cls) e.className = cls;
     if (attrs) for (var k in attrs) e.setAttribute(k, attrs[k]);
     return e;
+  }
+
+  // On mobile, scroll input into view after keyboard opens (300ms delay)
+  function handleInputFocus(e) {
+    var input = e.target;
+    if (window.innerWidth >= 750) return;
+    setTimeout(function () {
+      if (document.activeElement === input) {
+        input.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      }
+    }, 300);
   }
 
   // â”€â”€â”€ Build Share Sheet â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -285,6 +297,11 @@
       charCounter.textContent = noteInput.value.length + '/280';
     });
 
+    // Mobile: scroll input into view when focused (after keyboard opens)
+    form.querySelectorAll('input, textarea').forEach(function (input) {
+      input.addEventListener('focus', handleInputFocus);
+    });
+
     // Update submit button text
     form.querySelector('[name="partnerFirstName"]').addEventListener('input', updateSubmitButtonText);
 
@@ -304,7 +321,10 @@
     // Keyboard handling
     document.addEventListener('keydown', function (e) {
       if (sheetOverlay && sheetOverlay.dataset.open === 'true') {
-        if (e.key === 'Escape') closeSheet();
+        if (e.key === 'Escape') {
+          e.stopPropagation();
+          closeSheet();
+        }
         if (e.key === 'Tab') trapFocus(e);
       }
     });
@@ -321,10 +341,12 @@
 
   // â”€â”€â”€ Open Sheet â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   function openSheet() {
+    if (sheetIsOpen) return;
     loadConfig();
     buildSheet();
 
     sheetOverlay.dataset.open = 'true';
+    sheetIsOpen = true;
 
     // Reset to form view
     formElement.style.display = '';
@@ -337,7 +359,7 @@
     clearFieldErrors();
     lastFocusedElement = document.activeElement;
     sheetOverlay.querySelector('.pvb-share-panel').focus();
-    document.body.style.overflow = 'hidden';
+    pvb.lockScroll();
 
     updateSubmitButtonText();
     pvb.dispatchEvent('pvb:share-open', { count: pvb.getCount() });
@@ -345,10 +367,11 @@
 
   // â”€â”€â”€ Close Sheet â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   function closeSheet() {
-    if (!sheetOverlay) return;
+    if (!sheetOverlay || !sheetIsOpen) return;
 
     sheetOverlay.dataset.open = 'false';
-    document.body.style.overflow = '';
+    sheetIsOpen = false;
+    pvb.unlockScroll();
 
     if (lastFocusedElement) {
       lastFocusedElement.focus();
