@@ -94,6 +94,7 @@ export const action = async ({ request }) => {
         maxItemsPerBoard: data.maxItemsPerBoard,
         abTestEnabled: data.abTestEnabled,
         abTestPercent: data.abTestPercent,
+        excludeTag: data.excludeTag,
       });
 
       const syncRes = await admin.graphql(`

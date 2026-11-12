@@ -186,7 +186,7 @@ Never log emails, names, notes, or tokens.
 | 7 | Click heart on the new variant | Pill count goes to 2 |
 | 8 | Try to add a third item | Message "Your board is full. Remove a piece to add another." appears |
 | 9 | Open drawer, click "Remove" on one item | Item removed, count updates, heart on that product page updates |
-| 10 | Click "Get a Second Opinion" button | Button is disabled, helper text "Sharing is coming soon." visible |
+| 10 | Click "Get a Second Opinion" button | Share sheet loads and opens |
 | 11 | Tab through the drawer | Focus stays trapped inside the drawer |
 | 12 | Test on mobile (responsive mode or real device) | Pill and drawer are responsive, drawer fills width on small screens |
 
@@ -230,4 +230,107 @@ Expected: No duplicates added, goes straight to cart page.
 ### Reset after testing
 
 - Set "Max pieces per board" back to 10 in Settings
+
+
+## Share Sheet Test (Task 7)
+
+### Prerequisites
+
+1. `npm run build:theme` has been run and bundles pass (all < 11KB)
+2. Feature enabled in Admin settings
+3. App embed and block enabled in theme
+4. `shopify app dev` running with tunnel
+
+### Test steps
+
+| Step | Action | Expected |
+|------|--------|----------|
+| 1 | Save 1-2 items to your board | Items saved, pill shows count |
+| 2 | Open the drawer, click "Get a Second Opinion" | Share sheet loads (may take a moment first time), slides up on mobile, centers on desktop |
+| 3 | Try to submit with empty fields | "Enter their name" and "Enter your name" errors appear under fields |
+| 4 | Enter "Partner" in "Their first name" | Submit button changes to "Send to Partner" |
+| 5 | Enter invalid email "abc" | "Enter a valid email" error appears |
+| 6 | Fill all required fields, add a note | Note counter updates (e.g., "45/280") |
+| 7 | Click "Send to Partner" | Button shows "Sending...", disabled, loading spinner |
+| 8 | Wait for API response | Success: Native share dialog (mobile) or channel buttons appear |
+| 9 | If channels visible: click WhatsApp | Opens WhatsApp with pre-filled message "{Your name} wants your vote on {N} pieces from {shop}." |
+| 10 | Click "Copy" | Button text changes to "Copied", URL is in clipboard |
+| 11 | Click "Done" or outside overlay | Share sheet closes |
+| 12 | Check drawer footer | "Shared with {Partner}" row appears with checkmark |
+| 13 | Press Escape while sheet is open | Sheet closes, focus returns |
+| 14 | Tab through share sheet | Focus trapped inside dialog |
+
+### Error handling test
+
+1. With feature disabled in Settings, click "Get a Second Opinion"
+2. Expected: "Sharing is turned off right now." error message
+
+3. After hitting daily limit (set limit=1, share twice):
+4. Expected: Server message (e.g., "Too many shares today.") displayed
+
+5. Add a product with the excludeTag to your board, then try to share:
+6. Expected: "Some pieces can't be shared right now:" list with product title, reason "Not available for sharing", and Remove button
+
+7. Test with invalid variant (product removed after saving):
+8. Expected: Ineligible item shows "No longer available"
+
+### localStorage check (F12 Console)
+
+```javascript
+// Check saved owner name (NOT email)
+localStorage.getItem('pvb:owner:v1')
+// Expected: "YourFirstName" (only name, never email)
+
+// Check share history (readable keys since Task 7)
+JSON.parse(localStorage.getItem('pvb:shares:v1'))
+// Expected: [{ partnerFirstName: "Partner", resultsUrl: "https://...", count: 2, sharedAt: 1234567890 }, ...]
+// Max 10 entries, most recent first
+
+// Clear for fresh test
+localStorage.removeItem('pvb:owner:v1')
+localStorage.removeItem('pvb:shares:v1')
+```
+
+### Share message format
+
+The share message should be:
+```
+{Your name} wants your vote on {N} pieces from {Shop name}.
+```
+
+If a note was added:
+```
+{Your name} wants your vote on {N} pieces from {Shop name}. "{Note text}"
+```
+
+### Customer prefill test
+
+1. Log in as a customer on the storefront
+2. Open share sheet
+3. Expected: "Your first name" and "Your email" prefilled from account
+4. Expected: Email field is optional (not required) when logged in
+
+### Mobile-specific tests
+
+| Test | Action | Expected |
+|------|--------|----------|
+| Bottom sheet | Open share sheet on mobile | Sheet slides up from bottom with grab handle |
+| Scroll | Add long note, scroll form | Form scrolls inside fixed sheet |
+| Native share | Complete form on iOS/Android | Native share picker appears first |
+| Keyboard | Focus email field | Virtual keyboard doesn't break layout |
+
+
+### Exclude tag test
+
+1. In Admin settings, set "Exclude tag" to `no-board` and save
+2. Add tag `no-board` to a test product in Shopify admin
+3. Visit that product page
+4. Expected: "Save to Board" button is NOT rendered (block hidden)
+5. Gift card products should also not show the button (automatic)
+
+**Metafield check (F12 on storefront):**
+```javascript
+// The config metafield now includes excludeTag
+// View in Network tab: look for any Liquid request, check app.metafields.pvb.config
+```
 

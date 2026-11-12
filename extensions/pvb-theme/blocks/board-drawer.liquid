@@ -22,6 +22,15 @@
     data-cart-url="{{ routes.cart_url }}"
     data-cart-json-url="{{ routes.cart_url }}.js"
     data-cart-add-url="{{ routes.cart_add_url }}.js"
+    data-share-asset-url="{{ 'pvb-share.js' | asset_url }}"
+    data-shop-name="{{ shop.name | escape }}"
+    {% if customer %}
+    data-customer-first-name="{{ customer.first_name | escape }}"
+    data-customer-email="{{ customer.email | escape }}"
+    data-logged-in="true"
+    {% else %}
+    data-logged-in="false"
+    {% endif %}
     style="
       --pvb-pill-bottom: {{ block.settings.pill_bottom }}px;
       {% if block.settings.pill_position == 'bottom-left' %}
@@ -99,7 +108,9 @@
             </svg>
             {{ block.settings.share_label | escape }}
           </button>
+          {% if block.settings.share_helper != blank %}
           <span class="pvb-share-helper">{{ block.settings.share_helper | escape }}</span>
+          {% endif %}
           <button type="button" class="pvb-cart-btn" hidden>
             {{ block.settings.cart_label | escape }}
           </button>
@@ -207,8 +218,7 @@
     {
       "type": "text",
       "id": "share_helper",
-      "label": "Share helper text",
-      "default": "Sharing is coming soon."
+      "label": "Share helper text"
     },
     {
       "type": "text",

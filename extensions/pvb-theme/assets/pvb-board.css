@@ -702,3 +702,599 @@
     animation: none;
   }
 }
+
+
+/* ─── Share Sheet Overlay ─────────────────────────────────────────────────── */
+
+.pvb-share-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10001;
+  background: rgba(0, 0, 0, 0.5);
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.25s, visibility 0.25s;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+.pvb-share-overlay[data-open="true"] {
+  opacity: 1;
+  visibility: visible;
+}
+
+/* Desktop: centered dialog */
+@media (min-width: 750px) {
+  .pvb-share-overlay {
+    align-items: center;
+  }
+}
+
+/* ─── Share Sheet Panel ───────────────────────────────────────────────────── */
+
+.pvb-share-panel {
+  width: 100%;
+  max-width: 100%;
+  max-height: 90vh;
+  background: var(--pvb-cream);
+  color: var(--pvb-not-black);
+  border-radius: 22px 22px 0 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  transform: translateY(100%);
+  transition: transform 0.3s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+.pvb-share-overlay[data-open="true"] .pvb-share-panel {
+  transform: translateY(0);
+}
+
+/* Desktop: centered with max-width */
+@media (min-width: 750px) {
+  .pvb-share-panel {
+    max-width: 480px;
+    max-height: 85vh;
+    border-radius: 16px;
+    transform: translateY(20px);
+    opacity: 0;
+  }
+
+  .pvb-share-overlay[data-open="true"] .pvb-share-panel {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+/* Mobile handle */
+.pvb-share-handle {
+  display: block;
+  width: 40px;
+  height: 4px;
+  margin: 12px auto 8px;
+  background: var(--pvb-handle);
+  border-radius: 2px;
+}
+
+@media (min-width: 750px) {
+  .pvb-share-handle {
+    display: none;
+  }
+}
+
+/* ─── Share Sheet Header ──────────────────────────────────────────────────── */
+
+.pvb-share-header {
+  padding: 1rem 1.5rem;
+  position: relative;
+  border-bottom: 1px solid var(--pvb-border);
+}
+
+.pvb-share-title {
+  font-family: var(--pvb-font-heading);
+  font-size: 24px;
+  font-weight: 400;
+  margin: 0;
+  padding-right: 44px;
+}
+
+.pvb-share-close {
+  position: absolute;
+  top: 0.75rem;
+  right: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--pvb-not-black);
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.pvb-share-close:hover {
+  background: var(--pvb-taupe);
+}
+
+.pvb-share-close:focus-visible {
+  outline: 2px solid var(--pvb-not-black);
+  outline-offset: 2px;
+}
+
+.pvb-share-close svg {
+  width: 20px;
+  height: 20px;
+}
+
+/* ─── Share Sheet Body ────────────────────────────────────────────────────── */
+
+.pvb-share-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 1.5rem;
+}
+
+/* ─── Form Fields ─────────────────────────────────────────────────────────── */
+
+.pvb-share-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.pvb-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.pvb-field-label {
+  font-family: var(--pvb-font-body);
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.045em;
+  color: var(--pvb-not-black);
+}
+
+.pvb-field-label[data-required]::after {
+  content: " *";
+  color: var(--pvb-bold-lip);
+}
+
+.pvb-field-input {
+  height: 48px;
+  padding: 0 16px;
+  border: 1px solid var(--pvb-border);
+  border-radius: 8px;
+  background: #fff;
+  font-family: var(--pvb-font-body);
+  font-size: 15px;
+  color: var(--pvb-not-black);
+  transition: border-color 0.15s;
+}
+
+.pvb-field-input:focus {
+  outline: none;
+  border-color: var(--pvb-forest);
+}
+
+.pvb-field-input::placeholder {
+  color: var(--pvb-truffle);
+}
+
+.pvb-field-input[aria-invalid="true"] {
+  border-color: var(--pvb-bold-lip);
+}
+
+.pvb-field-textarea {
+  min-height: 80px;
+  padding: 12px 16px;
+  resize: vertical;
+}
+
+.pvb-field-hint {
+  font-family: var(--pvb-font-body);
+  font-size: 11px;
+  color: var(--pvb-truffle);
+  display: flex;
+  justify-content: space-between;
+}
+
+.pvb-field-error {
+  font-family: var(--pvb-font-body);
+  font-size: 11px;
+  color: var(--pvb-bold-lip);
+  display: none;
+}
+
+.pvb-field-error[data-visible="true"] {
+  display: block;
+}
+
+.pvb-char-counter {
+  font-variant-numeric: tabular-nums;
+}
+
+/* ─── Share Channels ──────────────────────────────────────────────────────── */
+
+.pvb-share-channels {
+  display: none;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.pvb-share-channels[data-visible="true"] {
+  display: flex;
+}
+
+.pvb-share-channels-title {
+  font-family: var(--pvb-font-body);
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.045em;
+  color: var(--pvb-truffle);
+  margin: 0;
+}
+
+.pvb-channel-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+}
+
+.pvb-channel-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 12px 8px;
+  border: 1px solid var(--pvb-border);
+  border-radius: 12px;
+  background: #fff;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.pvb-channel-btn:hover {
+  background: var(--pvb-taupe);
+}
+
+.pvb-channel-btn:focus-visible {
+  outline: 2px solid var(--pvb-not-black);
+  outline-offset: 2px;
+}
+
+.pvb-channel-btn[data-copied="true"] {
+  background: var(--pvb-blush);
+  border-color: var(--pvb-blush);
+}
+
+.pvb-channel-icon {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pvb-channel-icon svg {
+  width: 24px;
+  height: 24px;
+}
+
+/* WhatsApp green */
+.pvb-channel-btn[data-channel="whatsapp"] .pvb-channel-icon svg {
+  fill: #25D366;
+}
+
+/* Email uses forest */
+.pvb-channel-btn[data-channel="email"] .pvb-channel-icon svg {
+  fill: var(--pvb-forest);
+}
+
+/* SMS uses truffle */
+.pvb-channel-btn[data-channel="sms"] .pvb-channel-icon svg {
+  fill: var(--pvb-truffle);
+}
+
+/* Copy uses not-black */
+.pvb-channel-btn[data-channel="copy"] .pvb-channel-icon svg {
+  fill: var(--pvb-not-black);
+}
+
+.pvb-channel-label {
+  font-family: var(--pvb-font-body);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--pvb-not-black);
+}
+
+/* ─── Share Message Preview ───────────────────────────────────────────────── */
+
+.pvb-share-preview {
+  padding: 12px 16px;
+  background: var(--pvb-taupe);
+  border-radius: 8px;
+  font-family: var(--pvb-font-body);
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--pvb-not-black);
+}
+
+.pvb-share-preview-note {
+  display: block;
+  margin-top: 8px;
+  font-style: italic;
+  color: var(--pvb-truffle);
+}
+
+/* ─── Share Error State ───────────────────────────────────────────────────── */
+
+.pvb-share-error {
+  display: none;
+  padding: 12px 16px;
+  background: #FEF2F2;
+  border: 1px solid var(--pvb-bold-lip);
+  border-radius: 8px;
+  font-family: var(--pvb-font-body);
+  font-size: 13px;
+  color: var(--pvb-bold-lip);
+}
+
+.pvb-share-error[data-visible="true"] {
+  display: block;
+}
+
+.pvb-share-error-title {
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.pvb-share-error-list {
+  margin: 8px 0 0;
+  padding-left: 1.25em;
+}
+
+/* ─── Ineligible Items State ──────────────────────────────────────────────── */
+
+.pvb-ineligible-list {
+  display: none;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 1rem;
+}
+
+.pvb-ineligible-list[data-visible="true"] {
+  display: flex;
+}
+
+.pvb-ineligible-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background: #FEF2F2;
+  border-radius: 8px;
+}
+
+.pvb-ineligible-title {
+  font-family: var(--pvb-font-body);
+  font-size: 13px;
+  color: var(--pvb-not-black);
+}
+
+.pvb-ineligible-remove {
+  padding: 6px 12px;
+  border: none;
+  border-radius: 9999px;
+  background: var(--pvb-bold-lip);
+  color: #fff;
+  font-family: var(--pvb-font-body);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.045em;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+.pvb-ineligible-remove:hover {
+  opacity: 0.85;
+}
+
+/* ─── Share Sheet Footer ──────────────────────────────────────────────────── */
+
+.pvb-share-footer {
+  padding: 1rem 1.5rem 1.5rem;
+  border-top: 1px solid var(--pvb-border);
+}
+
+.pvb-share-submit {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 50px;
+  border: none;
+  border-radius: 9999px;
+  background: var(--pvb-not-black);
+  color: #fff;
+  font-family: var(--pvb-font-body);
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.045em;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+.pvb-share-submit:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.pvb-share-submit:focus-visible {
+  outline: 2px solid var(--pvb-forest);
+  outline-offset: 2px;
+}
+
+/* Loading state */
+.pvb-share-submit[data-loading="true"] {
+  pointer-events: none;
+}
+
+.pvb-share-submit[data-loading="true"]::after {
+  content: "";
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  margin-left: 8px;
+  border: 2px solid transparent;
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: pvb-spin 0.8s linear infinite;
+}
+
+@keyframes pvb-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ─── Sent Confirmation Screen ────────────────────────────────────────────── */
+
+.pvb-share-sent {
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 2rem 1.5rem;
+}
+
+.pvb-share-sent[data-visible="true"] {
+  display: flex;
+}
+
+.pvb-sent-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: var(--pvb-blush);
+  margin-bottom: 1.25rem;
+}
+
+.pvb-sent-icon svg {
+  width: 28px;
+  height: 28px;
+  stroke: var(--pvb-forest);
+  stroke-width: 2.5;
+  fill: none;
+}
+
+.pvb-sent-title {
+  font-family: var(--pvb-font-heading);
+  font-size: 24px;
+  font-weight: 400;
+  margin: 0 0 0.5rem;
+}
+
+.pvb-sent-text {
+  font-family: var(--pvb-font-body);
+  font-size: 14px;
+  color: var(--pvb-subline);
+  margin: 0 0 1.5rem;
+  max-width: 280px;
+  line-height: 1.5;
+}
+
+.pvb-sent-done {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 44px;
+  padding: 0 24px;
+  border: 1px solid var(--pvb-not-black);
+  border-radius: 9999px;
+  background: transparent;
+  color: var(--pvb-not-black);
+  font-family: var(--pvb-font-body);
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.045em;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.pvb-sent-done:hover {
+  background: var(--pvb-taupe);
+}
+
+.pvb-sent-done:focus-visible {
+  outline: 2px solid var(--pvb-not-black);
+  outline-offset: 2px;
+}
+
+/* ─── Shared Row in Drawer Footer ─────────────────────────────────────────── */
+
+.pvb-shared-row {
+  display: none;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  margin-bottom: 12px;
+  background: var(--pvb-blush);
+  border-radius: 8px;
+}
+
+.pvb-shared-row[data-visible="true"] {
+  display: flex;
+}
+
+.pvb-shared-icon {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+}
+
+.pvb-shared-icon svg {
+  width: 20px;
+  height: 20px;
+  stroke: var(--pvb-forest);
+  stroke-width: 2;
+  fill: none;
+}
+
+.pvb-shared-text {
+  flex: 1;
+  font-family: var(--pvb-font-body);
+  font-size: 13px;
+  color: var(--pvb-not-black);
+}
+
+.pvb-shared-name {
+  font-weight: 600;
+}
+
+/* ─── Share Sheet Reduced Motion ──────────────────────────────────────────── */
+
+@media (prefers-reduced-motion: reduce) {
+  .pvb-share-overlay,
+  .pvb-share-panel,
+  .pvb-share-submit,
+  .pvb-channel-btn {
+    transition: none;
+  }
+
+  .pvb-share-submit[data-loading="true"]::after {
+    animation: none;
+  }
+}

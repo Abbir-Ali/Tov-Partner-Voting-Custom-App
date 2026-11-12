@@ -16,18 +16,19 @@
   function initDrawer() {
     var drawer = document.querySelector('[data-pvb-drawer]');
     if (!drawer) return;
+    var q = function(s) { return drawer.querySelector(s); };
 
-    var pill = drawer.querySelector('.pvb-pill');
-    var pillBadge = drawer.querySelector('.pvb-pill-badge');
-    var overlay = drawer.querySelector('.pvb-drawer-overlay');
-    var panel = drawer.querySelector('.pvb-drawer-panel');
-    var closeBtn = drawer.querySelector('.pvb-drawer-close');
-    var itemsList = drawer.querySelector('.pvb-drawer-items');
-    var emptyState = drawer.querySelector('.pvb-drawer-empty');
-    var sublineCount = drawer.querySelector('.pvb-subline-count');
-    var sublineTotal = drawer.querySelector('.pvb-subline-total');
-    var cartBtn = drawer.querySelector('.pvb-cart-btn');
-    var cartError = drawer.querySelector('.pvb-cart-error');
+    var pill = q('.pvb-pill');
+    var pillBadge = q('.pvb-pill-badge');
+    var overlay = q('.pvb-drawer-overlay');
+    var panel = q('.pvb-drawer-panel');
+    var closeBtn = q('.pvb-drawer-close');
+    var itemsList = q('.pvb-drawer-items');
+    var emptyState = q('.pvb-drawer-empty');
+    var sublineCount = q('.pvb-subline-count');
+    var sublineTotal = q('.pvb-subline-total');
+    var cartBtn = q('.pvb-cart-btn');
+    var cartError = q('.pvb-cart-error');
 
     if (!pill || !panel || !overlay) return;
 
@@ -37,8 +38,15 @@
     var cartAddUrl = drawer.dataset.cartAddUrl || '/cart/add.js';
     var cartJsonUrl = drawer.dataset.cartJsonUrl || '/cart.js';
     var cartUrl = drawer.dataset.cartUrl || '/cart';
+    var shareAssetUrl = drawer.dataset.shareAssetUrl || '';
     var lastFocused = null;
     var currentPrices = {};
+    var shareLoading = false;
+    var shareLoaded = false;
+    var shareLabel = drawer.dataset.shareLabel || 'Get a Second Opinion';
+
+    var shareBtn = q('.pvb-share-btn');
+    var shareError = q('.pvb-share-error');
 
     panel.setAttribute('tabindex', '-1');
 
@@ -63,11 +71,8 @@
       var count = items.length;
       var total = 0;
 
-      // Hide subline when board is empty
-      var sublineWrap = drawer.querySelector('.pvb-subline');
-      if (sublineWrap) {
-        sublineWrap.hidden = count === 0;
-      }
+      var sublineWrap = q('.pvb-subline');
+      if (sublineWrap) sublineWrap.hidden = count === 0;
 
       items.forEach(function (item) {
         if (currentPrices[item.variantId]) {
@@ -260,6 +265,49 @@
         });
     }
 
+    function loadShareScript() {
+      if (shareLoaded || shareLoading || !shareAssetUrl) return;
+
+      shareLoading = true;
+      if (shareBtn) {
+        shareBtn.disabled = true;
+        shareBtn.textContent = 'Loading...';
+      }
+
+      var script = document.createElement('script');
+      script.src = shareAssetUrl;
+      script.onload = function () {
+        shareLoading = false;
+        shareLoaded = true;
+        if (shareBtn) {
+          shareBtn.disabled = false;
+          shareBtn.textContent = shareLabel;
+        }
+        pvb.dispatchEvent('pvb:share-request', {});
+      };
+      script.onerror = function () {
+        shareLoading = false;
+        if (shareBtn) {
+          shareBtn.disabled = false;
+          shareBtn.textContent = shareLabel;
+        }
+        if (shareError) {
+          shareError.textContent = 'Something went wrong. Try again in a moment.';
+          shareError.dataset.visible = 'true';
+        }
+      };
+      document.head.appendChild(script);
+    }
+
+    function handleShareClick() {
+      if (shareError) shareError.dataset.visible = 'false';
+      if (shareLoaded) {
+        pvb.dispatchEvent('pvb:share-request', {});
+      } else {
+        loadShareScript();
+      }
+    }
+
     pill.addEventListener('click', openDrawer);
     if (closeBtn) closeBtn.addEventListener('click', closeDrawer);
     overlay.addEventListener('click', function (e) {
@@ -285,11 +333,31 @@
       cartBtn.addEventListener('click', addAllToCart);
     }
 
+    if (shareBtn) {
+      shareBtn.disabled = false;
+      shareBtn.addEventListener('click', handleShareClick);
+    }
+
+    function renderSharedRow() {
+      var footer = q('.pvb-drawer-footer'), row = q('.pvb-shared-row'), h, e;
+      if (!footer) return;
+      try { h = JSON.parse(localStorage.getItem('pvb:shares:v1') || '[]'); } catch (x) { h = []; }
+      if (!h.length) { if (row) row.dataset.visible = 'false'; return; }
+      e = h[0];
+      if (!row) { row = document.createElement('div'); row.className = 'pvb-shared-row'; footer.prepend(row); }
+      var base = window.location.origin + ((window.Shopify && window.Shopify.routes && window.Shopify.routes.root) || '/') + 'apps/board/';
+      var link = e.resultsUrl && e.resultsUrl.indexOf(base) === 0 ? ' · <a class="pvb-shared-link" href="' + pvb.escapeHtml(e.resultsUrl) + '">View results</a>' : '';
+      row.innerHTML = '<span class="pvb-shared-icon">&#10003;</span><span class="pvb-shared-text">Shared with ' + pvb.escapeHtml(e.partnerFirstName || '') + '</span>' + link;
+      row.dataset.visible = 'true';
+    }
+
     window.addEventListener('pvb:saved', renderItems);
     window.addEventListener('pvb:removed', renderItems);
     window.addEventListener('pvb:open-drawer', openDrawer);
+    window.addEventListener('pvb:shared', renderSharedRow);
 
     renderItems();
+    renderSharedRow();
   }
 
   if (document.readyState === 'loading') {

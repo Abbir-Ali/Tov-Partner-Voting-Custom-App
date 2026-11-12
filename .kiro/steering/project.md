@@ -132,11 +132,13 @@ NOT in Phase 1: SMS, "Start your own board", multiple voters, B2B.
 
   Shared constants go in *.shared.js.
 
-- Theme JS lives in theme-src/. After any change there, run
+- theme-src/ is the readable source. Never hand-minify; esbuild does that.
 
-  npm run build:theme and commit the built assets in the same commit.
+  After any change there, run npm run build:theme and commit the built
 
-  Never edit extensions/pvb-theme/assets/*.js by hand.
+  assets in the same commit. Never edit extensions/pvb-theme/assets/*.js
+
+  by hand.
 
 - Lint passing isn't enough: after any app change, check the
 

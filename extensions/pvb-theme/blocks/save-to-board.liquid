@@ -5,6 +5,22 @@
 
 {% assign config_raw = app.metafields.pvb.config.value %}
 {% if config_raw != blank and config_raw.enabled %}
+  {% comment %} Skip gift cards and excluded tag {% endcomment %}
+  {% assign is_excluded = false %}
+  {% if product.gift_card? %}
+    {% assign is_excluded = true %}
+  {% elsif config_raw.excludeTag != blank %}
+    {% assign exclude_tag_lower = config_raw.excludeTag | downcase %}
+    {% for tag in product.tags %}
+      {% assign tag_lower = tag | downcase %}
+      {% if tag_lower == exclude_tag_lower %}
+        {% assign is_excluded = true %}
+        {% break %}
+      {% endif %}
+    {% endfor %}
+  {% endif %}
+
+  {% unless is_excluded %}
   <div
     class="pvb-save-button"
     data-pvb-save-button
@@ -14,8 +30,12 @@
     data-style="{{ block.settings.style }}"
     data-label-save="{{ block.settings.label_save | escape }}"
     data-label-saved="{{ block.settings.label_saved | escape }}"
+    {% if block.settings.helper_save != blank %}
     data-helper-save="{{ block.settings.helper_save | escape }}"
+    {% endif %}
+    {% if block.settings.helper_saved != blank %}
     data-helper-saved="{{ block.settings.helper_saved | escape }}"
+    {% endif %}
     data-label-full="{{ block.settings.label_full | escape }}"
     data-view-label="{{ block.settings.view_label | escape }}"
     style="--pvb-btn-max-width: {{ block.settings.max_width }}px;"
@@ -33,7 +53,9 @@
       </span>
       <span class="pvb-save-text">
         <span class="pvb-save-label">{{ block.settings.label_save | escape }}</span>
+        {% if block.settings.helper_save != blank %}
         <span class="pvb-save-helper">{{ block.settings.helper_save | escape }}</span>
+        {% endif %}
       </span>
       <button type="button" class="pvb-view-chip" hidden aria-label="View your board">
         <span class="pvb-view-label">{{ block.settings.view_label | escape }}</span>
@@ -42,6 +64,7 @@
     </button>
     <p class="pvb-full-msg">{{ block.settings.label_full | escape }}</p>
   </div>
+  {% endunless %}
 {% endif %}
 
 {% schema %}
@@ -77,8 +100,7 @@
     {
       "type": "text",
       "id": "helper_save",
-      "label": "Save helper text",
-      "default": "Not sure yet? Ask someone first."
+      "label": "Save helper text"
     },
     {
       "type": "header",
@@ -93,8 +115,7 @@
     {
       "type": "text",
       "id": "helper_saved",
-      "label": "Saved helper text",
-      "default": "Ask someone before you buy."
+      "label": "Saved helper text"
     },
     {
       "type": "text",
