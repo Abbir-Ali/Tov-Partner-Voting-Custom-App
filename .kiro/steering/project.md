@@ -104,6 +104,8 @@ NOT in Phase 1: SMS, "Start your own board", multiple voters, B2B.
 
 - No new npm packages unless the task says so; ask first.
 
+- Never install skills, packages or tools without asking me first.
+
 - Follow the template's existing patterns (routes in app/routes, auth via
 
   app/shopify.server.js, Prisma via app/db.server.js).
@@ -129,6 +131,12 @@ NOT in Phase 1: SMS, "Start your own board", multiple voters, B2B.
 - Client-side code (route components) must never import from *.server.js.
 
   Shared constants go in *.shared.js.
+
+- Theme JS lives in theme-src/. After any change there, run
+
+  npm run build:theme and commit the built assets in the same commit.
+
+  Never edit extensions/pvb-theme/assets/*.js by hand.
 
 - Lint passing isn't enough: after any app change, check the
 

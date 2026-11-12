@@ -15,9 +15,24 @@
 ## Running the app
 
 - The developer runs `shopify app dev` in their own terminal (it's interactive; never run it yourself). Use plain `shopify app dev`, not `--use-localhost` (webhooks and app proxy need the tunnel).
+- Built theme assets are committed, so no build step is needed to test. If you change theme-src/, run `npm run build:theme` and commit the result.
 - Cloudflare quick tunnels sometimes time out or take ~1 minute to resolve after start: retry / wait, then reload.
 - "There was an error in the third-party application" on the storefront means the app is unreachable or crashed: check the dev terminal first.
 - The feature must be ON in Settings, or the API returns code `"disabled"`.
+
+## Building theme assets
+
+The theme JS is split for size limits (Shopify enforces <10KB per JS file):
+
+```
+npm run build:theme
+```
+
+This bundles `theme-src/*.js` into:
+- `extensions/pvb-theme/assets/pvb-button.js` — Save to Board button (core + button)
+- `extensions/pvb-theme/assets/pvb-drawer.js` — Board drawer + pill (core + drawer)
+
+Both share state via `window.__pvb`. Built assets are committed, so no build step is needed to test.
 
 ## Checking the database (PowerShell)
 
@@ -185,6 +200,21 @@ JSON.parse(localStorage.getItem('pvb:board:v1'))
 // Clear board for fresh test
 localStorage.removeItem('pvb:board:v1')
 ```
+
+### Add All to Cart test
+
+1. Save 2+ items to your board (different products)
+2. Open the drawer
+3. Click "Add All to Cart"
+4. Expected: Button shows "Adding...", disabled during request
+5. Expected: POST to /cart/add.js with qty 1 each, then redirect to /cart
+6. Verify cart contains all saved variants with qty 1 each
+
+**Duplicate prevention:** If items are already in cart, click "Add All" again.
+Expected: No duplicates added, goes straight to cart page.
+
+**Error handling:** If cart add fails (e.g., out of stock), error message
+"Some pieces couldn't be added. Try again." appears below the button.
 
 ### Regression checks
 

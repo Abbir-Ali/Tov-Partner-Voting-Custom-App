@@ -12,22 +12,31 @@
     data-money-format="{{ shop.money_format | escape }}"
     data-pill-label="{{ block.settings.pill_label | escape }}"
     data-drawer-title="{{ block.settings.drawer_title | escape }}"
-    data-empty-message="{{ block.settings.empty_message | escape }}"
+    data-drawer-eyebrow="{{ block.settings.drawer_eyebrow | escape }}"
+    data-empty-title="{{ block.settings.empty_title | escape }}"
+    data-empty-text="{{ block.settings.empty_text | escape }}"
     data-share-label="{{ block.settings.share_label | escape }}"
     data-share-helper="{{ block.settings.share_helper | escape }}"
+    data-cart-label="{{ block.settings.cart_label | escape }}"
+    data-cart-error="{{ block.settings.cart_error | escape }}"
+    data-cart-url="{{ routes.cart_url }}"
+    data-cart-json-url="{{ routes.cart_url }}.js"
+    data-cart-add-url="{{ routes.cart_add_url }}.js"
     style="
       --pvb-pill-bottom: {{ block.settings.pill_bottom }}px;
       {% if block.settings.pill_position == 'bottom-left' %}
         --pvb-pill-right: auto;
         --pvb-pill-left: 1.5rem;
       {% endif %}
-      --pvb-pill-bg: {{ block.settings.pill_color }};
-      --pvb-pill-text: {{ block.settings.pill_text_color }};
-      --pvb-drawer-bg: {{ block.settings.drawer_bg_color }};
-      --pvb-drawer-text: {{ block.settings.drawer_text_color }};
+      {% if block.settings.heading_font != blank %}
+        --pvb-heading-override: {{ block.settings.heading_font }};
+      {% endif %}
+      {% if block.settings.body_font != blank %}
+        --pvb-body-override: {{ block.settings.body_font }};
+      {% endif %}
     "
   >
-    <!-- Pill button -->
+    <!-- Floating pill -->
     <button
       type="button"
       class="pvb-pill"
@@ -35,7 +44,11 @@
       aria-controls="pvb-drawer-panel"
       hidden
     >
-      <span class="pvb-pill-label">{{ block.settings.pill_label | escape }}</span> (<span class="pvb-pill-count" aria-live="polite">0</span>)
+      <svg class="pvb-pill-heart" viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+      </svg>
+      <span class="pvb-pill-label">{{ block.settings.pill_label | escape }}</span>
+      <span class="pvb-pill-badge" aria-live="polite">0</span>
     </button>
 
     <!-- Drawer overlay + panel -->
@@ -47,25 +60,50 @@
         aria-modal="true"
         aria-label="{{ block.settings.drawer_title | escape }}"
       >
+        <!-- Mobile grab handle -->
+        <div class="pvb-drawer-handle" aria-hidden="true"></div>
+
         <header class="pvb-drawer-header">
+          <p class="pvb-drawer-eyebrow">{{ block.settings.drawer_eyebrow | escape }}</p>
           <h2 class="pvb-drawer-title">{{ block.settings.drawer_title | escape }}</h2>
+          <p class="pvb-drawer-subline">
+            <span class="pvb-subline-count">0 pieces</span> · <span class="pvb-subline-total">$0.00</span>
+          </p>
           <button type="button" class="pvb-drawer-close" aria-label="Close">
-            <svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true">
+            <svg viewBox="0 0 20 20" aria-hidden="true">
               <path fill="currentColor" d="M15.8 4.2a.75.75 0 010 1.06L11.06 10l4.74 4.74a.75.75 0 11-1.06 1.06L10 11.06l-4.74 4.74a.75.75 0 01-1.06-1.06L8.94 10 4.2 5.26a.75.75 0 011.06-1.06L10 8.94l4.74-4.74a.75.75 0 011.06 0z"/>
             </svg>
           </button>
         </header>
 
         <div class="pvb-drawer-body">
-          <p class="pvb-drawer-empty">{{ block.settings.empty_message | escape }}</p>
+          <!-- Empty state -->
+          <div class="pvb-drawer-empty" data-visible="true">
+            <div class="pvb-empty-circle">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+              </svg>
+            </div>
+            <h3 class="pvb-empty-title">{{ block.settings.empty_title | escape }}</h3>
+            <p class="pvb-empty-text">{{ block.settings.empty_text | escape }}</p>
+          </div>
+
+          <!-- Items grid -->
           <ul class="pvb-drawer-items" role="list"></ul>
         </div>
 
         <footer class="pvb-drawer-footer">
           <button type="button" class="pvb-share-btn" disabled>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+              <path d="M4 12v8a2 2 0 002 2h12a2 2 0 002-2v-8M16 6l-4-4-4 4M12 2v13"/>
+            </svg>
             {{ block.settings.share_label | escape }}
           </button>
           <span class="pvb-share-helper">{{ block.settings.share_helper | escape }}</span>
+          <button type="button" class="pvb-cart-btn" hidden>
+            {{ block.settings.cart_label | escape }}
+          </button>
+          <p class="pvb-cart-error" data-visible="false">{{ block.settings.cart_error | escape }}</p>
         </footer>
       </aside>
     </div>
@@ -76,38 +114,34 @@
 {
   "name": "Your Board",
   "target": "body",
-  "javascript": "pvb-board.js",
+  "javascript": "pvb-drawer.js",
   "stylesheet": "pvb-board.css",
   "settings": [
+    {
+      "type": "header",
+      "content": "Typography"
+    },
+    {
+      "type": "text",
+      "id": "heading_font",
+      "label": "Heading font family",
+      "info": "Override the heading font (e.g., Georgia, serif)"
+    },
+    {
+      "type": "text",
+      "id": "body_font",
+      "label": "Body font family",
+      "info": "Override the body font (e.g., Helvetica, sans-serif)"
+    },
+    {
+      "type": "header",
+      "content": "Pill"
+    },
     {
       "type": "text",
       "id": "pill_label",
       "label": "Pill label",
       "default": "Your Board"
-    },
-    {
-      "type": "text",
-      "id": "drawer_title",
-      "label": "Drawer title",
-      "default": "Your Board"
-    },
-    {
-      "type": "text",
-      "id": "empty_message",
-      "label": "Empty state message",
-      "default": "Save pieces you love and they'll appear here."
-    },
-    {
-      "type": "text",
-      "id": "share_label",
-      "label": "Share button label",
-      "default": "Get a Second Opinion"
-    },
-    {
-      "type": "text",
-      "id": "share_helper",
-      "label": "Share button helper text",
-      "default": "Sharing is coming soon."
     },
     {
       "type": "select",
@@ -129,28 +163,64 @@
       "default": 72
     },
     {
-      "type": "color",
-      "id": "pill_color",
-      "label": "Pill background color",
-      "default": "#F9D2D2"
+      "type": "header",
+      "content": "Drawer"
     },
     {
-      "type": "color",
-      "id": "pill_text_color",
-      "label": "Pill text color",
-      "default": "#3F3D3E"
+      "type": "text",
+      "id": "drawer_eyebrow",
+      "label": "Eyebrow text",
+      "default": "Your Board"
     },
     {
-      "type": "color",
-      "id": "drawer_bg_color",
-      "label": "Drawer background color",
-      "default": "#FEFBF6"
+      "type": "text",
+      "id": "drawer_title",
+      "label": "Drawer title",
+      "default": "Saved pieces"
     },
     {
-      "type": "color",
-      "id": "drawer_text_color",
-      "label": "Drawer text color",
-      "default": "#3F3D3E"
+      "type": "header",
+      "content": "Empty state"
+    },
+    {
+      "type": "text",
+      "id": "empty_title",
+      "label": "Empty title",
+      "default": "Nothing saved yet"
+    },
+    {
+      "type": "textarea",
+      "id": "empty_text",
+      "label": "Empty description",
+      "default": "Tap Save to Board on any piece you love. It will wait for you here."
+    },
+    {
+      "type": "header",
+      "content": "Buttons"
+    },
+    {
+      "type": "text",
+      "id": "share_label",
+      "label": "Share button label",
+      "default": "Get a Second Opinion"
+    },
+    {
+      "type": "text",
+      "id": "share_helper",
+      "label": "Share helper text",
+      "default": "Sharing is coming soon."
+    },
+    {
+      "type": "text",
+      "id": "cart_label",
+      "label": "Add to cart label",
+      "default": "Add All to Cart"
+    },
+    {
+      "type": "text",
+      "id": "cart_error",
+      "label": "Cart error message",
+      "default": "Some pieces couldn't be added. Try again."
     }
   ]
 }

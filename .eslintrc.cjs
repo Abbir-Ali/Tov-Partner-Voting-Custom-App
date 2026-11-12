@@ -19,7 +19,12 @@ module.exports = {
     commonjs: true,
     es6: true,
   },
-  ignorePatterns: ["!**/.server", "!**/.client"],
+  ignorePatterns: [
+    "!**/.server",
+    "!**/.client",
+    "extensions/pvb-theme/assets/pvb-button.js",
+    "extensions/pvb-theme/assets/pvb-drawer.js"
+  ],
 
   // Base config
   extends: ["eslint:recommended"],
