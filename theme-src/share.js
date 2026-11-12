@@ -588,17 +588,32 @@
     container.innerHTML = '<p>Some pieces can\'t be shared right now:</p>';
 
     items.forEach(function (item) {
-      // Get title from board items cache
+      // Convert API GID to numeric ID for comparison
+      var numericId = pvb.toNumericId(item.variantId);
+
+      // Get title from board items cache, then look up product
       var boardItems = pvb.getItems();
-      var title = 'Item';
+      var title = 'A saved piece';
+      var boardItem = null;
       for (var i = 0; i < boardItems.length; i++) {
-        if (String(boardItems[i].variantId) === String(item.variantId)) {
-          title = boardItems[i].title || title;
+        if (pvb.toNumericId(boardItems[i].variantId) === numericId) {
+          boardItem = boardItems[i];
           break;
         }
       }
 
+      // Try to get product title from handle
+      if (boardItem && boardItem.handle) {
+        pvb.fetchProduct(boardItem.handle).then(function (product) {
+          if (product && product.title) {
+            var titleEl = itemDiv.querySelector('.pvb-ineligible-title');
+            if (titleEl) titleEl.textContent = product.title;
+          }
+        });
+      }
+
       var itemDiv = createElement('div', 'pvb-ineligible-item');
+      itemDiv.dataset.variantId = numericId;
       var reason = getReasonText(item.reason);
       itemDiv.innerHTML =
         '<span class="pvb-ineligible-title">' + pvb.escapeHtml(title) + '</span>' +
@@ -606,7 +621,7 @@
         '<button type="button" class="pvb-ineligible-remove">Remove</button>';
 
       itemDiv.querySelector('button').onclick = function () {
-        pvb.removeItem(item.variantId);
+        pvb.removeItem(numericId);
         itemDiv.remove();
         if (!container.querySelector('.pvb-ineligible-item')) {
           container.dataset.visible = 'false';

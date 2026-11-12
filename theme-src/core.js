@@ -61,8 +61,9 @@
   }
 
   function hasItem(variantId) {
+    var numericId = toNumericId(variantId);
     return board.items.some(function (item) {
-      return item.variantId === variantId;
+      return toNumericId(item.variantId) === numericId;
     });
   }
 
@@ -83,14 +84,15 @@
   }
 
   function removeItem(variantId) {
+    var numericId = toNumericId(variantId);
     var idx = board.items.findIndex(function (item) {
-      return item.variantId === variantId;
+      return toNumericId(item.variantId) === numericId;
     });
     if (idx === -1) return { ok: false, reason: 'not_found' };
 
     board.items.splice(idx, 1);
     saveBoard();
-    dispatchEvent('pvb:removed', { variantId: variantId, count: getCount() });
+    dispatchEvent('pvb:removed', { variantId: numericId, count: getCount() });
     return { ok: true };
   }
 
@@ -134,12 +136,21 @@
 
   function findVariant(product, variantId) {
     if (!product || !product.variants) return null;
+    var numericId = toNumericId(variantId);
     return product.variants.find(function (v) {
-      return String(v.id) === String(variantId);
+      return toNumericId(v.id) === numericId;
     });
   }
 
   // Helpers
+  function toNumericId(id) {
+    if (!id) return '';
+    var str = String(id);
+    // GID format: gid://shopify/ProductVariant/12345 -> extract trailing digits
+    var match = str.match(/(\d+)$/);
+    return match ? match[1] : str;
+  }
+
   function escapeHtml(str) {
     if (!str) return '';
     return String(str)
@@ -213,6 +224,7 @@
     dispatchEvent: dispatchEvent,
     fetchProduct: fetchProduct,
     findVariant: findVariant,
+    toNumericId: toNumericId,
     escapeHtml: escapeHtml,
     safeImageUrl: safeImageUrl,
     formatMoney: formatMoney

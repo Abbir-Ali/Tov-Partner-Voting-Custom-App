@@ -22,17 +22,25 @@
 
 ## Building theme assets
 
-The theme JS is split for size limits (Shopify enforces <10KB per JS file):
+The theme JS is split for size limits (Shopify enforces <10KB per eager JS):
 
 ```
 npm run build:theme
 ```
 
 This bundles `theme-src/*.js` into:
-- `extensions/pvb-theme/assets/pvb-button.js` — Save to Board button (core + button)
-- `extensions/pvb-theme/assets/pvb-drawer.js` — Board drawer + pill (core + drawer)
+- `extensions/pvb-theme/assets/pvb-button.js` — Save to Board button (core + button), <10KB
+- `extensions/pvb-theme/assets/pvb-drawer.js` — Floating pill + lazy panel loader (core + pill), <10KB
+- `extensions/pvb-theme/assets/pvb-panel.js` — Full drawer panel, lazy-loaded on pill click, <12KB
+- `extensions/pvb-theme/assets/pvb-share.js` — Share sheet, lazy-loaded on share click, <12KB
 
-Both share state via `window.__pvb`. Built assets are committed, so no build step is needed to test.
+Button and drawer are eager (loaded by schema). Panel and share are lazy (loaded on demand).
+All share state via `window.__pvb`. Built assets are committed, so no build step is needed to test.
+
+**ID normalization:** The API returns GID format (`gid://shopify/ProductVariant/123`) while
+localStorage stores numeric IDs (`"123"`). The `toNumericId()` helper in core.js extracts
+trailing digits for comparison. This affects `hasItem`, `removeItem`, `findVariant`, and
+the ineligible items display in share.js.
 
 ## Checking the database (PowerShell)
 
