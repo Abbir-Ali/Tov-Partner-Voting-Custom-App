@@ -4,6 +4,7 @@
   "scripts": {
     "build": "react-router build",
     "build:theme": "node scripts/build-theme.js",
+    "build:vote": "node scripts/build-vote-page.js",
     "dev": "shopify app dev",
     "config:link": "shopify app config link",
     "generate": "shopify app generate",

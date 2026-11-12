@@ -314,16 +314,57 @@
   }
 
   // ─── Shared Row ───────────────────────────────────────────────────────────
+  // Capitalize first letter for display if all lowercase
+  function capitalizeFirst(str) {
+    if (!str) return str;
+    if (str === str.toLowerCase()) {
+      return str.charAt(0).toUpperCase() + str.slice(1);
+    }
+    return str;
+  }
+
   function renderSharedRow() {
     var footer = q('.pvb-drawer-footer'), row = q('.pvb-shared-row'), h, e;
     if (!footer) return;
     try { h = JSON.parse(localStorage.getItem('pvb:shares:v1') || '[]'); } catch (x) { h = []; }
     if (!h.length) { if (row) row.dataset.visible = 'false'; return; }
     e = h[0];
-    if (!row) { row = document.createElement('div'); row.className = 'pvb-shared-row'; footer.prepend(row); }
+    if (!row) {
+      row = document.createElement('div');
+      row.className = 'pvb-shared-row';
+      footer.prepend(row);
+    }
+    row.innerHTML = '';
+
+    // Icon circle with check SVG
+    var iconWrap = document.createElement('div');
+    iconWrap.className = 'pvb-shared-icon';
+    iconWrap.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 13l4 4L19 7" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+    row.appendChild(iconWrap);
+
+    // Text block
+    var textWrap = document.createElement('div');
+    textWrap.className = 'pvb-shared-text';
+    var line1 = document.createElement('div');
+    line1.className = 'pvb-shared-line1';
+    line1.textContent = 'Shared with ' + capitalizeFirst(e.partnerFirstName || '');
+    var line2 = document.createElement('div');
+    line2.className = 'pvb-shared-line2';
+    line2.textContent = 'Waiting for their votes';
+    textWrap.appendChild(line1);
+    textWrap.appendChild(line2);
+    row.appendChild(textWrap);
+
+    // View Results link (only if resultsUrl is valid)
     var base = window.location.origin + ((window.Shopify && window.Shopify.routes && window.Shopify.routes.root) || '/') + 'apps/board/';
-    var link = e.resultsUrl && e.resultsUrl.indexOf(base) === 0 ? ' · <a class="pvb-shared-link" href="' + pvb.escapeHtml(e.resultsUrl) + '">View results</a>' : '';
-    row.innerHTML = '<span class="pvb-shared-icon">&#10003;</span><span class="pvb-shared-text">Shared with ' + pvb.escapeHtml(e.partnerFirstName || '') + '</span>' + link;
+    if (e.resultsUrl && e.resultsUrl.indexOf(base) === 0) {
+      var link = document.createElement('a');
+      link.className = 'pvb-shared-link';
+      link.href = e.resultsUrl;
+      link.textContent = 'View Results';
+      row.appendChild(link);
+    }
+
     row.dataset.visible = 'true';
   }
 

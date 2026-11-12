@@ -61,6 +61,9 @@ model Board {
   sharedAt          DateTime?
   votingCompletedAt DateTime?
   notifiedAt        DateTime?
+  partnerOpenedAt   DateTime?
+  voteWrites        Int         @default(0)
+  voteWindowStart   DateTime?
   expiresAt         DateTime
   createdAt         DateTime    @default(now())
   updatedAt         DateTime    @updatedAt

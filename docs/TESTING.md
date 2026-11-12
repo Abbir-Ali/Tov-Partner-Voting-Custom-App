@@ -342,3 +342,173 @@ If a note was added:
 // View in Network tab: look for any Liquid request, check app.metafields.pvb.config
 ```
 
+
+
+## Vote Page Test (Task 8)
+
+### Prerequisites
+
+1. `npm run build:vote` has been run (vote-page assets built)
+2. Bundle limit: 24 KB combined (JS + CSS). Raised from 15 KB in Task 8 for the swipe deck, welcome and recap screens.
+3. Feature enabled in Admin settings
+4. A shared board exists (create via share sheet or API test above)
+5. `shopify app dev` running with tunnel
+
+### URLs
+
+- **Vote page:** `https://<store>.myshopify.com/apps/board/<shareToken>`
+- **Results placeholder:** `https://<store>.myshopify.com/apps/board/results/<ownerToken>`
+- **Vote API:** `POST /apps/board/api/boards/<shareToken>/votes`
+
+### Test steps (logged out, incognito recommended)
+
+| Step | Action | Expected |
+|------|--------|----------|
+| 1 | Open share link in new incognito window | Vote page loads with items, progress bar, brand styling |
+| 2 | Check page header | Shop name (uppercase), eyebrow "{Owner}'s {Board name}", headline from settings |
+| 3 | Check card | Item image (or placeholder), title, price, "View Details" link, "Sold out" chip if applicable |
+| 4 | Click "View Details" | Opens product page in new tab |
+| 5 | Click Love button (heart icon) | Stamp appears "Love It" (Forest color), card animates right, next card loads |
+| 6 | Click Pass button (X icon) | Stamp appears "Not For Us" (Bold Lip color), card animates left |
+| 7 | Click Maybe button (? icon) | Stamp appears "Maybe" (Truffle color), card animates up |
+| 8 | Click "Back" button | Previous item reappears, can re-vote |
+| 9 | Use keyboard: ArrowRight | Same as Love |
+| 10 | Use keyboard: ArrowLeft | Same as Pass |
+| 11 | Use keyboard: ArrowUp | Same as Maybe |
+| 12 | Use keyboard: ArrowDown or Backspace | Same as Back |
+| 13 | Complete all votes | Done screen appears with heart, "Thanks, {Partner}." headline, loved count, thumbnails |
+| 14 | Click "Shop {Shop}" button | Goes to store homepage |
+
+### Swipe test (touch device or mobile emulation)
+
+| Action | Expected |
+|--------|----------|
+| Swipe right | Love vote |
+| Swipe left | Pass vote |
+| Swipe up | Maybe vote |
+
+Threshold: ~80px of movement required to register a vote.
+
+### Resume test
+
+1. Vote on 1-2 items
+2. Refresh the page
+3. Expected: Resume at first unvoted item, previous votes preserved
+
+### localStorage check (F12 Console)
+
+```javascript
+// View vote progress (key is sha-256 hash of token, first 16 hex)
+// Find key:
+Object.keys(localStorage).filter(k => k.startsWith('pvb:vote:v1:'))
+// View:
+JSON.parse(localStorage.getItem('pvb:vote:v1:<hash>'))
+// Expected: { votes: { "<itemId>": "LOVE", ... } }
+```
+
+### Lock after completion
+
+1. Complete all votes on a board
+2. Refresh the page
+3. Expected: Done screen still shows (board is VOTED)
+4. Try to vote via API (should fail):
+
+```javascript
+// In F12 console:
+const res = await fetch('/apps/board/api/boards/<token>/votes', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ itemId: '<any-item-id>', verdict: 'LOVE' })
+});
+console.log(res.status, await res.json());
+// Expected: 409 { error: { code: "locked" } }
+```
+
+### Expired link test
+
+In psql:
+```sql
+update boards set "expiresAt" = now() - interval '1 day'
+where "shareToken" = '<token>';
+```
+
+Then refresh vote page. Expected: "This board has closed" message with "Shop {Shop}" button.
+
+### Results placeholder test
+
+1. Open the results URL (with owner token, not share token)
+2. Expected: "Results are on the way" message, "{Partner} finishes voting" text, "Shop {Shop}" button
+
+### Not found test
+
+1. Visit `/apps/board/invalid-token-123`
+2. Expected: "This link doesn't work" page
+
+3. Visit `/apps/board/results/invalid-owner-token`
+4. Expected: "This link doesn't work" page
+
+5. Visit `/apps/board/` (root)
+6. Expected: "This link doesn't work" page
+
+### WhatsApp preview test
+
+1. Share a vote link via WhatsApp (or paste into a chat)
+2. Expected: Link preview shows "{Owner} wants your vote" title, "{N} pieces from {Shop}. It only takes a minute." description, first item image
+
+### Reduced motion test
+
+1. Enable "Reduce motion" in OS settings
+2. Vote on items
+3. Expected: No card animations, instant transitions
+
+### Database verification (psql)
+
+After voting:
+```sql
+-- Check votes were recorded
+select v.id, v.verdict, v."voterName", v."createdAt"
+from votes v
+join board_items bi on v."boardItemId" = bi.id
+join boards b on bi."boardId" = b.id
+where b."shareToken" = '<token>';
+
+-- Check board status after completion
+select status, "votingCompletedAt", "partnerOpenedAt"
+from boards where "shareToken" = '<token>';
+-- Expected: status = 'VOTED', votingCompletedAt set, partnerOpenedAt set
+
+-- Check rate limit counter
+select "voteWrites", "voteWindowStart"
+from boards where "shareToken" = '<token>';
+```
+
+### Error handling
+
+| Scenario | Expected |
+|----------|----------|
+| Network error during vote | Toast "Connection error. Please try again." vote not recorded |
+| Server error | Toast "Something went wrong. Please try again." |
+| Rate limited (429) | Toast "Too many votes. Try again in a minute." |
+| Board locked elsewhere | Redirect to done screen |
+
+### Escaping test (security)
+
+Create a board with malicious note via API:
+
+```javascript
+const res = await fetch('/apps/board/api/boards', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    ownerFirstName: 'Test',
+    partnerFirstName: 'Partner',
+    ownerEmail: 'test@example.com',
+    note: '{% endraw %}{{ shop.email }}<script>alert(1)</script>',
+    items: [{ variantId: '<valid-variant-id>' }]
+  })
+});
+const { shareUrl } = await res.json();
+console.log('Vote page:', shareUrl);
+```
+
+Open the vote page. Expected: The note displays as plain text, no alert, no Liquid injection.

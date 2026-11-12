@@ -142,6 +142,10 @@ NOT in Phase 1: SMS, "Start your own board", multiple voters, B2B.
 
   Never change a limit without asking.
 
+- app/vote-page/ is the readable source for the vote page. After any change
+
+  there, run npm run build:vote and commit the built module. Limit 20 KB.
+
 - Lint passing isn't enough: after any app change, check the
 
   `shopify app dev` terminal for Vite/build errors before asking me to test.

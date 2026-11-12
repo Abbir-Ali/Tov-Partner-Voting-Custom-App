@@ -9,6 +9,15 @@ export { BOARD_LIMITS };
 // Letters, spaces, hyphens, apostrophes only (any script).
 const NAME_RE = /^[\p{L} '-]+$/u;
 
+// Capitalize first letter if the whole string is lowercase
+function capitalizeIfAllLower(str) {
+  if (!str) return str;
+  if (str === str.toLowerCase()) {
+    return str.charAt(0).toUpperCase() + str.slice(1);
+  }
+  return str;
+}
+
 function normalizeGid(id) {
   if (typeof id !== "string") return null;
   const s = id.trim();
@@ -54,7 +63,7 @@ export function validateCreateInput(body, settings, { isLoggedIn = false } = {})
   } else if (!NAME_RE.test(ownerFirstName)) {
     errors.ownerFirstName = "Only letters, spaces, hyphens, and apostrophes are allowed.";
   } else {
-    data.ownerFirstName = ownerFirstName;
+    data.ownerFirstName = capitalizeIfAllLower(ownerFirstName);
   }
 
   // partnerFirstName — required, same rules
@@ -68,7 +77,7 @@ export function validateCreateInput(body, settings, { isLoggedIn = false } = {})
     errors.partnerFirstName =
       "Only letters, spaces, hyphens, and apostrophes are allowed.";
   } else {
-    data.partnerFirstName = partnerFirstName;
+    data.partnerFirstName = capitalizeIfAllLower(partnerFirstName);
   }
 
   // note — optional
@@ -209,4 +218,33 @@ export async function getBoardByShareToken(shop, token) {
     where: { shop, shareToken: token, status: { in: ["SHARED", "VOTED"] } },
     include: { items: { orderBy: { position: "asc" } } },
   });
+}
+
+
+/**
+ * Returns the board with its items for the given owner token.
+ * Used by the results page. Always filters by shop AND token.
+ * Only SHARED and VOTED boards are returned.
+ *
+ * @returns {Promise<object|null>}
+ */
+export async function getBoardByOwnerToken(shop, token) {
+  return db.board.findFirst({
+    where: { shop, ownerToken: token, status: { in: ["SHARED", "VOTED"] } },
+    include: { items: { orderBy: { position: "asc" } } },
+  });
+}
+
+/**
+ * Set partnerOpenedAt to now if it is currently null.
+ * Uses a conditional update to avoid race conditions.
+ *
+ * @returns {Promise<boolean>} true if updated, false if already set
+ */
+export async function setPartnerOpenedAt(boardId) {
+  const result = await db.board.updateMany({
+    where: { id: boardId, partnerOpenedAt: null },
+    data: { partnerOpenedAt: new Date() },
+  });
+  return result.count > 0;
 }

@@ -16,7 +16,6 @@
     data-empty-title="{{ block.settings.empty_title | escape }}"
     data-empty-text="{{ block.settings.empty_text | escape }}"
     data-share-label="{{ block.settings.share_label | escape }}"
-    data-share-helper="{{ block.settings.share_helper | escape }}"
     data-cart-label="{{ block.settings.cart_label | escape }}"
     data-cart-error="{{ block.settings.cart_error | escape }}"
     data-cart-url="{{ routes.cart_url }}"
@@ -109,9 +108,6 @@
             </svg>
             {{ block.settings.share_label | escape }}
           </button>
-          {% if block.settings.share_helper != blank %}
-          <span class="pvb-share-helper">{{ block.settings.share_helper | escape }}</span>
-          {% endif %}
           <button type="button" class="pvb-cart-btn" hidden>
             {{ block.settings.cart_label | escape }}
           </button>
@@ -215,11 +211,6 @@
       "id": "share_label",
       "label": "Share button label",
       "default": "Get a Second Opinion"
-    },
-    {
-      "type": "text",
-      "id": "share_helper",
-      "label": "Share helper text"
     },
     {
       "type": "text",
