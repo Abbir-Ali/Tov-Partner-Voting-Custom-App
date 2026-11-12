@@ -52,8 +52,9 @@ html,body{margin:0;padding:0;background:var(--s);min-height:100dvh;font-family:M
 .pvb-vote-icon.maybe{width:52px;height:52px}
 .pvb-vote-icon.love{background:var(--n)}
 .pvb-vote-label{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.03em;color:var(--t)}
-.pvb-undo{position:fixed;bottom:max(24px,env(safe-area-inset-bottom));left:50%;transform:translateX(-50%);background:var(--n);color:var(--c);font-size:13px;font-weight:600;padding:10px 20px;border-radius:100px;border:none;cursor:pointer;opacity:0;pointer-events:none;transition:opacity .2s;z-index:50}
-.pvb-undo.visible{opacity:1;pointer-events:auto}
+.pvb-undo-row{display:flex;justify-content:center;align-items:center;height:44px;margin:8px 0}
+.pvb-undo{background:var(--n);color:var(--c);font-size:13px;font-weight:600;padding:10px 20px;border-radius:100px;border:none;cursor:pointer;visibility:hidden;opacity:0;transition:opacity .2s}
+.pvb-undo.visible{visibility:visible;opacity:1}
 .pvb-done{display:flex;flex-direction:column;align-items:center;flex:1;padding:24px 16px;overflow-y:auto}
 .pvb-done-heart{width:64px;height:64px;background:var(--n);border-radius:50%;display:flex;align-items:center;justify-content:center;margin-bottom:16px}
 .pvb-done-headline{font-family:'GT Ultra Fine',Georgia,serif;font-size:28px;font-weight:400;margin:0 0 8px;text-align:center}

@@ -46,7 +46,7 @@ return `<header class="pvb-top-bar"><p class="pvb-shop-name">${esc(DATA.shopName
 <p class="pvb-welcome-subtitle">${esc(owner)} wants your opinion on ${items.length} piece${items.length===1?"":"s"}.</p>
 ${noteHtml}<div class="pvb-welcome-thumbs">${thumbs}</div>
 <button class="pvb-btn-primary" id="pvb-start-btn">Start Voting</button>
-<p class="pvb-welcome-hint">Swipe or use the buttons below.</p></div>`;
+<p class="pvb-welcome-hint">No account needed. It takes a minute.</p></div>`;
 }
 
 function cardHtml(it,cls){
@@ -69,12 +69,13 @@ const init=(board.ownerFirstName||"S").charAt(0).toUpperCase();
 return `<header class="pvb-top-bar"><p class="pvb-shop-name">${esc(DATA.shopName||"")}</p><div class="pvb-owner-avatar">${init}</div></header>
 <div class="pvb-progress-row"><div class="pvb-progress">${prog}</div><span class="pvb-progress-count">${currentIndex+1} of ${items.length}</span></div>
 <div class="pvb-deck"><div class="pvb-card-container">${b2?cardHtml(b2,"behind-2"):""}${b1?cardHtml(b1,"behind-1"):""}${cardHtml(item,"")}</div></div>
+<div class="pvb-undo-row"><button class="pvb-undo" id="pvb-undo">Undo</button></div>
 <div class="pvb-vote-buttons">
 <button class="pvb-vote-btn" data-vote="pass" aria-label="${esc(copy.stampPass||"Pass")}"><span class="pvb-vote-icon pass"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M18 6L6 18M6 6l12 12" stroke="#A40713" stroke-width="2.5" stroke-linecap="round"/></svg></span><span class="pvb-vote-label">${esc(copy.stampPass||"Pass")}</span></button>
 <button class="pvb-vote-btn" data-vote="maybe" aria-label="${esc(copy.stampMaybe||"Maybe")}"><span class="pvb-vote-icon maybe"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><text x="12" y="18" text-anchor="middle" fill="#82736C" font-size="20" font-weight="600">?</text></svg></span><span class="pvb-vote-label">${esc(copy.stampMaybe||"Maybe")}</span></button>
 <button class="pvb-vote-btn" data-vote="love" aria-label="${esc(copy.stampLove||"Love")}"><span class="pvb-vote-icon love"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" fill="#F9D2D2"/></svg></span><span class="pvb-vote-label">${esc(copy.stampLove||"Love")}</span></button>
 </div>
-<button class="pvb-undo" id="pvb-undo">Undo</button><div class="pvb-toast"></div>`;
+<div class="pvb-toast"></div>`;
 }
 
 function buildDoneScreen(){
@@ -172,16 +173,16 @@ if(res.ok||res.locked){showDone();isVoting=false;return;}
 delete localVotes[item.id];voteHistory.pop();saveProgress();currentIndex=votedIdx;rebuildCards();isVoting=false;
 });
 }else{
-animateExit(dir,()=>{promoteCards();showUndo();isVoting=false;setBtnsDisabled(false);});
+animateExit(dir,()=>{promoteCards();isVoting=false;setBtnsDisabled(false);});
 reqPromise.then(res=>{
 pendingVotes.delete(item.id);
 if(res.locked){showDone();return;}
-if(!res.ok){
+if(res.ok){if(voteHistory[voteHistory.length-1]?.itemId===item.id)showUndo();return;}
 delete localVotes[item.id];
 const hIdx=voteHistory.findIndex(h=>h.itemId===item.id);
 if(hIdx>=0)voteHistory.splice(hIdx,1);
 saveProgress();currentIndex=votedIdx;rebuildCards();
-}
+if(!res.rateLimited)showToast("That vote didn't save. Please vote again.");
 }).catch(()=>{});
 }
 }
@@ -238,7 +239,7 @@ const url=`${proxyPath}/api/boards/${board.shareToken}/votes`;
 try{
 const r=await fetch(url,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({itemId,verdict})});
 const d=await r.json();
-if(!r.ok){if(d.error?.code==="locked")return{ok:false,locked:true};if(d.error?.code==="rate_limited"){showToast("Too many votes. Try again in a minute.");return{ok:false};}showToast("Something went wrong. Please try again.");return{ok:false};}
+if(!r.ok){if(d.error?.code==="locked")return{ok:false,locked:true};if(d.error?.code==="rate_limited"){showToast("Too many votes. Try again in a minute.");return{ok:false,rateLimited:true};}showToast("Something went wrong. Please try again.");return{ok:false};}
 if(d.complete)return{ok:true,complete:true};
 return{ok:true};
 }catch(e){showToast("Connection error. Please try again.");return{ok:false};}

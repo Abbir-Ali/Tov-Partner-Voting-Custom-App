@@ -652,11 +652,14 @@
 
   // â”€â”€â”€ Share Message â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   function buildShareMessage() {
+    var count = currentShareData.itemCount;
+    var pieces = count === 1 ? '1 piece' : count + ' pieces';
+    var shopName = config.shopName.trim();
     var message = currentShareData.ownerFirstName +
       ' wants your vote on ' +
-      currentShareData.itemCount +
-      ' pieces from ' +
-      config.shopName + '.';
+      pieces +
+      ' from ' +
+      shopName + '.';
 
     if (currentShareData.note) {
       message += ' "' + currentShareData.note + '"';
