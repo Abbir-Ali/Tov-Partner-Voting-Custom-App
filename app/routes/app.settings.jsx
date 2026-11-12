@@ -10,6 +10,7 @@ import {
   saveSettings,
 } from "../models/settings.server.js";
 import { syncStorefrontConfig } from "../services/storefront-config.server.js";
+import { log } from "../utils/log.server.js";
 
 // Labels and help text for vote-page copy fields.
 const COPY_FIELDS = [
@@ -79,6 +80,7 @@ export const action = async ({ request }) => {
   }
 
   await saveSettings(session.shop, data);
+  log.info("settings.saved", { shop: session.shop });
 
   // Sync storefront config to app metafield (theme extensions read this).
   const syncResult = await syncStorefrontConfig(admin, session.shop);

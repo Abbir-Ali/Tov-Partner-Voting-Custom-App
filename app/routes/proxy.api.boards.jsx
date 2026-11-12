@@ -7,6 +7,7 @@ import {
 } from "../models/board.server.js";
 import { fetchVariants, checkEligibility } from "../services/products.server.js";
 import { creatorKey } from "../utils/tokens.server.js";
+import { log } from "../utils/log.server.js";
 
 const NO_STORE       = { "Cache-Control": "no-store" };
 const MAX_BODY_BYTES = 20 * 1024;
@@ -73,6 +74,7 @@ export const action = async ({ request }) => {
   // 1. Validate fields (email required for guests even when notifications off)
   const { data, errors } = validateCreateInput(body, settings, { isLoggedIn });
   if (Object.keys(errors).length > 0) {
+    log.error("board.create_rejected", { shop, code: "invalid" });
     return json({ error: { code: "invalid", fields: errors } }, 400);
   }
 
@@ -85,6 +87,7 @@ export const action = async ({ request }) => {
 
   const count = await countSharesToday(shop, ck);
   if (count >= settings.maxSharesPerDay) {
+    log.error("board.create_rejected", { shop, code: "limit" });
     return json(
       {
         error: {
@@ -103,7 +106,7 @@ export const action = async ({ request }) => {
     variants = await fetchVariants(admin, variantGids);
   } catch (err) {
     // Log only the sanitized code, never err.message (may leak stack/PII).
-    console.error(`[board.create] upstream error code=${err.code ?? "unknown"}`);
+    log.error("board.create_upstream", { code: err.code ?? "unknown" });
     return json(
       {
         error: {
@@ -122,6 +125,7 @@ export const action = async ({ request }) => {
     if (reason) ineligible.push({ variantId, reason });
   }
   if (ineligible.length > 0) {
+    log.error("board.create_rejected", { shop, code: "ineligible" });
     return json({ error: { code: "ineligible", items: ineligible } }, 400);
   }
 
@@ -137,7 +141,7 @@ export const action = async ({ request }) => {
     shop, data, customerId, settings,
   });
 
-  console.log(`[board.create] shop=${shop} items=${data.items.length}`);
+  log.info("board.created", { shop, items: data.items.length });
 
   return json(
     {

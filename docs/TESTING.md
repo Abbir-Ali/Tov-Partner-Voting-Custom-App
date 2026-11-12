@@ -512,3 +512,34 @@ console.log('Vote page:', shareUrl);
 ```
 
 Open the vote page. Expected: The note displays as plain text, no alert, no Liquid injection.
+
+
+## App Log
+
+In development, the app writes JSON lines to `logs/app.log`. View them with:
+
+```bash
+npm run log          # last 30 lines
+npm run log -- 100   # last 100 lines
+npm run log -- vote  # lines containing "vote"
+```
+
+Sample output:
+```
+20:11:05  INFO   webhook.app_uninstalled      shop=abbir-official-dev-store.myshopify.com
+20:11:06  INFO   storefront_sync.ok           shop=abbir-official-dev-store.myshopify.com
+20:11:07  INFO   board.created                shop=abbir-official-dev-store.myshopify.com items=2
+```
+
+Events:
+- `webhook.app_uninstalled`, `webhook.scopes_update` — webhooks received
+- `auth.after_auth` — successful auth (before sync)
+- `auth.after_auth_sync_failed` — sync failed during auth
+- `storefront_sync.ok`, `storefront_sync.failed` — metafield sync
+- `settings.saved` — admin saved settings
+- `board.created`, `board.create_upstream`, `board.create_rejected`, `board.fetch` — board API
+- `vote.saved`, `vote.completed`, `vote.rejected` — vote API
+- `proxy.vote_page`, `proxy.results_page` — page served (status = SHARED/VOTED/expired/not_found/disabled)
+- `proxy.vote_page_variants` — vote page variant fetch error
+
+Never logged: emails, names, notes, tokens, request bodies.

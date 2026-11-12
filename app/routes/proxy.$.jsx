@@ -21,6 +21,7 @@ import { getVotesForBoard } from "../models/vote.server.js";
 import { fetchVariants } from "../services/products.server.js";
 import { VOTE_JS, VOTE_CSS } from "../vote-page/dist/vote-assets.server.js";
 import { createHash } from "crypto";
+import { log } from "../utils/log.server.js";
 
 // Response headers
 const NO_STORE = { "Cache-Control": "no-store" };
@@ -279,6 +280,7 @@ export const loader = async ({ request, params }) => {
 
   // Route: empty or root -> not found
   if (!splat || splat === "/") {
+    log.info("proxy.vote_page", { shop, status: "not_found" });
     return errorPage("This link doesn't work", "Check the URL and try again.");
   }
 
@@ -286,16 +288,19 @@ export const loader = async ({ request, params }) => {
   if (splat.startsWith("results/")) {
     const ownerToken = splat.slice(8); // "results/".length = 8
     if (!ownerToken) {
+      log.info("proxy.results_page", { shop, status: "not_found" });
       return errorPage("This link doesn't work", "Check the URL and try again.");
     }
 
     const board = await getBoardByOwnerToken(shop, ownerToken);
     if (!board) {
+      log.info("proxy.results_page", { shop, status: "not_found" });
       return errorPage("This link doesn't work", "Check the URL and try again.");
     }
 
     // Check if feature is enabled
     if (!settings.enabled) {
+      log.info("proxy.results_page", { shop, status: "disabled" });
       return errorPage("This board isn't available", "Check back later.");
     }
 
@@ -306,6 +311,7 @@ export const loader = async ({ request, params }) => {
         settings.copy.expiredBody || "Ask {shopper} to share a new link.",
         { shopper: board.ownerFirstName, partner: board.partnerFirstName, count: 0 }
       );
+      log.info("proxy.results_page", { shop, status: "expired" });
       return errorPage(expiredHeadline, expiredBody);
     }
 
@@ -313,6 +319,8 @@ export const loader = async ({ request, params }) => {
     const votes = await getVotesForBoard(board.id);
     const voteCount = votes.length;
     const itemCount = board.items?.length || 0;
+
+    log.info("proxy.results_page", { shop, status: board.status });
 
     return liquid(buildResultsPlaceholder({ board, shopName, shopUrl, voteCount, itemCount }), {
       layout: false,
@@ -325,16 +333,19 @@ export const loader = async ({ request, params }) => {
 
   // Validate token format (basic sanity check - cuid is 25 chars)
   if (shareToken.length < 20 || shareToken.length > 40 || /[^a-zA-Z0-9_-]/.test(shareToken)) {
+    log.info("proxy.vote_page", { shop, status: "not_found" });
     return errorPage("This link doesn't work", "Check the URL and try again.");
   }
 
   const board = await getBoardByShareToken(shop, shareToken);
   if (!board) {
+    log.info("proxy.vote_page", { shop, status: "not_found" });
     return errorPage("This link doesn't work", "Check the URL and try again.");
   }
 
   // Check if feature is enabled
   if (!settings.enabled) {
+    log.info("proxy.vote_page", { shop, status: "disabled" });
     return errorPage("This board isn't available", "Check back later.");
   }
 
@@ -345,6 +356,7 @@ export const loader = async ({ request, params }) => {
       settings.copy.expiredBody || "Ask {shopper} to share a new link.",
       { shopper: board.ownerFirstName, partner: board.partnerFirstName, count: board.items.length }
     );
+    log.info("proxy.vote_page", { shop, status: "expired" });
     return errorPage(expiredHeadline, expiredBody);
   }
 
@@ -364,7 +376,7 @@ export const loader = async ({ request, params }) => {
     try {
       variants = await fetchVariants(admin, variantGids);
     } catch (err) {
-      console.error(`[vote-page] fetchVariants error: ${err.code || "unknown"}`);
+      log.error("proxy.vote_page_variants", { code: err.code || "unknown" });
       // Continue with empty variants - items will show without product data
     }
   }
@@ -405,6 +417,8 @@ export const loader = async ({ request, params }) => {
     proxyPath: pathPrefix,
     storageKey,
   });
+
+  log.info("proxy.vote_page", { shop, status: board.status });
 
   return liquid(html, { layout: false, headers: NO_STORE });
 };

@@ -17,6 +17,9 @@ database.sqlite
 .env.*
 !.env.example
 
+# App logs (dev only)
+logs/
+
 
 
 

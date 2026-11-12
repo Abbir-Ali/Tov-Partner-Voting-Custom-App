@@ -2,6 +2,7 @@ import { authenticate } from "../shopify.server.js";
 import { getSettings } from "../models/settings.server.js";
 import { getBoardByShareToken } from "../models/board.server.js";
 import { fetchVariants } from "../services/products.server.js";
+import { log } from "../utils/log.server.js";
 
 const NO_STORE = { "Cache-Control": "no-store" };
 
@@ -64,7 +65,7 @@ export const loader = async ({ request, params }) => {
     };
   });
 
-  console.log(`[board.fetch] shop=${shop} items=${items.length}`);
+  log.info("board.fetch", { shop, items: items.length });
 
   return json({
     name:            board.name,

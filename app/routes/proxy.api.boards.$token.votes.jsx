@@ -9,6 +9,7 @@
 import { authenticate } from "../shopify.server.js";
 import { getSettings } from "../models/settings.server.js";
 import { submitVote, VOTE_ERRORS } from "../models/vote.server.js";
+import { log } from "../utils/log.server.js";
 
 const MAX_BODY_SIZE = 1024; // 1 KB
 const NO_STORE = { "Cache-Control": "no-store" };
@@ -77,7 +78,19 @@ export async function action({ request, params }) {
   });
 
   if (!result.ok) {
+    log.error("vote.rejected", { shop, code: result.error.code });
     return json({ error: { code: result.error.code } }, result.error.status);
+  }
+
+  log.info("vote.saved", {
+    shop,
+    verdict: verdict.toUpperCase(),
+    voted: result.data.voted,
+    total: result.data.total,
+  });
+
+  if (result.data.complete) {
+    log.info("vote.completed", { shop, total: result.data.total });
   }
 
   return json(result.data, 200);

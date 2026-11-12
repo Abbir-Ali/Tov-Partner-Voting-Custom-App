@@ -1,5 +1,6 @@
 import db from "../db.server.js";
 import { getSettings } from "../models/settings.server.js";
+import { log } from "../utils/log.server.js";
 
 // Bump this when the storefront config shape changes.
 export const CONFIG_VERSION = 1;
@@ -22,7 +23,7 @@ export async function syncStorefrontConfig(admin, shop) {
     const appInstallationId = appIdJson.data?.currentAppInstallation?.id;
 
     if (!appInstallationId) {
-      console.error("[storefront-config.sync] code=no_app_installation");
+      log.error("storefront_sync.failed", { shop, code: "no_app_installation" });
       await markSyncFailed(shop);
       return { ok: false, code: "no_app_installation" };
     }
@@ -62,18 +63,19 @@ export async function syncStorefrontConfig(admin, shop) {
 
     if (userErrors.length > 0) {
       const code = userErrors[0].code ?? "metafield_error";
-      console.error(`[storefront-config.sync] code=${code}`);
+      log.error("storefront_sync.failed", { shop, code });
       await markSyncFailed(shop);
       return { ok: false, code };
     }
 
     // Mark sync success
+    log.info("storefront_sync.ok", { shop });
     await markSyncSuccess(shop);
     return { ok: true };
 
   } catch (err) {
     const code = err.code ?? "unknown";
-    console.error(`[storefront-config.sync] code=${code}`);
+    log.error("storefront_sync.failed", { shop, code });
     await markSyncFailed(shop);
     return { ok: false, code };
   }

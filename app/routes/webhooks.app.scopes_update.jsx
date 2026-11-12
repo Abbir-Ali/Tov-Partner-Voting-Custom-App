@@ -1,10 +1,11 @@
 import { authenticate } from "../shopify.server";
 import db from "../db.server";
+import { log } from "../utils/log.server.js";
 
 export const action = async ({ request }) => {
-  const { payload, session, topic, shop } = await authenticate.webhook(request);
+  const { payload, session, shop } = await authenticate.webhook(request);
 
-  console.log(`Received ${topic} webhook for ${shop}`);
+  log.info("webhook.scopes_update", { shop });
   const current = payload.current;
 
   if (session) {

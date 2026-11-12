@@ -7,6 +7,7 @@ import {
 import { PrismaSessionStorage } from "@shopify/shopify-app-session-storage-prisma";
 import prisma from "./db.server";
 import { syncStorefrontConfig } from "./services/storefront-config.server.js";
+import { log } from "./utils/log.server.js";
 
 const shopify = shopifyApp({
   apiKey: process.env.SHOPIFY_API_KEY,
@@ -22,10 +23,11 @@ const shopify = shopifyApp({
   },
   hooks: {
     afterAuth: async ({ admin, session }) => {
+      log.info("auth.after_auth", { shop: session.shop });
       try {
         await syncStorefrontConfig(admin, session.shop);
       } catch (err) {
-        console.error(`[afterAuth.sync] code=${err.code ?? "unknown"}`);
+        log.error("auth.after_auth_sync_failed", { code: err.code ?? "unknown" });
       }
     },
   },

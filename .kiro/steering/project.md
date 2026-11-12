@@ -156,6 +156,8 @@ NOT in Phase 1: SMS, "Start your own board", multiple voters, B2B.
 
   specific: exact URLs, scripts and expected results.
 
+- When Abbir asks what happened, run npm run log and summarise it in plain words.
+
 ## Brand (for any storefront UI or email)
 
 Colors: Cream #FEFBF6, Soft Taupe #F1ECE5, Blush #F9D2D2, Truffle #82736C,
