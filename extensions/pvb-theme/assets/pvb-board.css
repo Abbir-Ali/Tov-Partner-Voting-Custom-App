@@ -617,15 +617,6 @@
   height: 18px;
 }
 
-.pvb-share-helper {
-  display: block;
-  font-family: var(--pvb-font-body);
-  font-size: 11px;
-  color: var(--pvb-truffle);
-  text-align: center;
-  margin-top: 0.5rem;
-}
-
 .pvb-cart-btn {
   display: flex;
   align-items: center;
@@ -1016,6 +1007,29 @@
   color: var(--pvb-not-black);
 }
 
+.pvb-channel-back {
+  display: block;
+  margin: 1rem auto 0;
+  padding: 8px 16px;
+  border: none;
+  background: transparent;
+  color: var(--pvb-truffle);
+  font-family: var(--pvb-font-body);
+  font-size: 13px;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.pvb-channel-back:hover {
+  color: var(--pvb-not-black);
+}
+
+.pvb-channel-back:focus-visible {
+  outline: 2px solid var(--pvb-not-black);
+  outline-offset: 2px;
+}
+
 /* ─── Share Message Preview ───────────────────────────────────────────────── */
 
 .pvb-share-preview {
@@ -1215,6 +1229,40 @@
   line-height: 1.5;
 }
 
+.pvb-sent-buttons {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 1rem;
+}
+
+.pvb-sent-share-again {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 44px;
+  padding: 0 24px;
+  border: none;
+  border-radius: 9999px;
+  background: var(--pvb-not-black);
+  color: #fff;
+  font-family: var(--pvb-font-body);
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.045em;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+.pvb-sent-share-again:hover {
+  opacity: 0.85;
+}
+
+.pvb-sent-share-again:focus-visible {
+  outline: 2px solid var(--pvb-forest);
+  outline-offset: 2px;
+}
+
 .pvb-sent-done {
   display: flex;
   align-items: center;
@@ -1243,45 +1291,104 @@
   outline-offset: 2px;
 }
 
+.pvb-sent-more {
+  font-family: var(--pvb-font-body);
+  font-size: 13px;
+  color: var(--pvb-truffle);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.pvb-sent-more:hover {
+  color: var(--pvb-not-black);
+}
+
+.pvb-sent-more:focus-visible {
+  outline: 2px solid var(--pvb-not-black);
+  outline-offset: 2px;
+}
+
 /* ─── Shared Row in Drawer Footer ─────────────────────────────────────────── */
 
 .pvb-shared-row {
   display: none;
+  grid-template-columns: 32px 1fr auto;
   align-items: center;
-  gap: 8px;
-  padding: 10px 12px;
+  gap: 12px;
+  padding: 12px;
   margin-bottom: 12px;
-  background: var(--pvb-blush);
-  border-radius: 8px;
+  background: var(--pvb-taupe);
+  border-radius: 12px;
 }
 
 .pvb-shared-row[data-visible="true"] {
-  display: flex;
+  display: grid;
 }
 
 .pvb-shared-icon {
-  width: 20px;
-  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
   flex-shrink: 0;
+  background: var(--pvb-blush);
+  border-radius: 50%;
 }
 
 .pvb-shared-icon svg {
-  width: 20px;
-  height: 20px;
-  stroke: var(--pvb-forest);
+  width: 16px;
+  height: 16px;
+  stroke: var(--pvb-not-black);
   stroke-width: 2;
   fill: none;
 }
 
 .pvb-shared-text {
-  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.pvb-shared-line1 {
   font-family: var(--pvb-font-body);
   font-size: 13px;
+  font-weight: 700;
   color: var(--pvb-not-black);
 }
 
-.pvb-shared-name {
-  font-weight: 600;
+.pvb-shared-line2 {
+  font-family: var(--pvb-font-body);
+  font-size: 12px;
+  color: var(--pvb-truffle);
+}
+
+.pvb-shared-link {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 36px;
+  padding: 0 16px;
+  border: 1px solid var(--pvb-not-black);
+  border-radius: 9999px;
+  background: transparent;
+  color: var(--pvb-not-black);
+  font-family: var(--pvb-font-body);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.045em;
+  text-decoration: none;
+  transition: background 0.15s;
+}
+
+.pvb-shared-link:hover {
+  background: rgba(255, 255, 255, 0.5);
+}
+
+.pvb-shared-link:focus-visible {
+  outline: 2px solid var(--pvb-not-black);
+  outline-offset: 2px;
 }
 
 /* ─── Share Sheet Reduced Motion ──────────────────────────────────────────── */

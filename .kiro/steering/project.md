@@ -138,7 +138,9 @@ NOT in Phase 1: SMS, "Start your own board", multiple voters, B2B.
 
   assets in the same commit. Never edit extensions/pvb-theme/assets/*.js
 
-  by hand.
+  by hand. On-page theme bundles ≤ 10,000 B, lazy bundles ≤ 15,000 B.
+
+  Never change a limit without asking.
 
 - Lint passing isn't enough: after any app change, check the
 

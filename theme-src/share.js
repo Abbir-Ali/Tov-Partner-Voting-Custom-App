@@ -1,4 +1,4 @@
-/**
+﻿/**
  * PVB Share: share sheet UI and POST logic.
  * Lazy-loaded on first tap of "Get a Second Opinion".
  * Requires core.js (window.__pvb).
@@ -13,11 +13,11 @@
   var pvb = window.__pvb;
   if (!pvb) return;
 
-  // ─── Storage Keys ─────────────────────────────────────────────────────────
+  // â”€â”€â”€ Storage Keys â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   var OWNER_KEY = 'pvb:owner:v1';
   var SHARES_KEY = 'pvb:shares:v1';
 
-  // ─── Module State ─────────────────────────────────────────────────────────
+  // â”€â”€â”€ Module State â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   var sheetOverlay = null;
   var formElement = null;
   var submitButton = null;
@@ -33,50 +33,34 @@
     isLoggedIn: false
   };
 
-  // ─── Config Loading ───────────────────────────────────────────────────────
+  // â”€â”€â”€ Config Loading â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   function loadConfig() {
-    var drawer = document.querySelector('[data-pvb-drawer]');
-    if (!drawer) return;
-
-    config.shopName = drawer.dataset.shopName || '';
-    config.customerFirstName = drawer.dataset.customerFirstName || '';
-    config.customerEmail = drawer.dataset.customerEmail || '';
-    config.isLoggedIn = drawer.dataset.loggedIn === 'true';
+    var d = document.querySelector('[data-pvb-drawer]');
+    if (!d) return;
+    config.shopName = d.dataset.shopName || '';
+    config.customerFirstName = d.dataset.customerFirstName || '';
+    config.customerEmail = d.dataset.customerEmail || '';
+    config.isLoggedIn = d.dataset.loggedIn === 'true';
   }
 
-  // ─── Owner Name Storage ───────────────────────────────────────────────────
+  // â”€â”€â”€ Owner Name Storage â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   function getOwnerName() {
-    try {
-      return localStorage.getItem(OWNER_KEY) || '';
-    } catch (e) {
-      return '';
-    }
+    try { return localStorage.getItem(OWNER_KEY) || ''; } catch (e) { return ''; }
   }
 
   function saveOwnerName(name) {
-    try {
-      localStorage.setItem(OWNER_KEY, name);
-    } catch (e) {
-      // Storage unavailable
-    }
+    try { localStorage.setItem(OWNER_KEY, name); } catch (e) { /* storage unavailable */ }
   }
 
-  // ─── Share History Storage ────────────────────────────────────────────────
-  // Uses readable keys: { partnerFirstName, resultsUrl, count, sharedAt }
+  // â”€â”€â”€ Share History Storage â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   function getShareHistory() {
     try {
       var raw = localStorage.getItem(SHARES_KEY);
       if (raw) {
         var parsed = JSON.parse(raw);
-        // New format: array with readable keys
-        if (Array.isArray(parsed)) {
-          return parsed;
-        }
-        // Old format { s: [...] } with short keys: ignore it
+        if (Array.isArray(parsed)) return parsed;
       }
-    } catch (e) {
-      // Parse error or storage unavailable
-    }
+    } catch (e) { /* parse error */ }
     return [];
   }
 
@@ -89,58 +73,49 @@
         count: data.count,
         sharedAt: Date.now()
       });
-      // Keep max 10 entries
-      if (history.length > 10) {
-        history.length = 10;
-      }
+      if (history.length > 10) history.length = 10;
       localStorage.setItem(SHARES_KEY, JSON.stringify(history));
-    } catch (e) {
-      // Storage unavailable
-    }
+    } catch (e) { /* storage unavailable */ }
   }
 
-  // ─── DOM Helpers ──────────────────────────────────────────────────────────
-  function createElement(tag, className, attributes) {
-    var el = document.createElement(tag);
-    if (className) el.className = className;
-    if (attributes) {
-      for (var key in attributes) {
-        el.setAttribute(key, attributes[key]);
-      }
-    }
-    return el;
+  // â”€â”€â”€ DOM Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  function el(tag, cls, attrs) {
+    var e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (attrs) for (var k in attrs) e.setAttribute(k, attrs[k]);
+    return e;
   }
 
-  // ─── Build Share Sheet ────────────────────────────────────────────────────
+  // â”€â”€â”€ Build Share Sheet â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   function buildSheet() {
     if (sheetOverlay) return sheetOverlay;
 
     var drawer = document.querySelector('[data-pvb-drawer]');
     if (!drawer) return null;
 
-    var overlay = createElement('div', 'pvb-share-overlay');
+    var overlay = el('div', 'pvb-share-overlay');
     overlay.dataset.open = 'false';
 
     var prefillOwnerName = config.customerFirstName || getOwnerName();
     var prefillEmail = config.customerEmail || '';
     var emailRequired = !config.isLoggedIn;
 
-    var panel = createElement('div', 'pvb-share-panel', {
+    var panel = el('div', 'pvb-share-panel', {
       role: 'dialog',
       'aria-modal': 'true',
       tabindex: '-1'
     });
 
     // Mobile handle
-    panel.appendChild(createElement('div', 'pvb-share-handle'));
+    panel.appendChild(el('div', 'pvb-share-handle'));
 
     // Header
-    var header = createElement('div', 'pvb-share-header');
-    var title = createElement('h2', 'pvb-share-title');
+    var header = el('div', 'pvb-share-header');
+    var title = el('h2', 'pvb-share-title');
     title.textContent = 'Get a Second Opinion';
     header.appendChild(title);
 
-    var closeButton = createElement('button', 'pvb-share-close', {
+    var closeButton = el('button', 'pvb-share-close', {
       type: 'button',
       'aria-label': 'Close'
     });
@@ -149,31 +124,31 @@
     panel.appendChild(header);
 
     // Body
-    var body = createElement('div', 'pvb-share-body');
-    var form = createElement('form', 'pvb-share-form', {
+    var body = el('div', 'pvb-share-body');
+    var form = el('form', 'pvb-share-form', {
       id: 'pvb-share-form',
       novalidate: ''
     });
 
     // Form field builder
     function buildField(id, name, label, type, required, maxLength, value) {
-      var fieldDiv = createElement('div', 'pvb-field');
+      var fieldDiv = el('div', 'pvb-field');
 
-      var labelEl = createElement('label', 'pvb-field-label', { for: id });
+      var labelEl = el('label', 'pvb-field-label', { for: id });
       if (required) labelEl.dataset.required = '';
       labelEl.textContent = label;
       fieldDiv.appendChild(labelEl);
 
       var input;
       if (type === 'textarea') {
-        input = createElement('textarea', 'pvb-field-input pvb-field-textarea', {
+        input = el('textarea', 'pvb-field-input pvb-field-textarea', {
           id: id,
           name: name,
           maxlength: maxLength,
           rows: '2'
         });
       } else {
-        input = createElement('input', 'pvb-field-input', {
+        input = el('input', 'pvb-field-input', {
           type: type,
           id: id,
           name: name,
@@ -184,7 +159,7 @@
       if (value) input.value = value;
       fieldDiv.appendChild(input);
 
-      var errorSpan = createElement('span', 'pvb-field-error', { id: id + '-error' });
+      var errorSpan = el('span', 'pvb-field-error', { id: id + '-error' });
       fieldDiv.appendChild(errorSpan);
 
       return fieldDiv;
@@ -195,7 +170,7 @@
 
     // Note (optional, with counter)
     var noteField = buildField('pvb-note', 'note', 'Add a note', 'textarea', false, '280');
-    var hintSpan = createElement('span', 'pvb-field-hint');
+    var hintSpan = el('span', 'pvb-field-hint');
     hintSpan.innerHTML = '<span></span><span class="pvb-char-counter">0/280</span>';
     noteField.appendChild(hintSpan);
     form.appendChild(noteField);
@@ -212,30 +187,32 @@
     form.appendChild(buildField('pvb-owner-email', 'ownerEmail', 'Your email', 'email', emailRequired, '254', prefillEmail));
 
     // General error
-    form.appendChild(createElement('div', 'pvb-share-error', { id: 'pvb-general-error' }));
+    form.appendChild(el('div', 'pvb-share-error', { id: 'pvb-general-error' }));
 
     // Ineligible items list
-    form.appendChild(createElement('div', 'pvb-ineligible-list', { id: 'pvb-ineligible' }));
+    form.appendChild(el('div', 'pvb-ineligible-list', { id: 'pvb-ineligible' }));
 
     body.appendChild(form);
 
     // Channels section (shown after successful API call)
-    var channels = createElement('div', 'pvb-share-channels', { id: 'pvb-channels' });
+    var channels = el('div', 'pvb-share-channels', { id: 'pvb-channels' });
     channels.dataset.visible = 'false';
 
-    var channelsTitle = createElement('p', 'pvb-share-channels-title');
+    var channelsTitle = el('p', 'pvb-share-channels-title');
     channelsTitle.textContent = 'Share via';
     channels.appendChild(channelsTitle);
 
-    var channelGrid = createElement('div', 'pvb-channel-grid');
+    var channelGrid = el('div', 'pvb-channel-grid');
     var channelData = [
       ['whatsapp', 'WhatsApp'],
       ['email', 'Email'],
       ['sms', 'SMS'],
       ['copy', 'Copy']
     ];
+    var isTouch = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
     channelData.forEach(function (item) {
-      var btn = createElement('button', 'pvb-channel-btn', {
+      if (item[0] === 'sms' && !isTouch) return;
+      var btn = el('button', 'pvb-channel-btn', {
         type: 'button',
         'data-channel': item[0]
       });
@@ -244,23 +221,34 @@
       channelGrid.appendChild(btn);
     });
     channels.appendChild(channelGrid);
+
+    // Back button
+    var backBtn = el('button', 'pvb-channel-back', { type: 'button' });
+    backBtn.textContent = 'Back';
+    backBtn.addEventListener('click', showSentScreen);
+    channels.appendChild(backBtn);
+
     body.appendChild(channels);
 
     // Sent confirmation
-    var sentSection = createElement('div', 'pvb-share-sent', { id: 'pvb-sent' });
+    var sentSection = el('div', 'pvb-share-sent', { id: 'pvb-sent' });
     sentSection.dataset.visible = 'false';
     sentSection.innerHTML =
-      '<div class="pvb-sent-icon">&#10003;</div>' +
+      '<div class="pvb-sent-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 13l4 4L19 7" stroke-linecap="round" stroke-linejoin="round"/></svg></div>' +
       '<h3 class="pvb-sent-title">Sent to <span id="pvb-sent-name"></span></h3>' +
-      '<p class="pvb-sent-text">You\'ll hear back when done.</p>' +
-      '<button type="button" class="pvb-sent-done">Done</button>';
+      '<p class="pvb-sent-text" id="pvb-sent-body"></p>' +
+      '<div class="pvb-sent-buttons">' +
+        '<button type="button" class="pvb-sent-share-again">Share Again</button>' +
+        '<button type="button" class="pvb-sent-done">Done</button>' +
+      '</div>' +
+      '<a href="#" class="pvb-sent-more" id="pvb-sent-more">More ways to share</a>';
     body.appendChild(sentSection);
 
     panel.appendChild(body);
 
     // Footer with submit button
-    var footer = createElement('div', 'pvb-share-footer', { id: 'pvb-footer' });
-    var submit = createElement('button', 'pvb-share-submit', {
+    var footer = el('div', 'pvb-share-footer', { id: 'pvb-footer' });
+    var submit = el('button', 'pvb-share-submit', {
       type: 'submit',
       form: 'pvb-share-form',
       id: 'pvb-submit'
@@ -277,13 +265,18 @@
     formElement = form;
     submitButton = submit;
 
-    // ─── Event Listeners ────────────────────────────────────────────────────
+    // â”€â”€â”€ Event Listeners â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     overlay.addEventListener('click', function (e) {
       if (e.target === overlay) closeSheet();
     });
 
     closeButton.addEventListener('click', closeSheet);
     sentSection.querySelector('.pvb-sent-done').addEventListener('click', closeSheet);
+    sentSection.querySelector('.pvb-sent-share-again').addEventListener('click', handleShareAgain);
+    sentSection.querySelector('.pvb-sent-more').addEventListener('click', function(e) {
+      e.preventDefault();
+      showChannels();
+    });
 
     // Note character counter
     var noteInput = form.querySelector('[name="note"]');
@@ -319,14 +312,14 @@
     return sheetOverlay;
   }
 
-  // ─── Submit Button Text ───────────────────────────────────────────────────
+  // â”€â”€â”€ Submit Button Text â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   function updateSubmitButtonText() {
     if (!submitButton) return;
     var partnerName = formElement.querySelector('[name="partnerFirstName"]').value.trim();
     submitButton.textContent = partnerName ? 'Send to ' + partnerName : 'Send';
   }
 
-  // ─── Open Sheet ───────────────────────────────────────────────────────────
+  // â”€â”€â”€ Open Sheet â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   function openSheet() {
     loadConfig();
     buildSheet();
@@ -350,7 +343,7 @@
     pvb.dispatchEvent('pvb:share-open', { count: pvb.getCount() });
   }
 
-  // ─── Close Sheet ──────────────────────────────────────────────────────────
+  // â”€â”€â”€ Close Sheet â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   function closeSheet() {
     if (!sheetOverlay) return;
 
@@ -363,7 +356,7 @@
     }
   }
 
-  // ─── Focus Trap ───────────────────────────────────────────────────────────
+  // â”€â”€â”€ Focus Trap â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   function trapFocus(e) {
     var panel = sheetOverlay.querySelector('.pvb-share-panel');
     var focusable = panel.querySelectorAll(
@@ -381,7 +374,7 @@
     }
   }
 
-  // ─── Field Validation ─────────────────────────────────────────────────────
+  // â”€â”€â”€ Field Validation â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   function clearFieldErrors() {
     if (!formElement) return;
 
@@ -433,7 +426,7 @@
     return isValid;
   }
 
-  // ─── Submit Share ─────────────────────────────────────────────────────────
+  // â”€â”€â”€ Submit Share â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   function submitShare() {
     if (isSubmitting || !validateForm()) return;
 
@@ -491,7 +484,7 @@
       });
   }
 
-  // ─── Success Handler ──────────────────────────────────────────────────────
+  // â”€â”€â”€ Success Handler â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   function handleSuccess(responseData, payload) {
     // Save owner name (never email)
     saveOwnerName(payload.ownerFirstName);
@@ -528,7 +521,7 @@
     }
   }
 
-  // ─── Error Handler ────────────────────────────────────────────────────────
+  // â”€â”€â”€ Error Handler â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   function handleError(data) {
     var err = data.error || data;
 
@@ -612,7 +605,7 @@
         });
       }
 
-      var itemDiv = createElement('div', 'pvb-ineligible-item');
+      var itemDiv = el('div', 'pvb-ineligible-item');
       itemDiv.dataset.variantId = numericId;
       var reason = getReasonText(item.reason);
       itemDiv.innerHTML =
@@ -634,7 +627,7 @@
     container.dataset.visible = 'true';
   }
 
-  // ─── Share Message ────────────────────────────────────────────────────────
+  // â”€â”€â”€ Share Message â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   function buildShareMessage() {
     var message = currentShareData.ownerFirstName +
       ' wants your vote on ' +
@@ -649,7 +642,7 @@
     return message;
   }
 
-  // ─── Channel Sharing ──────────────────────────────────────────────────────
+  // â”€â”€â”€ Channel Sharing â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   function showChannels() {
     formElement.style.display = 'none';
     sheetOverlay.querySelector('#pvb-footer').style.display = 'none';
@@ -681,46 +674,61 @@
 
   function copyToClipboard(text) {
     var label = document.getElementById('pvb-copy-label');
-
     if (navigator.clipboard) {
-      navigator.clipboard.writeText(text)
-        .then(function () {
-          label.textContent = 'Copied';
-        })
-        .catch(function () {
-          fallbackCopy(text, label);
-        });
+      navigator.clipboard.writeText(text).then(function () { label.textContent = 'Copied'; }).catch(function () { copyFallback(text, label); });
     } else {
-      fallbackCopy(text, label);
+      copyFallback(text, label);
     }
   }
 
-  function fallbackCopy(text, label) {
-    var textarea = createElement('textarea');
-    textarea.value = text;
-    textarea.style.cssText = 'position:fixed;opacity:0';
-    document.body.appendChild(textarea);
-    textarea.select();
-
-    try {
-      document.execCommand('copy');
-      label.textContent = 'Copied';
-    } catch (e) {
-      label.textContent = 'Failed';
-    }
-
-    document.body.removeChild(textarea);
+  function copyFallback(text, label) {
+    var ta = el('textarea');
+    ta.value = text;
+    ta.style.cssText = 'position:fixed;opacity:0';
+    document.body.appendChild(ta);
+    ta.select();
+    try { document.execCommand('copy'); label.textContent = 'Copied'; } catch (e) { label.textContent = 'Failed'; }
+    document.body.removeChild(ta);
   }
 
-  // ─── Sent Screen ──────────────────────────────────────────────────────────
+  // â”€â”€â”€ Share Again Handler â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  function handleShareAgain() {
+    if (!currentShareData) return;
+
+    // Try native share; show "More ways to share" link on native platforms
+    if (navigator.share) {
+      navigator.share({
+        title: config.shopName,
+        text: buildShareMessage(),
+        url: currentShareData.shareUrl
+      }).catch(function() {
+        // User cancelled or failed, stay on sent screen
+      });
+    } else {
+      // Desktop: go straight to channels
+      showChannels();
+    }
+  }
+
+  // â”€â”€â”€ Sent Screen â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   function showSentScreen() {
     formElement.style.display = 'none';
     sheetOverlay.querySelector('#pvb-channels').dataset.visible = 'false';
     sheetOverlay.querySelector('#pvb-footer').style.display = 'none';
-    sheetOverlay.querySelector('#pvb-sent').dataset.visible = 'true';
+    var sentSection = sheetOverlay.querySelector('#pvb-sent');
+    sentSection.dataset.visible = 'true';
     document.getElementById('pvb-sent-name').textContent = currentShareData.partnerFirstName;
+    document.getElementById('pvb-sent-body').textContent =
+      "We'll let you know the moment " + currentShareData.partnerFirstName +
+      " votes. Your board stays saved here.";
+
+    // Show "More ways to share" link only when native share is available
+    var moreLink = document.getElementById('pvb-sent-more');
+    if (moreLink) {
+      moreLink.style.display = navigator.share ? '' : 'none';
+    }
   }
 
-  // ─── Initialize ───────────────────────────────────────────────────────────
+  // â”€â”€â”€ Initialize â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   window.addEventListener('pvb:share-request', openSheet);
 })();
