@@ -4,6 +4,7 @@
  */
 import db from "../db.server.js";
 import { log } from "../utils/log.server.js";
+import { newToken } from "../utils/tokens.server.js";
 
 // Pixel syncs every 7 days
 const PIXEL_SYNC_DAYS = 7;
@@ -81,18 +82,65 @@ async function getExistingPixel(admin, shop) {
 }
 
 /**
+ * Get or create pixelKey for shop.
+ * @returns {Promise<string>}
+ */
+async function ensurePixelKey(shop) {
+  const row = await db.shopSettings.findUnique({
+    where: { shop },
+    select: { pixelKey: true },
+  });
+  if (row?.pixelKey) return row.pixelKey;
+
+  // Generate new 32-char key
+  const key = newToken();
+  await db.shopSettings.upsert({
+    where: { shop },
+    update: { pixelKey: key },
+    create: { shop, pixelKey: key },
+  });
+  return key;
+}
+
+/**
+ * Get current ingest URL from environment.
+ * @returns {string}
+ */
+function getIngestUrl() {
+  const appUrl = process.env.SHOPIFY_APP_URL || "";
+  return `${appUrl}/pixel/e`;
+}
+
+/**
  * Sync the Web Pixel for a shop: create or update.
  * @param {object} admin - Shopify admin API client
  * @param {string} shop - Shop domain
  * @returns {Promise<{ok: boolean, code?: string}>}
  */
 export async function syncPixel(admin, shop) {
-  // Settings must match extension's [settings.fields] exactly
-  const settings = JSON.stringify({ accountID: shop });
+  // Get or create pixelKey
+  const pixelKey = await ensurePixelKey(shop);
+  const ingestUrl = getIngestUrl();
+
+  // Settings: accountID, ingestUrl, key
+  const settings = JSON.stringify({
+    accountID: shop,
+    ingestUrl,
+    key: pixelKey,
+  });
 
   try {
+    // Check current stored ingestUrl
+    const storedSettings = await db.shopSettings.findUnique({
+      where: { shop },
+      select: { pixelIngestUrl: true },
+    });
+
     // Check if pixel already exists
     let existing = await getExistingPixel(admin, shop);
+
+    // Force update if ingestUrl changed (dev tunnel restarts)
+    const needsUrlUpdate = storedSettings?.pixelIngestUrl !== ingestUrl;
 
     if (existing) {
       // Update existing pixel
@@ -118,14 +166,27 @@ export async function syncPixel(admin, shop) {
       const errCode = logUserErrors(shop, "update", userErrors);
       if (errCode) return { ok: false, code: errCode };
 
-      // Save pixelId and mark sync success
+      // Save pixelId, ingestUrl and mark sync success
       await db.shopSettings.upsert({
         where: { shop },
-        update: { pixelId: existing.id, pixelSyncedAt: new Date() },
-        create: { shop, pixelId: existing.id, pixelSyncedAt: new Date() },
+        update: {
+          pixelId: existing.id,
+          pixelSyncedAt: new Date(),
+          pixelIngestUrl: ingestUrl,
+        },
+        create: {
+          shop,
+          pixelId: existing.id,
+          pixelSyncedAt: new Date(),
+          pixelKey,
+          pixelIngestUrl: ingestUrl,
+        },
       });
 
-      log.info("pixel.connected", { shop, action: "updated" });
+      log.info("pixel.connected", {
+        shop,
+        action: needsUrlUpdate ? "updated_url" : "updated",
+      });
       return { ok: true };
     }
 
@@ -177,8 +238,18 @@ export async function syncPixel(admin, shop) {
 
         await db.shopSettings.upsert({
           where: { shop },
-          update: { pixelId: existing.id, pixelSyncedAt: new Date() },
-          create: { shop, pixelId: existing.id, pixelSyncedAt: new Date() },
+          update: {
+            pixelId: existing.id,
+            pixelSyncedAt: new Date(),
+            pixelIngestUrl: ingestUrl,
+          },
+          create: {
+            shop,
+            pixelId: existing.id,
+            pixelSyncedAt: new Date(),
+            pixelKey,
+            pixelIngestUrl: ingestUrl,
+          },
         });
 
         log.info("pixel.connected", { shop, action: "updated_after_taken" });
@@ -194,8 +265,18 @@ export async function syncPixel(admin, shop) {
     const newPixelId = createJson.data?.webPixelCreate?.webPixel?.id;
     await db.shopSettings.upsert({
       where: { shop },
-      update: { pixelId: newPixelId, pixelSyncedAt: new Date() },
-      create: { shop, pixelId: newPixelId, pixelSyncedAt: new Date() },
+      update: {
+        pixelId: newPixelId,
+        pixelSyncedAt: new Date(),
+        pixelIngestUrl: ingestUrl,
+      },
+      create: {
+        shop,
+        pixelId: newPixelId,
+        pixelSyncedAt: new Date(),
+        pixelKey,
+        pixelIngestUrl: ingestUrl,
+      },
     });
 
     log.info("pixel.connected", { shop, action: "created" });
@@ -210,16 +291,21 @@ export async function syncPixel(admin, shop) {
 }
 
 /**
- * Check if pixel needs sync (null or older than 7 days).
+ * Check if pixel needs sync (null, older than 7 days, or ingestUrl changed).
  * @param {string} shop
  * @returns {Promise<boolean>}
  */
 export async function pixelNeedsSync(shop) {
   const row = await db.shopSettings.findUnique({
     where: { shop },
-    select: { pixelSyncedAt: true },
+    select: { pixelSyncedAt: true, pixelIngestUrl: true },
   });
   if (!row?.pixelSyncedAt) return true;
+
+  // Check if ingestUrl changed (dev tunnel restarts)
+  const currentUrl = getIngestUrl();
+  if (row.pixelIngestUrl !== currentUrl) return true;
+
   const ageMs = Date.now() - row.pixelSyncedAt.getTime();
   const ageDays = ageMs / (24 * 60 * 60 * 1000);
   return ageDays >= PIXEL_SYNC_DAYS;

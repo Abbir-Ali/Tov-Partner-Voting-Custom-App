@@ -215,7 +215,7 @@ function buildResultsPage({
   const lovedTotalFormatted = formatPrice(lovedAvailableTotal / 100, currencyCode || "USD");
 
   // Build absolute events URL (works with Markets locale prefixes)
-  const eventsUrl = `${proxyPath}/api/events`;
+  const eventsUrl = `${proxyPath}/api/e`;
 
   // Build data JSON
   const dataObj = {

@@ -5,25 +5,34 @@
  */
 import { register } from "@shopify/web-pixels-extension";
 
-register(({ analytics, init }) => {
-  const origin = init.context.document.location.origin;
-  const endpoint = `${origin}/apps/board/api/events`;
+register(({ analytics, init, settings }) => {
+  // Get shop domain from init data
+  const shop = init.data?.shop?.myshopifyDomain || settings.accountID || "";
+  const ingestUrl = settings.ingestUrl || "";
+  const key = settings.key || "";
 
   // DEBUG - log pixel load
-  console.log("[pvb-pixel] loaded", origin);
+  console.log("[pvb-pixel] loaded", shop, ingestUrl ? "has_url" : "no_url");
 
-  // Send event to ingest endpoint with raw clientId
-  // Uses fetch with keepalive (sendBeacon is deprecated in Web Pixels API)
+  if (!ingestUrl || !key) {
+    console.warn("[pvb-pixel] missing ingestUrl or key");
+    return;
+  }
+
+  // Send event to ingest endpoint with shop and key
+  // Uses fetch with keepalive, Content-Type text/plain to avoid preflight
   async function sendEvent(type, payload, clientId) {
     const body = JSON.stringify({
       type,
       clientId: clientId || null,
+      shop,
+      key,
       ...payload,
     });
     // DEBUG - log before send
-    console.log("[pvb-pixel] send", endpoint, body);
+    console.log("[pvb-pixel] send", ingestUrl, type);
     try {
-      const result = await fetch(endpoint, {
+      const result = await fetch(ingestUrl, {
         method: "POST",
         headers: { "Content-Type": "text/plain" },
         body,

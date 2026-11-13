@@ -35,7 +35,7 @@
   };
 
   // Events endpoint - use absolute URL from server data
-  const eventsEndpoint = eventsUrl || "/apps/board/api/events";
+  const eventsEndpoint = eventsUrl || "/apps/board/api/e";
 
   if (!items) return;
 

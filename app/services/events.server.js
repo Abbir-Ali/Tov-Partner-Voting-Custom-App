@@ -1,11 +1,8 @@
 /**
- * Events ingest endpoint: POST /apps/board/api/events (via App Proxy).
- * Accepts client-side analytics events from Web Pixel and results page.
- * Hashes clientId server-side with APP_EVENT_SALT (never trust client-sent visitorHash).
+ * Shared event processing logic.
+ * Used by both proxy.api.e.jsx (App Proxy) and pixel.e.jsx (public CORS).
  */
-/* global process */
 import { createHash } from "crypto";
-import { authenticate } from "../shopify.server.js";
 import {
   recordEvent,
   countRecentEvents,
@@ -13,6 +10,8 @@ import {
   CLIENT_ALLOWED_TYPES,
 } from "../models/events.server.js";
 import { log } from "../utils/log.server.js";
+
+export { CLIENT_ALLOWED_TYPES };
 
 const MAX_BODY_BYTES = 2 * 1024; // 2 KB
 const MAX_EVENTS_PER_REQUEST = 10;
@@ -30,7 +29,7 @@ let saltWarningLogged = false;
  * Hash clientId with shop and salt server-side.
  * Returns null if clientId or salt is missing.
  */
-function hashClientId(shop, clientId) {
+export function hashClientId(shop, clientId) {
   const salt = process.env.APP_EVENT_SALT;
   if (!salt) {
     if (!saltWarningLogged) {
@@ -45,46 +44,40 @@ function hashClientId(shop, clientId) {
     .digest("hex");
 }
 
-// Action only — POST /apps/board/api/events
-export const action = async ({ request }) => {
-  // Reject non-POST
-  if (request.method !== "POST") {
-    return new Response(null, { status: 405 });
-  }
-
-  // Authenticate the Shopify-signed proxy request
-  const { session } = await authenticate.public.appProxy(request);
-  const shop = session?.shop;
-  if (!shop) {
-    return new Response(null, { status: 204 });
-  }
-
-  // Read body as text, check byte length
+/**
+ * Parse and validate request body.
+ * @returns {{ ok: boolean, body?: object, reason?: string }}
+ */
+export async function parseEventBody(request) {
   let rawText;
   try {
     rawText = await request.text();
   } catch {
-    return new Response(null, { status: 204 });
+    return { ok: false, reason: "read_failed" };
   }
 
   if (new TextEncoder().encode(rawText).length > MAX_BODY_BYTES) {
-    log.warn("events.dropped", { shop, reason: "body_too_large" });
-    return new Response(null, { status: 204 });
+    return { ok: false, reason: "body_too_large" };
   }
 
-  // Parse JSON
   let body;
   try {
     body = JSON.parse(rawText);
   } catch {
-    return new Response(null, { status: 204 });
+    return { ok: false, reason: "parse_failed" };
   }
 
-  // Accept single event or array
-  const events = Array.isArray(body) ? body : [body];
+  return { ok: true, body };
+}
+
+/**
+ * Process an array of events.
+ * @returns {Promise<number>} Number of events recorded
+ */
+export async function processEvents(shop, events) {
   if (events.length > MAX_EVENTS_PER_REQUEST) {
     log.warn("events.dropped", { shop, reason: "too_many_events" });
-    return new Response(null, { status: 204 });
+    return 0;
   }
 
   let recorded = 0;
@@ -94,11 +87,11 @@ export const action = async ({ request }) => {
       continue; // Skip invalid types silently
     }
 
-    // Extract clientId from request, hash server-side (ignore any client-sent visitorHash)
+    // Extract clientId from request, hash server-side
     const clientId = typeof evt.clientId === "string" ? evt.clientId : null;
     const visitorHash = hashClientId(shop, clientId);
 
-    // Extract other fields (ignore unknown)
+    // Extract other fields
     const boardId = typeof evt.boardId === "string" ? evt.boardId : null;
     const valueCents = typeof evt.valueCents === "number" ? evt.valueCents : null;
     const currencyCode = typeof evt.currencyCode === "string" ? evt.currencyCode : null;
@@ -124,7 +117,6 @@ export const action = async ({ request }) => {
         continue;
       }
     } else {
-      // Anonymous: per-shop limit
       const anonCount = await countRecentShopEvents(shop, RATE_LIMIT_MINUTES);
       if (anonCount >= RATE_LIMIT_ANON) {
         log.warn("events.dropped", { shop, reason: "rate_limit_anon" });
@@ -132,7 +124,7 @@ export const action = async ({ request }) => {
       }
     }
 
-    // Record event (visitorHash may be null if no salt or no clientId)
+    // Record event
     const result = await recordEvent(shop, evt.type, {
       visitorHash,
       boardId,
@@ -148,9 +140,5 @@ export const action = async ({ request }) => {
     log.info("events.ingested", { shop, count: recorded });
   }
 
-  // Always respond 204 quickly
-  return new Response(null, { status: 204 });
-};
-
-// Reject GET requests
-export const loader = () => new Response(null, { status: 405 });
+  return recorded;
+}
