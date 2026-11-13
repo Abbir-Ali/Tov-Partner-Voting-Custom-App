@@ -1,0 +1,27 @@
+<div style="background:#FEFBF6;padding:32px 24px;font-family:Montserrat,Helvetica,Arial,sans-serif;color:#3F3D3E;">
+  <p style="margin:0 0 8px;font-size:12px;font-weight:700;letter-spacing:0.045em;text-transform:uppercase;color:#82736C;">Your board · {{ event.board_name|default:"Saved pieces" }}</p>
+  <h1 style="margin:0 0 12px;font-family:Georgia,'Times New Roman',serif;font-weight:400;font-size:30px;line-height:36px;">{{ event.partner_first_name }} loved {{ event.loved_count }} of {{ event.total }}.</h1>
+  <p style="margin:0 0 24px;font-size:15px;line-height:23px;">Hi {{ event.owner_first_name }}, {{ event.partner_first_name }} has voted on every piece. The ones you both love are ready to go into your cart.</p>
+
+  {% if event.loved_count > 0 %}
+  <p style="margin:0 0 10px;font-size:12px;font-weight:700;letter-spacing:0.045em;text-transform:uppercase;">Loved</p>
+  {% for item in event.loved_items %}
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#FFFFFF;border-radius:14px;margin:0 0 8px;">
+    <tr>
+      <td width="76" style="padding:8px;"><img src="{{ item.image_url }}" width="64" height="64" alt="{{ item.title }}" style="display:block;width:64px;height:64px;object-fit:contain;border-radius:10px;background:#F1ECE5;"></td>
+      <td style="padding:8px 12px 8px 4px;font-size:14px;line-height:20px;">
+        <strong>{{ item.title }}</strong><br>
+        {% if item.variant_title and item.variant_title != "Default Title" %}<span style="color:#82736C;">{{ item.variant_title }} · </span>{% endif %}<span style="color:#82736C;">{{ item.price }}</span>
+      </td>
+    </tr>
+  </table>
+  {% endfor %}
+  {% endif %}
+
+  <table role="presentation" cellpadding="0" cellspacing="0" style="margin:24px auto 12px;">
+    <tr><td style="background:#3F3D3E;border-radius:999px;">
+      <a href="{{ event.results_url }}" style="display:inline-block;padding:16px 36px;color:#FEFBF6;font-size:13px;font-weight:700;letter-spacing:0.045em;text-transform:uppercase;text-decoration:none;">See Your Results</a>
+    </td></tr>
+  </table>
+  <p style="margin:0;text-align:center;font-size:12px;color:#82736C;">Add the pieces you both love to your cart in one tap. Maybes stay on your board.</p>
+</div>

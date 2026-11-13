@@ -66,39 +66,38 @@ Each item in the array:
 | `image_url` | `"https://cdn.shopify.com/..."` |
 | `product_url` | `"https://store.com/products/velvet-sofa"` |
 
-## Suggested Email Template
+## Tested Email (Klaviyo Flow)
 
-**Subject:**
-```
-{{ event.partner_first_name }} voted on your board
-```
+### Flow Setup
 
-**Preview text:**
-```
-Loved {{ event.loved_count }} of {{ event.total }}. Your cart is ready.
-```
+| Setting | Value |
+|---------|-------|
+| Name | Partner Voting Board – Voting Done |
+| Trigger | Metric: **PVB Voting Completed** |
+| Re-entry | Allow re-entry |
+| Filters | None |
+| Delay | None |
 
-**Body:**
+### Email Settings
 
----
+| Setting | Value |
+|---------|-------|
+| Subject | `{{ event.partner_first_name }} voted on your board` |
+| Preview text | `Loved {{ event.loved_count }} of {{ event.total }}. Your cart is ready.` |
+| Smart Sending | **OFF** (this email is the answer the shopper is waiting for) |
+| UTM tracking | ON |
 
-{{ event.partner_first_name }} loved {{ event.loved_count }} of {{ event.total }}.
+### Content
 
-{% if event.loved_count > 0 %}
-**What they loved:**
+1. Start with a blank template.
+2. Add your store logo at the top.
+3. Add one HTML block with the contents of `docs/klaviyo/voting-done-email.html`.
+4. Keep Klaviyo's default footer (unsubscribe link + organization address are required).
 
-{% for item in event.loved_items %}
-{{ item.title }}{% if item.variant_title %} – {{ item.variant_title }}{% endif %}
-{{ item.price }}
-{% endfor %}
+### Notes
 
-{% endif %}
-
-[See Your Results]({{ event.results_url }})
-
----
-
-Keep the tone warm and plain. No emoji, no exclamation marks.
+- The template hides `variant_title` when it equals "Default Title" (single-variant products).
+- Georgia is the email-safe stand-in for GT Ultra Fine (the brand heading font).
 
 ## Test Event
 
