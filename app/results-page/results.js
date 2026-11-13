@@ -25,7 +25,7 @@
     return;
   }
 
-  const { shopName, partnerFirstName, status, voted, total, shareUrl, boardId, items, copy } = DATA;
+  const { shopName, partnerFirstName, status, voted, total, shareUrl, boardId, items, copy, lovedTotalFormatted } = DATA;
   const routes = window.__PVB_ROUTES || {
     root: "/",
     cart: "/cart.js",
@@ -65,14 +65,6 @@
   // Available loved items for cart
   const lovedAvailable = loved.filter((i) => i.available);
   const lovedUnavailable = loved.filter((i) => !i.available);
-
-  // Calculate total price of available loved items
-  const lovedTotal = lovedAvailable.reduce((sum, i) => sum + (i.priceCents || 0), 0);
-
-  function formatPrice(cents) {
-    if (!cents) return "$0.00";
-    return "$" + (cents / 100).toFixed(2);
-  }
 
   // Cart state
   let adding = false;
@@ -391,7 +383,7 @@
       </div>`;
 
     html += noticeHtml;
-    html += section("Loved", lovedAvailable.length, loved, "pvb-tag-love", "Loved", false, false);
+    html += section("Loved", loved.length, loved, "pvb-tag-love", "Loved", false, false);
     html += section("Maybe", maybe.length, maybe, "pvb-tag-maybe", "Maybe", true, false);
     html += section("Not For Us", pass.length, pass, "pvb-tag-pass", "Not For Us", false, true);
 
@@ -400,8 +392,8 @@
     if (lovedAvailable.length > 0) {
       const ctaText =
         lovedUnavailable.length > 0
-          ? `Add ${lovedAvailable.length} Loved ${lovedAvailable.length === 1 ? "Piece" : "Pieces"} to Cart · ${formatPrice(lovedTotal)}`
-          : (copy.resultsCta || "Add Loved to Cart") + ` · ${formatPrice(lovedTotal)}`;
+          ? `Add ${lovedAvailable.length} Loved ${lovedAvailable.length === 1 ? "Piece" : "Pieces"} to Cart · ${lovedTotalFormatted}`
+          : (copy.resultsCta || "Add Loved to Cart") + ` · ${lovedTotalFormatted}`;
 
       stickyHtml = `
         <div class="pvb-sticky">

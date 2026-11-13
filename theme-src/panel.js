@@ -352,7 +352,7 @@
     line1.textContent = 'Shared with ' + capitalizeFirst(e.partnerFirstName || '');
     var line2 = document.createElement('div');
     line2.className = 'pvb-shared-line2';
-    line2.textContent = 'Waiting for their votes';
+    line2.textContent = 'See their votes anytime';
     textWrap.appendChild(line1);
     textWrap.appendChild(line2);
     row.appendChild(textWrap);

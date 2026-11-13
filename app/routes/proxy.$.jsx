@@ -198,6 +198,21 @@ function buildResultsPage({
   const voteMap = new Map();
   for (const v of votes) voteMap.set(v.boardItemId, v.verdict);
 
+  // Calculate loved-and-available total on the server
+  let lovedAvailableTotal = 0;
+  let currencyCode = null;
+  for (const item of items) {
+    const verdict = voteMap.get(item.id);
+    if (verdict === "LOVE" && item.available) {
+      lovedAvailableTotal += item.priceCents || 0;
+      if (!currencyCode && item.currencyCode) {
+        currencyCode = item.currencyCode;
+      }
+    }
+  }
+  // Format total with proper currency (convert cents back to dollars)
+  const lovedTotalFormatted = formatPrice(lovedAvailableTotal / 100, currencyCode || "USD");
+
   // Build data JSON
   const dataObj = {
     shopName,
@@ -207,6 +222,7 @@ function buildResultsPage({
     total: items.length,
     shareUrl: `${shopUrl}${proxyPath}/${board.shareToken}`,
     boardId: board.id,
+    lovedTotalFormatted,
     items: items.map((item) => ({
       variantId: item.variantId,
       title: item.title,
@@ -406,6 +422,7 @@ export const loader = async ({ request, params }) => {
         variantTitle,
         price,
         priceCents,
+        currencyCode: variant?.currencyCode || "USD",
         image,
         url: productUrl,
         available,

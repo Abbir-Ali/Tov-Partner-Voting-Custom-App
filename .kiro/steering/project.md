@@ -171,3 +171,10 @@ Buttons: pill, uppercase bold, +4.5% letter-spacing. Voice: warm, plain,
 second person, Title Case CTAs, no emoji, no exclamation hype.
 
 No gradients, neon, or purple.
+
+
+## Handoff
+
+- When Abbir says "run the handoff", read .kiro/handoff/prompt.md and do exactly that task.
+- When you STOP, write your full report to .kiro/handoff/report.md (overwrite it): what changed, files, build sizes, reviewer result, test steps, and anything you could not do. Start it with the date and time and the first line of the prompt.
+- Never commit anything under .kiro/handoff/ (it is in .gitignore).
