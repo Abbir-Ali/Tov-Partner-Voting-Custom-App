@@ -1,4 +1,5 @@
-import { Link, useLoaderData } from "react-router";
+import { Link, useLoaderData, useFetcher } from "react-router";
+import { useAppBridge } from "@shopify/app-bridge-react";
 import { boundary } from "@shopify/shopify-app-react-router/server";
 import { authenticate } from "../shopify.server";
 import {
@@ -8,6 +9,8 @@ import {
 import {
   sendPendingNotifications,
   hasFailedNotifications,
+  getNotificationStats,
+  retryFailedNotifications,
 } from "../services/notify.server.js";
 import { getSettings } from "../models/settings.server.js";
 
@@ -30,11 +33,39 @@ export const loader = async ({ request }) => {
   const needsKlaviyoKey = settings.notificationsEnabled && !settings.klaviyoKeyEncrypted;
   const hasFailedNotifs = await hasFailedNotifications(shop);
 
-  return { syncOk, needsKlaviyoKey, hasFailedNotifs };
+  // Get notification stats for the card
+  const notifyStats = await getNotificationStats(shop);
+
+  return { syncOk, needsKlaviyoKey, hasFailedNotifs, notifyStats };
+};
+
+export const action = async ({ request }) => {
+  const { session } = await authenticate.admin(request);
+  const formData = await request.formData();
+  const intent = formData.get("intent");
+
+  if (intent === "retryFailed") {
+    const result = await retryFailedNotifications(session.shop);
+    return Response.json({ ok: true, retryResult: result });
+  }
+
+  return Response.json({ ok: false }, { status: 400 });
 };
 
 export default function Index() {
-  const { syncOk, needsKlaviyoKey, hasFailedNotifs } = useLoaderData();
+  const { syncOk, needsKlaviyoKey, hasFailedNotifs, notifyStats } = useLoaderData();
+  const fetcher = useFetcher();
+  const shopify = useAppBridge();
+
+  const handleRetryFailed = () => {
+    fetcher.submit({ intent: "retryFailed" }, { method: "post" });
+  };
+
+  // Show toast when retry completes
+  if (fetcher.data?.ok && fetcher.data?.retryResult) {
+    const { reset, sent } = fetcher.data.retryResult;
+    shopify.toast.show(`Retried ${reset}, sent ${sent}`);
+  }
 
   return (
     <s-page heading="Partner Voting Board">
@@ -53,6 +84,22 @@ export default function Index() {
           Check your <Link to="/app/settings">Klaviyo key in Settings</Link>.
         </s-banner>
       )}
+
+      {/* Notification status card */}
+      <s-section heading="Notification status">
+        <s-paragraph>
+          Sent (30 days): {notifyStats.sent} · Pending: {notifyStats.pending} · Failed: {notifyStats.failed}
+        </s-paragraph>
+        {notifyStats.failed > 0 && (
+          <s-button
+            onClick={handleRetryFailed}
+            disabled={fetcher.state !== "idle" || undefined}
+          >
+            Retry Failed Now
+          </s-button>
+        )}
+      </s-section>
+
       <s-section>
         <s-paragraph>
           Shoppers share boards and partners vote on the storefront. Settings

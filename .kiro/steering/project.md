@@ -179,3 +179,7 @@ No gradients, neon, or purple.
 - When you STOP, write your full report to .kiro/handoff/report.md (overwrite it): what changed, files, build sizes, reviewer result, test steps, and anything you could not do. Start it with the date and time and the first line of the prompt.
 - Get the real time from the system (PowerShell: Get-Date -Format "yyyy-MM-dd HH:mm") before writing the report.
 - Never commit anything under .kiro/handoff/ (it is in .gitignore).
+
+## Admin-first
+
+Anything a merchant or TOV's team may change later (keys, toggles, limits, copy, names, thresholds) goes in the app admin Settings, stored per shop, not in code constants or .env. Only server secrets and infrastructure values stay in .env.

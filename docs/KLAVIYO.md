@@ -10,8 +10,9 @@ Partner Voting Board sends a "voting done" event to Klaviyo when a partner finis
 2. Click "Create Private API Key".
 3. Name it something like "Partner Voting Board".
 4. Under Scopes, enable:
-   - **Events: Write** (required)
    - **Accounts: Read** (for key validation)
+   - **Events: Full Access** (to send the voting-done event)
+   - **Profiles: Full Access** (so Klaviyo can create the shopper's profile)
 5. Copy the key (you won't see it again).
 
 ### 2. Add the Key in Settings
@@ -116,7 +117,7 @@ If Klaviyo is unreachable, the app retries up to 3 times over 7 days. After 3 fa
 
 | Issue | Solution |
 |-------|----------|
-| "Klaviyo didn't accept this key" | Check the key has Events: Write and Accounts: Read scopes |
+| "Klaviyo didn't accept this key" | Check the key has Accounts: Read, Events: Full Access, and Profiles: Full Access scopes |
 | "Encryption key missing" banner | Add APP_ENCRYPTION_KEY to .env (see .env.example) |
 | Events not appearing in Klaviyo | Check the metric name is exactly "PVB Voting Completed" |
 | Email not sending | Confirm the flow is Live and the trigger matches the metric |

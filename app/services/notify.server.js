@@ -10,12 +10,20 @@ import { log } from "../utils/log.server.js";
 import { fetchVariants } from "./products.server.js";
 
 const KLAVIYO_API_BASE = "https://a.klaviyo.com/api";
-const KLAVIYO_REVISION = "2025-01-15";
+const KLAVIYO_REVISION = "2026-10-15";
 const METRIC_NAME = "PVB Voting Completed";
 const NOTIFY_TIMEOUT_MS = 8000;
 const MAX_LOVED_ITEMS = 6;
 const MAX_ATTEMPTS = 3;
-const RETRY_WINDOW_DAYS = 7;
+const RETRY_WINDOW_HOURS = 24;
+
+/**
+ * Prisma filter to exclude "skipped_old" but include NULL (normal pending boards).
+ * Prisma's `{ not: "skipped_old" }` doesn't match NULL, so we need OR.
+ */
+const NOT_SKIPPED_OLD = {
+  OR: [{ notifyErrorCode: null }, { notifyErrorCode: { not: "skipped_old" } }],
+};
 
 /**
  * Formats a price as "$1,234.00" for the given currency.
@@ -212,6 +220,31 @@ export async function sendVotingCompleted(boardId) {
     return { ok: false, reason: "no_key" };
   }
 
+  // Board finished before Klaviyo was connected? Skip and mark so we don't recheck.
+  if (settings.klaviyoConnectedAt && board.votingCompletedAt < settings.klaviyoConnectedAt) {
+    if (board.notifyErrorCode !== "skipped_old") {
+      log.info("notify.skipped", { shop, boardId, reason: "before_connected" });
+      await db.board.update({
+        where: { id: boardId },
+        data: { notifyErrorCode: "skipped_old" },
+      });
+    }
+    return { ok: false, reason: "before_connected" };
+  }
+
+  // Board too old (over 24 hours)? Skip and mark.
+  const retryCutoff = new Date(Date.now() - RETRY_WINDOW_HOURS * 60 * 60 * 1000);
+  if (board.votingCompletedAt < retryCutoff) {
+    if (board.notifyErrorCode !== "skipped_old") {
+      log.info("notify.skipped", { shop, boardId, reason: "too_old" });
+      await db.board.update({
+        where: { id: boardId },
+        data: { notifyErrorCode: "skipped_old" },
+      });
+    }
+    return { ok: false, reason: "too_old" };
+  }
+
   const apiKey = decrypt(settings.klaviyoKeyEncrypted);
   if (!apiKey) {
     log.warn("notify.skipped", { shop, boardId, reason: "decrypt_failed" });
@@ -246,9 +279,11 @@ export async function sendVotingCompleted(boardId) {
       for (const variantId of lovedItemIds.slice(0, MAX_LOVED_ITEMS)) {
         const v = variantMap.get(variantId);
         if (v) {
+          // Skip "Default Title" for single-variant products
+          const variantTitle = v.variantTitle === "Default Title" ? "" : (v.variantTitle || "");
           lovedItems.push({
             title: v.productTitle || "Product",
-            variant_title: v.variantTitle || "",
+            variant_title: variantTitle,
             price: formatPrice(v.price, v.currencyCode),
             image_url: v.imageUrl || "",
             product_url: `https://${shop}/products/${v.handle}`,
@@ -325,17 +360,28 @@ export async function sendVotingCompleted(boardId) {
 /**
  * Retries pending notifications for a shop (boards that completed but weren't notified).
  * Called from admin Home loader for self-healing.
+ * Only sends for boards finished after Klaviyo was connected and within 24 hours.
  */
 export async function sendPendingNotifications(shop) {
-  const cutoff = new Date(Date.now() - RETRY_WINDOW_DAYS * 24 * 60 * 60 * 1000);
+  const settings = await db.shopSettings.findUnique({ where: { shop } });
+  if (!settings?.klaviyoConnectedAt) {
+    return { attempted: 0, sent: 0 };
+  }
+
+  const retryCutoff = new Date(Date.now() - RETRY_WINDOW_HOURS * 60 * 60 * 1000);
+  // Use the later of: 24h ago or when Klaviyo was connected
+  const effectiveCutoff = retryCutoff > settings.klaviyoConnectedAt
+    ? retryCutoff
+    : settings.klaviyoConnectedAt;
 
   const pending = await db.board.findMany({
     where: {
       shop,
       status: "VOTED",
-      votingCompletedAt: { gte: cutoff },
+      votingCompletedAt: { gte: effectiveCutoff },
       notifiedAt: null,
       notifyAttempts: { lt: MAX_ATTEMPTS },
+      ...NOT_SKIPPED_OLD,
     },
     select: { id: true },
     take: 10, // Process max 10 per page load
@@ -354,17 +400,124 @@ export async function sendPendingNotifications(shop) {
  * Checks if there are failed notifications that need attention.
  */
 export async function hasFailedNotifications(shop) {
-  const cutoff = new Date(Date.now() - RETRY_WINDOW_DAYS * 24 * 60 * 60 * 1000);
+  const settings = await db.shopSettings.findUnique({ where: { shop } });
+  if (!settings?.klaviyoConnectedAt) {
+    return false;
+  }
+
+  const retryCutoff = new Date(Date.now() - RETRY_WINDOW_HOURS * 60 * 60 * 1000);
+  const effectiveCutoff = retryCutoff > settings.klaviyoConnectedAt
+    ? retryCutoff
+    : settings.klaviyoConnectedAt;
 
   const count = await db.board.count({
     where: {
       shop,
       status: "VOTED",
-      votingCompletedAt: { gte: cutoff },
+      votingCompletedAt: { gte: effectiveCutoff },
       notifiedAt: null,
       notifyAttempts: { gte: MAX_ATTEMPTS },
+      ...NOT_SKIPPED_OLD,
     },
   });
 
   return count > 0;
+}
+
+/**
+ * Returns notification stats for the admin dashboard.
+ */
+export async function getNotificationStats(shop) {
+  const settings = await db.shopSettings.findUnique({ where: { shop } });
+  const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+
+  // Sent in last 30 days (no klaviyoConnectedAt filter - these already succeeded)
+  const sent = await db.board.count({
+    where: {
+      shop,
+      status: "VOTED",
+      notifiedAt: { gte: thirtyDaysAgo },
+    },
+  });
+
+  // For pending/failed, only count boards after Klaviyo was connected and within 24h
+  if (!settings?.klaviyoConnectedAt) {
+    return { sent, pending: 0, failed: 0 };
+  }
+
+  const retryCutoff = new Date(Date.now() - RETRY_WINDOW_HOURS * 60 * 60 * 1000);
+  const effectiveCutoff = retryCutoff > settings.klaviyoConnectedAt
+    ? retryCutoff
+    : settings.klaviyoConnectedAt;
+
+  const [pending, failed] = await Promise.all([
+    // Pending (can still retry)
+    db.board.count({
+      where: {
+        shop,
+        status: "VOTED",
+        votingCompletedAt: { gte: effectiveCutoff },
+        notifiedAt: null,
+        notifyAttempts: { lt: MAX_ATTEMPTS },
+        ...NOT_SKIPPED_OLD,
+      },
+    }),
+    // Failed (exhausted retries)
+    db.board.count({
+      where: {
+        shop,
+        status: "VOTED",
+        votingCompletedAt: { gte: effectiveCutoff },
+        notifiedAt: null,
+        notifyAttempts: { gte: MAX_ATTEMPTS },
+        ...NOT_SKIPPED_OLD,
+      },
+    }),
+  ]);
+
+  return { sent, pending, failed };
+}
+
+/**
+ * Resets notifyAttempts for failed boards and retries them.
+ * Called from the "Retry Failed Now" button on admin Home.
+ * Only retries boards finished after Klaviyo was connected and within 24 hours.
+ */
+export async function retryFailedNotifications(shop) {
+  const settings = await db.shopSettings.findUnique({ where: { shop } });
+  if (!settings?.klaviyoConnectedAt) {
+    return { reset: 0, sent: 0 };
+  }
+
+  const retryCutoff = new Date(Date.now() - RETRY_WINDOW_HOURS * 60 * 60 * 1000);
+  const effectiveCutoff = retryCutoff > settings.klaviyoConnectedAt
+    ? retryCutoff
+    : settings.klaviyoConnectedAt;
+
+  // Reset attempts for failed boards
+  const resetResult = await db.board.updateMany({
+    where: {
+      shop,
+      status: "VOTED",
+      votingCompletedAt: { gte: effectiveCutoff },
+      notifiedAt: null,
+      notifyAttempts: { gte: MAX_ATTEMPTS },
+      ...NOT_SKIPPED_OLD,
+    },
+    data: {
+      notifyAttempts: 0,
+      notifyErrorCode: null,
+    },
+  });
+
+  // Now retry them
+  const retryResult = await sendPendingNotifications(shop);
+
+  log.info("notify.retry_failed", {
+    shop,
+    reset: resetResult.count,
+    sent: retryResult.sent,
+  });
+
+  return { reset: resetResult.count, sent: retryResult.sent };
 }

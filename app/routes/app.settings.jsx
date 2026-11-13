@@ -219,8 +219,8 @@ export default function SettingsPage() {
 
         {/* Missing encryption key banner */}
         {!settings.hasEncryptionKey && (
-          <s-banner tone="critical" heading="Encryption key missing">
-            Add APP_ENCRYPTION_KEY to .env to store Klaviyo keys securely.
+          <s-banner tone="critical" heading="App not fully set up">
+            The app isn&apos;t fully set up yet. Contact the developer.
           </s-banner>
         )}
 
@@ -316,6 +316,23 @@ export default function SettingsPage() {
             checked={settings.notificationsEnabled || undefined}
           />
 
+          {/* Metric name for Klaviyo flow setup */}
+          <s-text-field
+            label="Klaviyo metric name"
+            value="PVB Voting Completed"
+            readonly
+            details="Use this metric name when creating your flow trigger in Klaviyo."
+          />
+          <s-button
+            variant="plain"
+            onClick={() => {
+              navigator.clipboard.writeText("PVB Voting Completed");
+              shopify.toast.show("Metric name copied");
+            }}
+          >
+            Copy metric name
+          </s-button>
+
           {/* Klaviyo connection status */}
           {isKlaviyoConnected ? (
             <>
@@ -353,7 +370,7 @@ export default function SettingsPage() {
               type="password"
               value=""
               error={errors.klaviyoKey}
-              details="Create a private key in Klaviyo with Events: Write access. In Klaviyo, build a flow triggered by the metric 'PVB Voting Completed'."
+              details="Create a private key in Klaviyo with Accounts: Read, Events: Full Access, and Profiles: Full Access scopes."
               disabled={!settings.hasEncryptionKey || undefined}
             />
           )}
