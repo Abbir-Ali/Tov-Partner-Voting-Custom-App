@@ -1,0 +1,22 @@
+api_version = "2026-10"
+type = "web_pixel_extension"
+name = "pvb-pixel"
+runtime_context = "strict"
+uid = "ed2d8c62-335f-5e38-2422-4e1c84cd7ff4d612fdf5"
+
+[customer_privacy]
+analytics = true
+marketing = false
+preferences = false
+sale_of_data = "disabled"
+
+[settings]
+type = "object"
+
+[settings.fields.accountID]
+name = "Account ID"
+description = "Shop domain for event attribution"
+type = "single_line_text_field"
+validations = [
+  { name = "min", value = "1" }
+]

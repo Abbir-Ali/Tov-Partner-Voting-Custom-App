@@ -243,6 +243,13 @@
 
   loadBoard();
 
+  // Analytics helper: publish custom event for Web Pixel
+  function publishEvent(type, data) {
+    if (window.Shopify && window.Shopify.analytics && window.Shopify.analytics.publish) {
+      window.Shopify.analytics.publish('pvb_' + type, data || {});
+    }
+  }
+
   window.__pvb = {
     setMaxItems: setMaxItems,
     getMaxItems: getMaxItems,
@@ -252,6 +259,7 @@
     addItem: addItem,
     removeItem: removeItem,
     dispatchEvent: dispatchEvent,
+    publishEvent: publishEvent,
     fetchProduct: fetchProduct,
     findVariant: findVariant,
     toNumericId: toNumericId,

@@ -182,6 +182,7 @@
     pill.setAttribute('aria-expanded', 'true');
     panel.focus();
     pvb.dispatchEvent('pvb:drawer-open', { count: pvb.getCount() });
+    pvb.publishEvent('drawer_open', { count: pvb.getCount() });
     pvb.lockScroll();
     renderItems();
   }
@@ -258,6 +259,7 @@
           body: JSON.stringify(payload)
         }).then(function (res) {
           if (!res.ok) throw new Error('cart add failed');
+          pvb.publishEvent('drawer_add_all', { count: toAdd.length });
           window.location.href = cartUrl;
         });
       })

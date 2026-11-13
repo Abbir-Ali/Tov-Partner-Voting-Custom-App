@@ -7,6 +7,7 @@ import {
 } from "../models/board.server.js";
 import { fetchVariants, checkEligibility } from "../services/products.server.js";
 import { creatorKey } from "../utils/tokens.server.js";
+import { recordEvent } from "../models/events.server.js";
 import { log } from "../utils/log.server.js";
 
 const NO_STORE       = { "Cache-Control": "no-store" };
@@ -142,6 +143,9 @@ export const action = async ({ request }) => {
   });
 
   log.info("board.created", { shop, items: data.items.length });
+
+  // Record analytics event
+  await recordEvent(shop, "board_shared", { boardId: board.id });
 
   return json(
     {

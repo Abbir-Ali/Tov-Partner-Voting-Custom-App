@@ -7,7 +7,7 @@ name = "Partner Voting Board"
 
 [access_scopes]
 # Learn more at https://shopify.dev/docs/apps/tools/cli/configuration#access_scopes
-scopes = "read_products,write_app_proxy"
+scopes = "read_products,write_app_proxy,write_pixels,read_customer_events,read_orders"
 
 [app_proxy]
 url = "/proxy"
@@ -24,6 +24,10 @@ api_version = "2026-10"
   [[webhooks.subscriptions]]
   uri = "/webhooks/app/scopes_update"
   topics = [ "app/scopes_update" ]
+
+  [[webhooks.subscriptions]]
+  uri = "/webhooks/orders/create"
+  topics = [ "orders/create" ]
 
 [auth]
 redirect_urls = [ "https://example.com/api/auth" ]

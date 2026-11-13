@@ -25,7 +25,7 @@
     return;
   }
 
-  const { shopName, partnerFirstName, status, voted, total, shareUrl, boardId, items, copy, lovedTotalFormatted } = DATA;
+  const { shopName, partnerFirstName, status, voted, total, shareUrl, boardId, items, copy, lovedTotalFormatted, eventsUrl } = DATA;
   const routes = window.__PVB_ROUTES || {
     root: "/",
     cart: "/cart.js",
@@ -33,6 +33,9 @@
     cartUpdate: "/cart/update.js",
     cartPage: "/cart",
   };
+
+  // Events endpoint - use absolute URL from server data
+  const eventsEndpoint = eventsUrl || "/apps/board/api/events";
 
   if (!items) return;
 
@@ -73,6 +76,21 @@
   // Toast notification
   let toastEl = null;
   let toastTimer = null;
+
+  // Send analytics event via beacon (no-preflight, fire-and-forget)
+  function sendEvent(type, meta) {
+    try {
+      const body = JSON.stringify({
+        type,
+        boardId: String(boardId),
+        valueCents: meta?.valueCents,
+        meta: meta?.added !== undefined ? { added: meta.added, failed: meta.failed || 0 } : undefined,
+      });
+      navigator.sendBeacon(eventsEndpoint, body);
+    } catch (e) {
+      // Silent fail for analytics
+    }
+  }
 
   function showToast(msg, dur = 3000) {
     if (!toastEl) {
@@ -219,6 +237,16 @@
       // Set cart attributes
       await setCartAttributes({ _pvb_board: String(boardId), _pvb_source: "results" });
 
+      // Calculate total value of added items in cents
+      const addedValue = lovedAvailable
+        .filter((i) => added.includes(i.variantId))
+        .reduce((sum, i) => sum + (i.priceCents || 0), 0);
+      sendEvent("results_add_loved", {
+        valueCents: addedValue,
+        added: added.length,
+        failed: failed.length,
+      });
+
       if (failed.length > 0) {
         // Some failed: show notice, change button to View Cart
         const failedItems = lovedAvailable.filter((i) => failed.includes(i.variantId));
@@ -275,6 +303,9 @@
 
       await setCartAttributes({ _pvb_board: String(boardId), _pvb_source: "results" });
       addedItems.add(item.variantId);
+
+      sendEvent("results_add_maybe", { valueCents: item.priceCents || 0 });
+
       btn.textContent = "Added";
       btn.classList.add("added");
 

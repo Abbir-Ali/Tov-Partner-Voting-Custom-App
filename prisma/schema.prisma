@@ -126,8 +126,29 @@ model ShopSettings {
   klaviyoKeyEncrypted     String?
   klaviyoKeyLast4         String?
   klaviyoConnectedAt      DateTime?
+  pixelId                 String?
+  pixelSyncedAt           DateTime?
   createdAt               DateTime  @default(now())
   updatedAt               DateTime  @updatedAt
 
   @@map("shop_settings")
+}
+
+model AnalyticsEvent {
+  id           String   @id @default(cuid())
+  shop         String
+  type         String
+  boardId      String?
+  visitorHash  String?
+  variant      String?
+  valueCents   Int?
+  currencyCode String?
+  orderId      String?
+  meta         Json?
+  createdAt    DateTime @default(now())
+
+  @@unique([shop, orderId])
+  @@index([shop, type, createdAt])
+  @@index([shop, boardId])
+  @@map("analytics_events")
 }

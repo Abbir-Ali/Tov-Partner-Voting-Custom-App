@@ -177,6 +177,7 @@ No gradients, neon, or purple.
 
 - When Abbir says "run the handoff", read .kiro/handoff/prompt.md and do exactly that task.
 - When you STOP, write your full report to .kiro/handoff/report.md (overwrite it): what changed, files, build sizes, reviewer result, test steps, and anything you could not do. Start it with the date and time and the first line of the prompt.
+- Reports go in .kiro/handoff/report.md only (it's gitignored); never create reports in docs/.
 - Get the real time from the system (PowerShell: Get-Date -Format "yyyy-MM-dd HH:mm") before writing the report.
 - Never commit anything under .kiro/handoff/ (it is in .gitignore).
 

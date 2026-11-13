@@ -22,6 +22,7 @@ import { fetchVariants } from "../services/products.server.js";
 import { VOTE_JS, VOTE_CSS } from "../vote-page/dist/vote-assets.server.js";
 import { RESULTS_JS, RESULTS_CSS } from "../results-page/dist/results-assets.server.js";
 import { checkEligibility } from "../services/products.server.js";
+import { recordEvent } from "../models/events.server.js";
 import { createHash } from "crypto";
 import { log } from "../utils/log.server.js";
 
@@ -213,6 +214,9 @@ function buildResultsPage({
   // Format total with proper currency (convert cents back to dollars)
   const lovedTotalFormatted = formatPrice(lovedAvailableTotal / 100, currencyCode || "USD");
 
+  // Build absolute events URL (works with Markets locale prefixes)
+  const eventsUrl = `${proxyPath}/api/events`;
+
   // Build data JSON
   const dataObj = {
     shopName,
@@ -223,6 +227,7 @@ function buildResultsPage({
     shareUrl: `${shopUrl}${proxyPath}/${board.shareToken}`,
     boardId: board.id,
     lovedTotalFormatted,
+    eventsUrl,
     items: items.map((item) => ({
       variantId: item.variantId,
       title: item.title,
@@ -441,6 +446,12 @@ export const loader = async ({ request, params }) => {
       pass: passCount,
     });
 
+    // Record results_opened event (every view)
+    await recordEvent(shop, "results_opened", {
+      boardId: board.id,
+      meta: { status: board.status },
+    });
+
     return liquid(
       buildResultsPage({
         board,
@@ -488,7 +499,12 @@ export const loader = async ({ request, params }) => {
   }
 
   // Set partnerOpenedAt if null (conditional update)
-  await setPartnerOpenedAt(board.id);
+  const wasFirstOpen = await setPartnerOpenedAt(board.id);
+
+  // Record partner_opened event only on first open
+  if (wasFirstOpen) {
+    await recordEvent(shop, "partner_opened", { boardId: board.id });
+  }
 
   // Get existing votes
   const votes = await getVotesForBoard(board.id);

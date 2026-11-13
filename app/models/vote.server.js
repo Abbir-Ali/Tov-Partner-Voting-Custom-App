@@ -181,6 +181,7 @@ export async function submitVote({ shop, token, itemId, verdict, settings }) {
   return {
     ok: true,
     data: {
+      boardId: result.boardId,
       voted: result.voted,
       total: result.total,
       complete: result.boardCompleted,

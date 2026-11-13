@@ -363,6 +363,7 @@
 
     updateSubmitButtonText();
     pvb.dispatchEvent('pvb:share-open', { count: pvb.getCount() });
+    pvb.publishEvent('share_open', { count: pvb.getCount() });
   }
 
   // â”€â”€â”€ Close Sheet â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -681,6 +682,8 @@
     var message = buildShareMessage();
     var url = currentShareData.shareUrl;
     var fullText = message + ' ' + url;
+
+    pvb.publishEvent('share_channel', { channel: channel });
 
     if (channel === 'whatsapp') {
       window.open('https://wa.me/?text=' + encodeURIComponent(fullText), '_blank');
