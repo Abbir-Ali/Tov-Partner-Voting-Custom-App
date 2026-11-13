@@ -545,3 +545,74 @@ Events:
 - `proxy.vote_page_variants` — vote page variant fetch error
 
 Never logged: emails, names, notes, tokens, request bodies.
+
+
+
+## Klaviyo Notification Test (Task 10)
+
+### Prerequisites
+
+1. APP_ENCRYPTION_KEY set in .env (generate with command in .env.example)
+2. Klaviyo account with a private API key (Events: Write, Accounts: Read scopes)
+3. Feature enabled in Admin settings
+4. `shopify app dev` running
+
+### Setup
+
+1. Generate APP_ENCRYPTION_KEY if missing:
+   ```
+   node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
+   ```
+   Add to .env: `APP_ENCRYPTION_KEY="<output>"`
+
+2. Create a Klaviyo private key with scopes: Events: Write, Accounts: Read
+
+### Test steps
+
+| Step | Action | Expected |
+|------|--------|----------|
+| 1 | Open Settings without APP_ENCRYPTION_KEY | "Encryption key missing" banner, Klaviyo field disabled |
+| 2 | Add APP_ENCRYPTION_KEY, restart dev server | Banner gone, Klaviyo field enabled |
+| 3 | Enter invalid key "pk_abc123", save | "Klaviyo didn't accept this key" error |
+| 4 | Enter valid key, save | "Settings saved" toast, "Connected · key ending in XXXX" appears |
+| 5 | Enter email in test field, click "Send Test Event" | "Test event sent to Klaviyo" toast |
+| 6 | Check Klaviyo Analytics → Metrics | "PVB Voting Completed" metric with test event |
+| 7 | Click "Remove key" | "Klaviyo key removed" toast, key field reappears |
+
+### End-to-end notification test
+
+1. Connect Klaviyo key in Settings
+2. Create and share a board with your email
+3. Open the vote link, vote on all items
+4. Check Klaviyo Analytics → Metrics → PVB Voting Completed
+5. Expected: Event with your email, vote counts, results_url
+
+### Database check (psql)
+
+```sql
+-- Check notification status after voting
+select id, status, "notifiedAt", "notifyAttempts", "notifyErrorCode"
+from boards order by "createdAt" desc limit 5;
+
+-- Check Klaviyo connection
+select shop, "klaviyoKeyLast4", "klaviyoConnectedAt"
+from shop_settings;
+```
+
+### Admin banners test
+
+| Condition | Banner |
+|-----------|--------|
+| Notifications on, no Klaviyo key | Info: "Connect Klaviyo in Settings..." |
+| Board with notifyAttempts >= 3 | Warning: "Some emails couldn't be sent..." |
+
+### App log events
+
+```
+klaviyo.key_saved    shop=...
+klaviyo.key_invalid  shop=...
+klaviyo.test_sent    shop=... ok=true
+notify.sent          shop=... boardId=...
+notify.skipped       shop=... boardId=... reason=no_key
+notify.failed        shop=... boardId=... code=401 attempt=1
+```

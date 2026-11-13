@@ -5,28 +5,52 @@ import {
   syncStorefrontConfig,
   needsSync,
 } from "../services/storefront-config.server.js";
+import {
+  sendPendingNotifications,
+  hasFailedNotifications,
+} from "../services/notify.server.js";
+import { getSettings } from "../models/settings.server.js";
 
 export const loader = async ({ request }) => {
   const { admin, session } = await authenticate.admin(request);
+  const shop = session.shop;
 
   // Self-heal: sync storefront config if needed
   let syncOk = true;
-  if (await needsSync(session.shop)) {
-    const result = await syncStorefrontConfig(admin, session.shop);
+  if (await needsSync(shop)) {
+    const result = await syncStorefrontConfig(admin, shop);
     syncOk = result.ok;
   }
 
-  return { syncOk };
+  // Self-heal: retry pending notifications
+  await sendPendingNotifications(shop);
+
+  // Check for banner conditions
+  const settings = await getSettings(shop);
+  const needsKlaviyoKey = settings.notificationsEnabled && !settings.klaviyoKeyEncrypted;
+  const hasFailedNotifs = await hasFailedNotifications(shop);
+
+  return { syncOk, needsKlaviyoKey, hasFailedNotifs };
 };
 
 export default function Index() {
-  const { syncOk } = useLoaderData();
+  const { syncOk, needsKlaviyoKey, hasFailedNotifs } = useLoaderData();
 
   return (
     <s-page heading="Partner Voting Board">
       {!syncOk && (
         <s-banner tone="warning" heading="Storefront settings didn't sync">
           <Link to="/app/settings">Save Settings</Link> to try again.
+        </s-banner>
+      )}
+      {needsKlaviyoKey && (
+        <s-banner tone="info" heading="Connect Klaviyo">
+          <Link to="/app/settings">Add your Klaviyo key</Link> so shoppers get an email when voting is done.
+        </s-banner>
+      )}
+      {hasFailedNotifs && (
+        <s-banner tone="warning" heading="Some emails couldn't be sent">
+          Check your <Link to="/app/settings">Klaviyo key in Settings</Link>.
         </s-banner>
       )}
       <s-section>

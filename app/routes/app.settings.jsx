@@ -1,5 +1,5 @@
-import { useEffect } from "react";
-import { Form, useActionData, useLoaderData } from "react-router";
+import { useEffect, useState } from "react";
+import { Form, useActionData, useLoaderData, useFetcher } from "react-router";
 import { useAppBridge } from "@shopify/app-bridge-react";
 import { boundary } from "@shopify/shopify-app-react-router/server";
 import { authenticate } from "../shopify.server.js";
@@ -8,7 +8,11 @@ import {
   getSettings,
   validateSettings,
   saveSettings,
+  saveKlaviyoKey,
+  removeKlaviyoKey,
 } from "../models/settings.server.js";
+import { validateKlaviyoKey, sendTestEvent } from "../services/notify.server.js";
+import { getEncryptionKey } from "../utils/crypto.server.js";
 import { syncStorefrontConfig } from "../services/storefront-config.server.js";
 import { log } from "../utils/log.server.js";
 
@@ -49,7 +53,9 @@ const COPY_FIELDS = [
 
 export const loader = async ({ request }) => {
   const { session } = await authenticate.admin(request);
-  return getSettings(session.shop);
+  const settings = await getSettings(session.shop);
+  const hasEncryptionKey = !!getEncryptionKey();
+  return { ...settings, hasEncryptionKey };
 };
 
 // ─── Action ──────────────────────────────────────────────────────────────────
@@ -57,6 +63,31 @@ export const loader = async ({ request }) => {
 export const action = async ({ request }) => {
   const { session, admin } = await authenticate.admin(request);
   const formData = await request.formData();
+  const intent = formData.get("intent");
+
+  // Handle Klaviyo key removal
+  if (intent === "removeKlaviyoKey") {
+    await removeKlaviyoKey(session.shop);
+    log.info("klaviyo.key_removed", { shop: session.shop });
+    return Response.json({ ok: true, klaviyoRemoved: true });
+  }
+
+  // Handle test event
+  if (intent === "testKlaviyo") {
+    const testEmail = formData.get("testEmail");
+    if (!testEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(testEmail)) {
+      return Response.json({
+        errors: { testEmail: "Enter a valid email address." },
+      }, { status: 400 });
+    }
+    const result = await sendTestEvent(session.shop, testEmail);
+    if (result.ok) {
+      return Response.json({ ok: true, testSent: true });
+    }
+    return Response.json({
+      errors: { testEmail: `Couldn't send: ${result.code}` },
+    }, { status: 400 });
+  }
 
   // Build flat input object from formData.
   const input = {
@@ -75,12 +106,40 @@ export const action = async ({ request }) => {
 
   const { data, errors } = validateSettings(input);
 
+  // Handle Klaviyo key save (separate from other settings validation)
+  const klaviyoKey = formData.get("klaviyoKey")?.trim();
+  let klaviyoError = null;
+
+  if (klaviyoKey) {
+    // Check encryption key is available
+    if (!getEncryptionKey()) {
+      klaviyoError = "Server missing APP_ENCRYPTION_KEY.";
+    } else {
+      // Validate with Klaviyo API
+      const validation = await validateKlaviyoKey(klaviyoKey);
+      if (!validation.ok) {
+        log.info("klaviyo.key_invalid", { shop: session.shop });
+        klaviyoError = "Klaviyo didn't accept this key.";
+      }
+    }
+  }
+
+  if (klaviyoError) {
+    errors.klaviyoKey = klaviyoError;
+  }
+
   if (Object.keys(errors).length > 0) {
     return Response.json({ errors }, { status: 400 });
   }
 
   await saveSettings(session.shop, data);
   log.info("settings.saved", { shop: session.shop });
+
+  // Save Klaviyo key if provided and valid
+  if (klaviyoKey) {
+    await saveKlaviyoKey(session.shop, klaviyoKey);
+    log.info("klaviyo.key_saved", { shop: session.shop });
+  }
 
   // Sync storefront config to app metafield (theme extensions read this).
   const syncResult = await syncStorefrontConfig(admin, session.shop);
@@ -114,23 +173,56 @@ export default function SettingsPage() {
   const settings   = useLoaderData();
   const actionData = useActionData();
   const shopify    = useAppBridge();
+  const fetcher    = useFetcher();
   const errors     = actionData?.errors ?? {};
   const hasErrors  = Object.keys(errors).length > 0;
+
+  // Local state for test email
+  const [testEmail, setTestEmail] = useState("");
 
   // Toast fires on every clean save. actionData?.savedAt is unique each time
   // (Date.now()), so the effect reliably re-fires even on back-to-back saves.
   useEffect(() => {
     if (actionData?.ok) {
-      shopify.toast.show(actionData?.syncWarning
-        ? "Settings saved (storefront sync failed)"
-        : "Settings saved"
-      );
+      if (actionData?.testSent) {
+        shopify.toast.show("Test event sent to Klaviyo");
+      } else if (actionData?.klaviyoRemoved) {
+        shopify.toast.show("Klaviyo key removed");
+      } else {
+        shopify.toast.show(actionData?.syncWarning
+          ? "Settings saved (storefront sync failed)"
+          : "Settings saved"
+        );
+      }
     }
-  }, [actionData?.savedAt, actionData?.ok, actionData?.syncWarning, shopify]);
+  }, [actionData?.savedAt, actionData?.ok, actionData?.syncWarning, actionData?.testSent, actionData?.klaviyoRemoved, shopify]);
+
+  // Handle remove key button
+  const handleRemoveKey = () => {
+    fetcher.submit({ intent: "removeKlaviyoKey" }, { method: "post" });
+  };
+
+  // Handle test event button
+  const handleTestEvent = () => {
+    fetcher.submit(
+      { intent: "testKlaviyo", testEmail },
+      { method: "post" }
+    );
+  };
+
+  const isKlaviyoConnected = !!settings.klaviyoKeyLast4;
+  const fetcherErrors = fetcher.data?.errors ?? {};
 
   return (
     <Form method="post" data-save-bar>
       <s-page heading="Settings">
+
+        {/* Missing encryption key banner */}
+        {!settings.hasEncryptionKey && (
+          <s-banner tone="critical" heading="Encryption key missing">
+            Add APP_ENCRYPTION_KEY to .env to store Klaviyo keys securely.
+          </s-banner>
+        )}
 
         {/* Sync warning banner */}
         {actionData?.syncWarning && (
@@ -223,6 +315,48 @@ export default function SettingsPage() {
             name="notificationsEnabled"
             checked={settings.notificationsEnabled || undefined}
           />
+
+          {/* Klaviyo connection status */}
+          {isKlaviyoConnected ? (
+            <>
+              <s-banner tone="success" heading="Klaviyo connected">
+                Key ending in {settings.klaviyoKeyLast4}
+              </s-banner>
+              <s-button
+                tone="critical"
+                variant="plain"
+                onClick={handleRemoveKey}
+                disabled={fetcher.state !== "idle" || undefined}
+              >
+                Remove key
+              </s-button>
+              <s-text-field
+                label="Test email"
+                name="testEmail"
+                type="email"
+                value={testEmail}
+                error={fetcherErrors.testEmail}
+                onChange={(e) => setTestEmail(e.target.value)}
+                details="Send a test event to preview the email in Klaviyo."
+              />
+              <s-button
+                onClick={handleTestEvent}
+                disabled={fetcher.state !== "idle" || !testEmail || undefined}
+              >
+                Send Test Event
+              </s-button>
+            </>
+          ) : (
+            <s-text-field
+              label="Klaviyo private API key"
+              name="klaviyoKey"
+              type="password"
+              value=""
+              error={errors.klaviyoKey}
+              details="Create a private key in Klaviyo with Events: Write access. In Klaviyo, build a flow triggered by the metric 'PVB Voting Completed'."
+              disabled={!settings.hasEncryptionKey || undefined}
+            />
+          )}
         </s-section>
 
         {/* ── e) Vote Page Copy ─────────────────────────────────────────── */}

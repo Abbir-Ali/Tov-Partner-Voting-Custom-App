@@ -3,6 +3,7 @@
  */
 
 import db from "../db.server.js";
+import { sendVotingCompleted } from "../services/notify.server.js";
 import {
   VERDICTS,
   VOTE_ERRORS,
@@ -165,11 +166,17 @@ export async function submitVote({ shop, token, itemId, verdict, settings }) {
     return {
       vote,
       boardCompleted,
+      boardId: board.id,
       voted: votes.length,
       total: totalItems,
       counts,
     };
   });
+
+  // Fire notification after board completes (non-blocking, doesn't delay response)
+  if (result.boardCompleted) {
+    triggerNotification(result.boardId);
+  }
 
   return {
     ok: true,
@@ -180,6 +187,14 @@ export async function submitVote({ shop, token, itemId, verdict, settings }) {
       counts: result.counts,
     },
   };
+}
+
+// Fire-and-forget notification after board completes (outside the main return).
+// This runs after the vote response is sent.
+function triggerNotification(boardId) {
+  sendVotingCompleted(boardId).catch(() => {
+    // Errors are logged inside sendVotingCompleted; nothing to do here.
+  });
 }
 
 /**

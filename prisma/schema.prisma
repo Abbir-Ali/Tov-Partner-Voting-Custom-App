@@ -64,6 +64,8 @@ model Board {
   partnerOpenedAt   DateTime?
   voteWrites        Int         @default(0)
   voteWindowStart   DateTime?
+  notifyAttempts    Int         @default(0)
+  notifyErrorCode   String?
   expiresAt         DateTime
   createdAt         DateTime    @default(now())
   updatedAt         DateTime    @updatedAt
@@ -121,6 +123,9 @@ model ShopSettings {
   copy                    Json      @default("{}")
   storefrontSyncedVersion Int?
   storefrontSyncedAt      DateTime?
+  klaviyoKeyEncrypted     String?
+  klaviyoKeyLast4         String?
+  klaviyoConnectedAt      DateTime?
   createdAt               DateTime  @default(now())
   updatedAt               DateTime  @updatedAt
 

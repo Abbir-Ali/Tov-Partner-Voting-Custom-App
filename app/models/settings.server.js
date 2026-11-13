@@ -1,5 +1,6 @@
 import db from "../db.server.js";
 import { DEFAULT_COPY, LIMITS } from "./settings.shared.js";
+import { encrypt } from "../utils/crypto.server.js";
 
 // Re-export so server-only callers that already import from here keep working.
 export { DEFAULT_COPY, LIMITS };
@@ -23,6 +24,9 @@ export async function getSettings(shop) {
       notificationsEnabled: true,
       excludeTag:           "pvb-exclude",
       copy:                 { ...DEFAULT_COPY },
+      klaviyoKeyEncrypted:  null,
+      klaviyoKeyLast4:      null,
+      klaviyoConnectedAt:   null,
       updatedAt:            null,
     };
   }
@@ -109,5 +113,49 @@ export async function saveSettings(shop, data) {
     where:  { shop },
     update: data,
     create: { shop, ...data },
+  });
+}
+
+
+/**
+ * Saves the Klaviyo private API key (encrypted).
+ * @param {string} shop
+ * @param {string} plainKey - The raw API key
+ */
+export async function saveKlaviyoKey(shop, plainKey) {
+  const encrypted = encrypt(plainKey);
+  if (!encrypted) {
+    throw new Error("Encryption failed - check APP_ENCRYPTION_KEY");
+  }
+
+  const last4 = plainKey.slice(-4);
+
+  return db.shopSettings.upsert({
+    where: { shop },
+    update: {
+      klaviyoKeyEncrypted: encrypted,
+      klaviyoKeyLast4: last4,
+      klaviyoConnectedAt: new Date(),
+    },
+    create: {
+      shop,
+      klaviyoKeyEncrypted: encrypted,
+      klaviyoKeyLast4: last4,
+      klaviyoConnectedAt: new Date(),
+    },
+  });
+}
+
+/**
+ * Removes the Klaviyo key from settings.
+ */
+export async function removeKlaviyoKey(shop) {
+  return db.shopSettings.update({
+    where: { shop },
+    data: {
+      klaviyoKeyEncrypted: null,
+      klaviyoKeyLast4: null,
+      klaviyoConnectedAt: null,
+    },
   });
 }
