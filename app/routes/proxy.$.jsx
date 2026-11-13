@@ -20,6 +20,8 @@ import {
 import { getVotesForBoard } from "../models/vote.server.js";
 import { fetchVariants } from "../services/products.server.js";
 import { VOTE_JS, VOTE_CSS } from "../vote-page/dist/vote-assets.server.js";
+import { RESULTS_JS, RESULTS_CSS } from "../results-page/dist/results-assets.server.js";
+import { checkEligibility } from "../services/products.server.js";
 import { createHash } from "crypto";
 import { log } from "../utils/log.server.js";
 
@@ -180,14 +182,54 @@ ${VOTE_JS}
 }
 
 /**
- * Build the results placeholder page with vote count.
+ * Build the results page HTML.
+ * The JS renders State A (voted) or State B (voting) dynamically.
  */
-function buildResultsPlaceholder({ board, shopName, shopUrl, voteCount, itemCount }) {
-  const partner = escapeForLiquid(board.partnerFirstName);
-  const statusText = voteCount > 0
-    ? `Waiting for ${partner}'s votes · ${voteCount} of ${itemCount} voted`
-    : `Waiting for ${partner} to start voting`;
+function buildResultsPage({
+  board,
+  items,
+  votes,
+  settings,
+  shopName,
+  shopUrl,
+  proxyPath,
+}) {
+  // Build vote map for item lookup
+  const voteMap = new Map();
+  for (const v of votes) voteMap.set(v.boardItemId, v.verdict);
 
+  // Build data JSON
+  const dataObj = {
+    shopName,
+    partnerFirstName: board.partnerFirstName,
+    status: board.status,
+    voted: votes.length,
+    total: items.length,
+    shareUrl: `${shopUrl}${proxyPath}/${board.shareToken}`,
+    boardId: board.id,
+    items: items.map((item) => ({
+      variantId: item.variantId,
+      title: item.title,
+      variantTitle: item.variantTitle,
+      price: item.price,
+      priceCents: item.priceCents,
+      image: item.image,
+      url: item.url,
+      available: item.available,
+      verdict: voteMap.get(item.id) || null,
+    })),
+    copy: {
+      resultsHeadline: settings.copy.resultsHeadline,
+      resultsNoneLoved: settings.copy.resultsNoneLoved,
+      resultsWaitingHeadline: settings.copy.resultsWaitingHeadline,
+      resultsCta: settings.copy.resultsCta,
+    },
+    // Liquid routes will be injected via data attributes (outside {% raw %})
+  };
+
+  const dataBase64 = encodeDataAsBase64(dataObj);
+
+  // Routes use Liquid outside {% raw %} for Markets URLs
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -198,27 +240,30 @@ function buildResultsPlaceholder({ board, shopName, shopUrl, voteCount, itemCoun
   <meta name="referrer" content="no-referrer">
 {% raw %}
   <style>
-${VOTE_CSS}
+${RESULTS_CSS}
   </style>
 {% endraw %}
 </head>
 <body>
-  <div class="pvb-vote-page">
-    <header class="pvb-top-bar">
-      <p class="pvb-shop-name">${escapeForLiquid(shopName)}</p>
-    </header>
-    <div class="pvb-results">
-      <div class="pvb-results-icon">
-        <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
-          <circle cx="12" cy="12" r="10" stroke="#3F3D3E" stroke-width="2"/>
-          <path d="M12 6v6l4 2" stroke="#3F3D3E" stroke-width="2" stroke-linecap="round"/>
-        </svg>
-      </div>
-      <h1 class="pvb-results-headline">Results are on the way</h1>
-      <p class="pvb-results-status">${statusText}</p>
-      <a href="${escapeForLiquid(shopUrl)}" class="pvb-btn-primary">Shop ${escapeForLiquid(shopName)}</a>
-    </div>
-  </div>
+  <div class="pvb-results-page" data-root="{{ routes.root_url }}" data-cart="{{ routes.cart_url }}"></div>
+  <script type="application/json" id="pvb-data" data-encoding="base64">${dataBase64}</script>
+{% raw %}
+  <script>
+(function(){
+var p=document.querySelector('.pvb-results-page');
+if(!p)return;
+var cartUrl=p.getAttribute('data-cart')||'/cart';
+window.__PVB_ROUTES={
+root:p.getAttribute('data-root')||'/',
+cart:cartUrl+'.js',
+cartAdd:cartUrl+'/add.js',
+cartUpdate:cartUrl+'/update.js',
+cartPage:cartUrl
+};
+})();
+${RESULTS_JS}
+  </script>
+{% endraw %}
 </body>
 </html>`;
 }
@@ -315,17 +360,82 @@ export const loader = async ({ request, params }) => {
       return errorPage(expiredHeadline, expiredBody);
     }
 
-    // Get vote count for status display
+    // Get votes for the board
     const votes = await getVotesForBoard(board.id);
-    const voteCount = votes.length;
-    const itemCount = board.items?.length || 0;
 
-    log.info("proxy.results_page", { shop, status: board.status });
+    // Fetch live product data
+    const variantGids = board.items.map((item) => item.variantId);
+    let variants = new Map();
+    if (admin) {
+      try {
+        variants = await fetchVariants(admin, variantGids);
+      } catch (err) {
+        log.error("proxy.results_page_variants", { code: err.code || "unknown" });
+      }
+    }
 
-    return liquid(buildResultsPlaceholder({ board, shopName, shopUrl, voteCount, itemCount }), {
-      layout: false,
-      headers: NO_STORE,
+    // Build items array with product data and availability
+    const items = board.items.map((item) => {
+      const variant = variants.get(item.variantId);
+      const productTitle = variant?.productTitle || "Item";
+      const variantTitle =
+        variant?.variantTitle && variant.variantTitle !== "Default Title"
+          ? variant.variantTitle
+          : "";
+      const title = variantTitle
+        ? `${productTitle} - ${variantTitle}`
+        : productTitle;
+      const priceNum = parseFloat(variant?.price || 0);
+      const price = variant ? formatPrice(variant.price, variant.currencyCode) : "";
+      const priceCents = Math.round(priceNum * 100);
+      const image = variant?.imageUrl || "";
+      const handle = variant?.handle || "";
+      const productUrl = handle ? `${shopUrl}/products/${handle}` : shopUrl;
+
+      // Check eligibility: availableForSale AND product ACTIVE AND not gift card AND not excluded
+      const eligibility = checkEligibility(variant, settings);
+      const available = eligibility === null;
+
+      // Extract numeric variant ID for cart API
+      const variantId = parseInt(item.variantId.replace(/\D/g, ""), 10);
+
+      return {
+        id: item.id,
+        variantId,
+        title,
+        variantTitle,
+        price,
+        priceCents,
+        image,
+        url: productUrl,
+        available,
+      };
     });
+
+    // Log with vote breakdown
+    const lovedCount = votes.filter((v) => v.verdict === "LOVE").length;
+    const maybeCount = votes.filter((v) => v.verdict === "MAYBE").length;
+    const passCount = votes.filter((v) => v.verdict === "PASS").length;
+    log.info("proxy.results_page", {
+      shop,
+      status: board.status,
+      loved: lovedCount,
+      maybe: maybeCount,
+      pass: passCount,
+    });
+
+    return liquid(
+      buildResultsPage({
+        board,
+        items,
+        votes,
+        settings,
+        shopName,
+        shopUrl,
+        proxyPath: pathPrefix,
+      }),
+      { layout: false, headers: NO_STORE }
+    );
   }
 
   // Route: <shareToken> -> vote page

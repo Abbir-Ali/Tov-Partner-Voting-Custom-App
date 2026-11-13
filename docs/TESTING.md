@@ -357,7 +357,9 @@ If a note was added:
 ### URLs
 
 - **Vote page:** `https://<store>.myshopify.com/apps/board/<shareToken>`
-- **Results placeholder:** `https://<store>.myshopify.com/apps/board/results/<ownerToken>`
+- **Results page:** `https://<store>.myshopify.com/apps/board/results/<ownerToken>`
+  - State A (VOTED): Shows loved/maybe/pass sections with cart handoff
+  - State B (SHARED): Shows voting progress with copy link button
 - **Vote API:** `POST /apps/board/api/boards/<shareToken>/votes`
 
 ### Test steps (logged out, incognito recommended)

@@ -16,6 +16,10 @@ export const DEFAULT_COPY = {
   thanksBody:      "{shopper} can see your votes now.",
   expiredHeadline: "This board has closed",
   expiredBody:     "Ask {shopper} to share a new link.",
+  resultsHeadline:        "{partner} loved {loved} of {total}.",
+  resultsNoneLoved:       "{partner} didn't love any of these.",
+  resultsWaitingHeadline: "{partner} is voting.",
+  resultsCta:             "Add Loved to Cart",
 };
 
 export const LIMITS = {
