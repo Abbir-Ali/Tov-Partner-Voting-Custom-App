@@ -3,6 +3,7 @@
  * CORS-enabled for Web Pixel (can't use App Proxy).
  * Validates shop is installed and pixelKey matches.
  */
+import { timingSafeEqual } from "crypto";
 import db from "../db.server.js";
 import { parseEventBody, processEvents } from "../services/events.server.js";
 import { log } from "../utils/log.server.js";
@@ -36,7 +37,12 @@ async function verifyShopKey(shop, key) {
   });
   if (!settings?.pixelKey) return false;
 
-  return settings.pixelKey === key;
+  // Constant-time comparison to avoid timing oracle on the per-shop secret
+  const enc = new TextEncoder();
+  const a = enc.encode(settings.pixelKey);
+  const b = enc.encode(key);
+  if (a.length !== b.length) return false;
+  return timingSafeEqual(a, b);
 }
 
 // Handle OPTIONS preflight

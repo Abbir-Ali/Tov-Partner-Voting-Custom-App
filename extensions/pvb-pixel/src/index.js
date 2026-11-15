@@ -11,11 +11,7 @@ register(({ analytics, init, settings }) => {
   const ingestUrl = settings.ingestUrl || "";
   const key = settings.key || "";
 
-  // DEBUG - log pixel load
-  console.log("[pvb-pixel] loaded", shop, ingestUrl ? "has_url" : "no_url");
-
   if (!ingestUrl || !key) {
-    console.warn("[pvb-pixel] missing ingestUrl or key");
     return;
   }
 
@@ -29,20 +25,15 @@ register(({ analytics, init, settings }) => {
       key,
       ...payload,
     });
-    // DEBUG - log before send
-    console.log("[pvb-pixel] send", ingestUrl, type);
     try {
-      const result = await fetch(ingestUrl, {
+      await fetch(ingestUrl, {
         method: "POST",
         headers: { "Content-Type": "text/plain" },
         body,
         keepalive: true,
       });
-      // DEBUG - log result
-      console.log("[pvb-pixel] fetch result", result.ok, result.status);
-    } catch (err) {
-      // DEBUG - log error
-      console.error("[pvb-pixel] fetch error", err);
+    } catch {
+      // swallow silently
     }
   }
 
@@ -59,8 +50,6 @@ register(({ analytics, init, settings }) => {
 
   for (const [customEvent, eventType] of Object.entries(eventMap)) {
     analytics.subscribe(customEvent, (event) => {
-      // DEBUG - log received event
-      console.log("[pvb-pixel] got", customEvent, event.customData);
       const data = event.customData || {};
       const payload = {};
 
