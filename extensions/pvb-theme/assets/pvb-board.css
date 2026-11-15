@@ -1027,6 +1027,7 @@
   color: var(--pvb-truffle);
   font-family: var(--pvb-font-body);
   font-size: 13px;
+  font-weight: 400;
   cursor: pointer;
   text-decoration: underline;
   text-underline-offset: 2px;
@@ -1037,6 +1038,31 @@
 }
 
 .pvb-channel-back:focus-visible {
+  outline: 2px solid var(--pvb-not-black);
+  outline-offset: 2px;
+}
+
+/* More Options: text button for system share sheet */
+.pvb-channel-more {
+  display: block;
+  margin: 1rem auto 0;
+  padding: 8px 16px;
+  border: none;
+  background: transparent;
+  color: var(--pvb-truffle);
+  font-family: var(--pvb-font-body);
+  font-size: 13px;
+  font-weight: 400;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.pvb-channel-more:hover {
+  color: var(--pvb-not-black);
+}
+
+.pvb-channel-more:focus-visible {
   outline: 2px solid var(--pvb-not-black);
   outline-offset: 2px;
 }

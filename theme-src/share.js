@@ -215,11 +215,12 @@
     channels.appendChild(channelsTitle);
 
     var channelGrid = el('div', 'pvb-channel-grid');
+    // Order: WhatsApp, SMS (touch only), Email, Copy Link
     var channelData = [
       ['whatsapp', 'WhatsApp'],
-      ['email', 'Email'],
       ['sms', 'SMS'],
-      ['copy', 'Copy']
+      ['email', 'Email'],
+      ['copy', 'Copy Link']
     ];
     var isTouch = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
     channelData.forEach(function (item) {
@@ -234,11 +235,19 @@
     });
     channels.appendChild(channelGrid);
 
-    // Back button
-    var backBtn = el('button', 'pvb-channel-back', { type: 'button' });
-    backBtn.textContent = 'Back';
-    backBtn.addEventListener('click', showSentScreen);
-    channels.appendChild(backBtn);
+    // More Options button (system share sheet), shown only if navigator.share exists
+    if (navigator.share) {
+      var moreOptionsBtn = el('button', 'pvb-channel-more', { type: 'button' });
+      moreOptionsBtn.textContent = 'More Options';
+      moreOptionsBtn.addEventListener('click', handleMoreOptions);
+      channels.appendChild(moreOptionsBtn);
+    }
+
+    // Done button (always shown, goes to sent screen after Copy Link)
+    var doneBtn = el('button', 'pvb-channel-back', { type: 'button' });
+    doneBtn.textContent = 'Done';
+    doneBtn.addEventListener('click', showSentScreen);
+    channels.appendChild(doneBtn);
 
     body.appendChild(channels);
 
@@ -532,21 +541,8 @@
 
     pvb.dispatchEvent('pvb:shared', { count: pvb.getCount() });
 
-    // Try native share on mobile, fall back to channels
-    if (navigator.share) {
-      navigator.share({
-        title: config.shopName,
-        text: buildShareMessage(),
-        url: responseData.shareUrl
-      })
-        .then(function () {
-          sendChannelEvent('native', currentShareData.boardId);
-          showSentScreen();
-        })
-        .catch(showChannels);
-    } else {
-      showChannels();
-    }
+    // Always show our channel buttons first (not navigator.share)
+    showChannels();
   }
 
   // â”€â”€â”€ Error Handler â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -679,7 +675,9 @@
     sheetOverlay.querySelector('#pvb-footer').style.display = 'none';
     sheetOverlay.querySelector('#pvb-sent').dataset.visible = 'false';
     sheetOverlay.querySelector('#pvb-channels').dataset.visible = 'true';
-    document.getElementById('pvb-copy-label').textContent = 'Copy';
+    // Reset copy button label
+    var copyLabel = document.getElementById('pvb-copy-label');
+    if (copyLabel) copyLabel.textContent = 'Copy Link';
   }
 
   function handleChannelClick(channel) {
@@ -741,24 +739,25 @@
   // â”€â”€â”€ Share Again Handler â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   function handleShareAgain() {
     if (!currentShareData) return;
+    // Always show our channel buttons
+    showChannels();
+  }
 
-    // Try native share; show "More ways to share" link on native platforms
-    if (navigator.share) {
-      navigator.share({
-        title: config.shopName,
-        text: buildShareMessage(),
-        url: currentShareData.shareUrl
+  // More Options: open the system share sheet
+  function handleMoreOptions() {
+    if (!currentShareData || !navigator.share) return;
+    navigator.share({
+      title: config.shopName,
+      text: buildShareMessage(),
+      url: currentShareData.shareUrl
+    })
+      .then(function () {
+        sendChannelEvent('native', currentShareData.boardId);
+        showSentScreen();
       })
-        .then(function () {
-          sendChannelEvent('native', currentShareData.boardId);
-        })
-        .catch(function () {
-          // User cancelled or failed, stay on sent screen
-        });
-    } else {
-      // Desktop: go straight to channels
-      showChannels();
-    }
+      .catch(function () {
+        // User cancelled, stay on channels screen
+      });
   }
 
   // â”€â”€â”€ Sent Screen â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -773,10 +772,10 @@
       "We'll let you know the moment " + currentShareData.partnerFirstName +
       " votes. Your board stays saved here.";
 
-    // Show "More ways to share" link only when native share is available
+    // "More ways to share" link always visible - opens channel buttons
     var moreLink = document.getElementById('pvb-sent-more');
     if (moreLink) {
-      moreLink.style.display = navigator.share ? '' : 'none';
+      moreLink.style.display = '';
     }
   }
 
