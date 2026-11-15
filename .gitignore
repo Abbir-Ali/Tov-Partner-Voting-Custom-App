@@ -19,6 +19,7 @@ database.sqlite
 
 # App logs (dev only)
 logs/
+dev_*.txt
 
 
 

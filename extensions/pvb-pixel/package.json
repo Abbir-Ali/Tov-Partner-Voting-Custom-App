@@ -1,0 +1,7 @@
+{
+  "name": "pvb-pixel",
+  "private": true,
+  "dependencies": {
+    "@shopify/web-pixels-extension": "^1.0.0"
+  }
+}

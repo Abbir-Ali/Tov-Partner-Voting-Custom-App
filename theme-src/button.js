@@ -64,6 +64,7 @@
 
       if (pvb.hasItem(variantId)) {
         pvb.removeItem(variantId);
+        pvb.publishEvent('button_unsave', { variantId: variantId, productId: productId });
       } else {
         var result = pvb.addItem({
           variantId: variantId,
@@ -73,6 +74,9 @@
         if (!result.ok && result.reason === 'full') {
           wrapper.dataset.full = 'true';
           return;
+        }
+        if (result.ok) {
+          pvb.publishEvent('button_save', { variantId: variantId, productId: productId });
         }
       }
       updateState();
@@ -95,6 +99,20 @@
     window.addEventListener('pvb:saved', updateState);
 
     updateState();
+
+    // Button impression tracking: fire once when 50% visible
+    if ('IntersectionObserver' in window) {
+      var impressionFired = false;
+      var observer = new IntersectionObserver(function (entries) {
+        if (!impressionFired && entries[0].isIntersecting) {
+          impressionFired = true;
+          var variantId = getCurrentVariantId();
+          pvb.publishEvent('button_impression', { variantId: variantId, productId: productId });
+          observer.disconnect();
+        }
+      }, { threshold: 0.5 });
+      observer.observe(wrapper);
+    }
   }
 
   if (document.readyState === 'loading') {

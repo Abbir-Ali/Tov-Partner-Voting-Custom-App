@@ -41,5 +41,6 @@ function write(level, event, data = {}) {
 
 export const log = {
   info: (event, data) => write("info", event, data),
+  warn: (event, data) => write("warn", event, data),
   error: (event, data) => write("error", event, data),
 };

@@ -7,6 +7,7 @@ import {
 import { PrismaSessionStorage } from "@shopify/shopify-app-session-storage-prisma";
 import prisma from "./db.server";
 import { syncStorefrontConfig } from "./services/storefront-config.server.js";
+import { syncPixel } from "./services/pixel.server.js";
 import { log } from "./utils/log.server.js";
 
 const shopify = shopifyApp({
@@ -28,6 +29,11 @@ const shopify = shopifyApp({
         await syncStorefrontConfig(admin, session.shop);
       } catch (err) {
         log.error("auth.after_auth_sync_failed", { code: err.code ?? "unknown" });
+      }
+      try {
+        await syncPixel(admin, session.shop);
+      } catch (err) {
+        log.error("auth.after_auth_pixel_failed", { code: err.code ?? "unknown" });
       }
     },
   },

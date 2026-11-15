@@ -8,6 +8,7 @@ import { unauthenticated } from "../shopify.server.js";
 import { decrypt } from "../utils/crypto.server.js";
 import { log } from "../utils/log.server.js";
 import { fetchVariants } from "./products.server.js";
+import { recordEvent } from "../models/events.server.js";
 
 const KLAVIYO_API_BASE = "https://a.klaviyo.com/api";
 const KLAVIYO_REVISION = "2026-10-15";
@@ -337,6 +338,7 @@ export async function sendVotingCompleted(boardId) {
       data: { notifiedAt: new Date(), notifyErrorCode: null },
     });
     log.info("notify.sent", { shop, boardId });
+    await recordEvent(shop, "notify_sent", { boardId });
     return { ok: true };
   }
 

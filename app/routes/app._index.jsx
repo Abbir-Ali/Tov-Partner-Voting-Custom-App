@@ -7,6 +7,10 @@ import {
   needsSync,
 } from "../services/storefront-config.server.js";
 import {
+  syncPixel,
+  pixelNeedsSync,
+} from "../services/pixel.server.js";
+import {
   sendPendingNotifications,
   hasFailedNotifications,
   getNotificationStats,
@@ -23,6 +27,11 @@ export const loader = async ({ request }) => {
   if (await needsSync(shop)) {
     const result = await syncStorefrontConfig(admin, shop);
     syncOk = result.ok;
+  }
+
+  // Self-heal: sync Web Pixel if needed (null or >7 days)
+  if (await pixelNeedsSync(shop)) {
+    await syncPixel(admin, shop);
   }
 
   // Self-heal: retry pending notifications

@@ -10,6 +10,8 @@
 - **API:**
   - `POST /apps/board/api/boards` — create and share a board
   - `GET /apps/board/api/boards/<shareToken>` — fetch board by token
+  - `POST /apps/board/api/e` — events ingest (results page sendBeacon)
+  - `POST /pixel/e` — events ingest (Web Pixel, CORS enabled)
 - **Local DB:** Postgres 17, database `voting_board_dev`, user `voting_board`
 
 ## Running the app

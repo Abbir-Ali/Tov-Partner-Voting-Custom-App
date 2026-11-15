@@ -9,6 +9,7 @@
 import { authenticate } from "../shopify.server.js";
 import { getSettings } from "../models/settings.server.js";
 import { submitVote, VOTE_ERRORS } from "../models/vote.server.js";
+import { recordEvent } from "../models/events.server.js";
 import { log } from "../utils/log.server.js";
 
 const MAX_BODY_SIZE = 1024; // 1 KB
@@ -91,6 +92,7 @@ export async function action({ request, params }) {
 
   if (result.data.complete) {
     log.info("vote.completed", { shop, total: result.data.total });
+    await recordEvent(shop, "vote_completed", { boardId: result.data.boardId });
   }
 
   return json(result.data, 200);
