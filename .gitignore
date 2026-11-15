@@ -35,3 +35,6 @@ dev_*.txt
 .react-router/
 # Claude <-> Kiro handoff files (never commit)
 .kiro/handoff/
+
+# Local reviewer output (never commit)
+semantic-review/
