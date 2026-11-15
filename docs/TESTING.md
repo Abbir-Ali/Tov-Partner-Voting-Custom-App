@@ -22,6 +22,18 @@
 - "There was an error in the third-party application" on the storefront means the app is unreachable or crashed: check the dev terminal first.
 - The feature must be ON in Settings, or the API returns code `"disabled"`.
 
+## Dev tunnel
+
+Default: plain `shopify app dev` uses a Cloudflare quick tunnel. After each start, open the app Home once in admin to register the new tunnel URL.
+
+**Fallback (if Cloudflare times out repeatedly):**
+1. Run `ngrok http http://localhost:3000` (requires ngrok account)
+2. Run `shopify app dev --tunnel-url https://<your-subdomain>.ngrok-free.app:3000`
+
+Admin, storefront and pixel work on ngrok. Vote pages and results pages show ngrok's browser warning page on the free tier and cannot be tested without a paid plan.
+
+Never use `--use-localhost` (webhooks and App Proxy need the tunnel).
+
 ## Building theme assets
 
 The theme JS is split for size limits (Shopify enforces <10KB per eager JS):
@@ -517,6 +529,35 @@ console.log('Vote page:', shareUrl);
 
 Open the vote page. Expected: The note displays as plain text, no alert, no Liquid injection.
 
+### Test order attribution without results page
+
+Orders placed from the results page automatically include `pvb_board` cart attributes. To test tracking when someone bypasses the results page (e.g., adds items to cart manually or shops after voting):
+
+1. Complete voting on a board
+2. Note the board ID from psql:
+   ```sql
+   select id from boards where "shareToken" = '<token>';
+   ```
+3. In storefront F12 console, add attributes to the cart:
+   ```javascript
+   fetch('/cart/update.js', {
+     method: 'POST',
+     headers: { 'Content-Type': 'application/json' },
+     body: JSON.stringify({
+       attributes: {
+         pvb_board: '<board-id>'
+       }
+     })
+   }).then(r => r.json()).then(console.log);
+   ```
+4. Complete checkout with a test order
+5. Check the events table after webhook processes:
+   ```sql
+   select * from events
+   where "eventType" = 'ORDER' and "boardId" = '<board-id>'
+   order by "recordedAt" desc limit 1;
+   ```
+   Expected: ORDER event linked to board with revenue captured.
 
 ## App Log
 

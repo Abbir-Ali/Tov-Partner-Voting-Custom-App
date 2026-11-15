@@ -28,11 +28,15 @@ export const action = async ({ request }) => {
   const valueCents = Math.round(subtotal * 100);
   const currencyCode = payload.currency || "USD";
 
+  // Order name like "#1001", truncate to 20 chars max
+  const orderName = (payload.name || "").slice(0, 20);
+
   const result = await recordEvent(shop, "order_from_board", {
     boardId,
     orderId,
     valueCents,
     currencyCode,
+    meta: { orderName },
   });
 
   if (result.ok) {

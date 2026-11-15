@@ -20,7 +20,7 @@ const RATE_LIMIT_ANON = 300; // per shop per 10 min for anonymous events
 const RATE_LIMIT_MINUTES = 10;
 
 // Allowed channels for meta.channel
-const ALLOWED_CHANNELS = new Set(["whatsapp", "email", "copy", "native"]);
+const ALLOWED_CHANNELS = new Set(["whatsapp", "email", "copy", "native", "sms"]);
 
 // Log once per process if salt is missing
 let saltWarningLogged = false;
