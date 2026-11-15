@@ -45,7 +45,8 @@ export const CLIENT_ALLOWED_TYPES = new Set([
  * Record an analytics event. Never throws into the caller.
  * @param {string} shop - Shop domain
  * @param {string} type - Event type from allowlist
- * @param {object} fields - Event data (boardId, visitorHash, variant, valueCents, currencyCode, orderId, meta)
+ * @param {object} fields - Event data (boardId, visitorHash, variant, valueCents, currencyCode, orderId, customerId, meta)
+ *                          customerId is a Shopify GID (never name/email)
  * @returns {Promise<{ok: boolean, id?: string}>}
  */
 export async function recordEvent(shop, type, fields = {}) {
@@ -66,6 +67,7 @@ export async function recordEvent(shop, type, fields = {}) {
         valueCents: fields.valueCents ?? null,
         currencyCode: fields.currencyCode ?? null,
         orderId: fields.orderId ?? null,
+        customerId: fields.customerId ?? null,
         meta: fields.meta ?? null,
       },
     });

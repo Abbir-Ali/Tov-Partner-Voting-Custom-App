@@ -118,6 +118,7 @@ model ShopSettings {
   maxSharesPerDay         Int       @default(10)
   notificationsEnabled    Boolean   @default(true)
   excludeTag              String    @default("pvb-exclude")
+  buyerTag                String    @default("pvb-board-buyer")
   copy                    Json      @default("{}")
   storefrontSyncedVersion Int?
   storefrontSyncedAt      DateTime?
@@ -144,11 +145,13 @@ model AnalyticsEvent {
   valueCents   Int?
   currencyCode String?
   orderId      String?
+  customerId   String?
   meta         Json?
   createdAt    DateTime @default(now())
 
   @@unique([shop, orderId])
   @@index([shop, type, createdAt])
   @@index([shop, boardId])
+  @@index([shop, customerId])
   @@map("analytics_events")
 }

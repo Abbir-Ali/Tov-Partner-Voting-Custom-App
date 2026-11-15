@@ -21,6 +21,10 @@ import {
   parseRange,
   fetchProductTitles,
 } from "../services/dashboard.server.js";
+import {
+  getTopBoardCustomers,
+  fetchCustomerNames,
+} from "../services/audit.server.js";
 
 export const loader = async ({ request }) => {
   const { admin, session } = await authenticate.admin(request);
@@ -71,7 +75,26 @@ export const loader = async ({ request }) => {
     p.title = title || (titlesOk ? "Removed product" : "Product");
   }
 
-  return { syncOk, needsKlaviyoKey, hasFailedNotifs, dashboard };
+  // Top board customers
+  const topCustomers = await getTopBoardCustomers(shop, days, 10);
+  const customerIds = topCustomers.customers.map((c) => c.customerId);
+  const { map: customerNameMap, ok: customerNamesOk } = await fetchCustomerNames(admin, customerIds);
+
+  // Attach names: "Customer" on error, keep GID suffix on missing
+  for (const c of topCustomers.customers) {
+    const name = customerNameMap.get(c.customerId);
+    if (name) {
+      c.displayName = name;
+    } else if (customerNamesOk) {
+      // Customer deleted or inaccessible, show partial ID
+      const idNum = c.customerId.split("/").pop();
+      c.displayName = `Customer #${idNum}`;
+    } else {
+      c.displayName = "Customer";
+    }
+  }
+
+  return { syncOk, needsKlaviyoKey, hasFailedNotifs, dashboard, topCustomers };
 };
 
 export const action = async ({ request }) => {
@@ -218,7 +241,7 @@ function FeedbackBar({ love, maybe, pass, total }) {
 /* eslint-enable react/prop-types */
 
 export default function Index() {
-  const { syncOk, needsKlaviyoKey, hasFailedNotifs, dashboard } = useLoaderData();
+  const { syncOk, needsKlaviyoKey, hasFailedNotifs, dashboard, topCustomers } = useLoaderData();
   const fetcher = useFetcher();
   const shopify = useAppBridge();
 
@@ -303,6 +326,14 @@ export default function Index() {
         .pvb-empty { color: #82736C; font-size: 13px; font-style: italic; }
         .pvb-note { font-size: 12px; color: #82736C; margin-top: 8px; line-height: 1.4; }
         .pvb-privacy { font-size: 11px; color: #82736C; margin-top: 8px; }
+        .pvb-customer-row { display: grid; grid-template-columns: 1fr 80px 100px 50px; gap: 8px; padding: 8px 0; border-bottom: 1px solid #F1ECE5; font-size: 13px; align-items: center; }
+        .pvb-customer-row:last-child { border-bottom: none; }
+        .pvb-customer-name { color: #3F3D3E; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .pvb-customer-name a { color: #485B59; text-decoration: none; }
+        .pvb-customer-name a:hover { text-decoration: underline; }
+        .pvb-customer-stat { color: #82736C; text-align: right; }
+        .pvb-repeat-badge { display: inline-block; background: #485B59; color: #FEFBF6; font-size: 10px; padding: 2px 6px; border-radius: 10px; text-transform: uppercase; letter-spacing: 0.05em; }
+        .pvb-guest-note { font-size: 12px; color: #82736C; margin-top: 8px; }
       `}</style>
 
       {!syncOk && (
@@ -456,6 +487,48 @@ export default function Index() {
               </tbody>
             </table>
             <p className="pvb-privacy">No customer names are stored by the app.</p>
+          </>
+        ) : (
+          <p className="pvb-empty">No orders from boards yet in this period.</p>
+        )}
+      </s-section>
+
+      {/* Top board customers */}
+      <s-section heading="Top board customers">
+        {topCustomers.customers.length > 0 ? (
+          <>
+            <div className="pvb-customer-row" style={{ fontWeight: 500, color: "#82736C" }}>
+              <span>Customer</span>
+              <span className="pvb-customer-stat">Orders</span>
+              <span className="pvb-customer-stat">Revenue</span>
+              <span></span>
+            </div>
+            {topCustomers.customers.map((c, idx) => {
+              const numericId = c.customerId.split("/").pop();
+              return (
+                <div key={idx} className="pvb-customer-row">
+                  <span className="pvb-customer-name">
+                    <a
+                      href={`shopify:admin/customers/${numericId}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      {c.displayName}
+                    </a>
+                  </span>
+                  <span className="pvb-customer-stat">{c.orders}</span>
+                  <span className="pvb-customer-stat">
+                    {formatCurrency(c.revenue, dashboard.revenue.currencyCode)}
+                  </span>
+                  <span>{c.isRepeat && <span className="pvb-repeat-badge">Repeat</span>}</span>
+                </div>
+              );
+            })}
+            {topCustomers.guestCount > 0 && (
+              <p className="pvb-guest-note">
+                + {topCustomers.guestCount} guest checkout{topCustomers.guestCount !== 1 ? "s" : ""} (not shown)
+              </p>
+            )}
           </>
         ) : (
           <p className="pvb-empty">No orders from boards yet in this period.</p>

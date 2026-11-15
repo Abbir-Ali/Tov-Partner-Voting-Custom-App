@@ -10,6 +10,7 @@ import {
   saveSettings,
   saveKlaviyoKey,
   removeKlaviyoKey,
+  tagPastBoardBuyers,
 } from "../models/settings.server.js";
 import { validateKlaviyoKey, sendTestEvent } from "../services/notify.server.js";
 import { getEncryptionKey } from "../utils/crypto.server.js";
@@ -72,6 +73,12 @@ export const action = async ({ request }) => {
     return Response.json({ ok: true, klaviyoRemoved: true });
   }
 
+  // Handle tag past board buyers
+  if (intent === "tagPastBuyers") {
+    const result = await tagPastBoardBuyers(session.shop, admin);
+    return Response.json({ ok: true, tagResult: result });
+  }
+
   // Handle test event
   if (intent === "testKlaviyo") {
     const testEmail = formData.get("testEmail");
@@ -97,6 +104,7 @@ export const action = async ({ request }) => {
     maxItemsPerBoard:     formData.get("maxItemsPerBoard"),
     maxSharesPerDay:      formData.get("maxSharesPerDay"),
     excludeTag:           formData.get("excludeTag"),
+    buyerTag:             formData.get("buyerTag"),
   };
   for (const key of Object.keys(DEFAULT_COPY)) {
     input[`copy.${key}`] = formData.get(`copy.${key}`);
@@ -186,6 +194,13 @@ export default function SettingsPage() {
         shopify.toast.show("Test event sent to Klaviyo");
       } else if (actionData?.klaviyoRemoved) {
         shopify.toast.show("Klaviyo key removed");
+      } else if (actionData?.tagResult) {
+        const r = actionData.tagResult;
+        if (r.skipped) {
+          shopify.toast.show("Set a buyer tag first");
+        } else {
+          shopify.toast.show(`Tagged ${r.updated}, ${r.guests} guests, ${r.failed} failed`);
+        }
       } else {
         shopify.toast.show(actionData?.syncWarning
           ? "Settings saved (storefront sync failed)"
@@ -193,7 +208,7 @@ export default function SettingsPage() {
         );
       }
     }
-  }, [actionData?.savedAt, actionData?.ok, actionData?.syncWarning, actionData?.testSent, actionData?.klaviyoRemoved, shopify]);
+  }, [actionData?.savedAt, actionData?.ok, actionData?.syncWarning, actionData?.testSent, actionData?.klaviyoRemoved, actionData?.tagResult, shopify]);
 
   // Handle remove key button
   const handleRemoveKey = () => {
@@ -286,6 +301,22 @@ export default function SettingsPage() {
             details="Products with this tag can't be added to boards. Gift cards are always excluded."
             error={errors.excludeTag}
           />
+          <s-text-field
+            label="Board buyer tag"
+            name="buyerTag"
+            value={settings.buyerTag}
+            details="Customers who order from a shared board get this tag, so you can build a customer segment in Shopify. Leave empty to turn off."
+            error={errors.buyerTag}
+          />
+          <s-button
+            variant="plain"
+            onClick={() => {
+              fetcher.submit({ intent: "tagPastBuyers" }, { method: "post" });
+            }}
+            disabled={fetcher.state !== "idle" || !settings.buyerTag || undefined}
+          >
+            Tag Past Board Buyers
+          </s-button>
         </s-section>
 
         {/* ── c) Notifications ──────────────────────────────────────────── */}

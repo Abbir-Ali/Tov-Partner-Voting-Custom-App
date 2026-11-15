@@ -283,6 +283,7 @@ async function seedData(shop, products) {
         orderId,
         valueCents,
         currencyCode: "USD",
+        customerId: null,
         createdAt: new Date(sharedAt.getTime() + 4 * 60 * 60 * 1000),
         meta: { seed: true, orderName: `#S${sn}` },
       });
