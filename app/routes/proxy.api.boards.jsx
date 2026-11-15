@@ -149,6 +149,7 @@ export const action = async ({ request }) => {
 
   return json(
     {
+      boardId:    board.id,
       shareUrl:   `https://${shop}${pathPrefix}/${shareToken}`,
       resultsUrl: `https://${shop}${pathPrefix}/results/${ownerToken}`,
       expiresAt:  board.expiresAt,

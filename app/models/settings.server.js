@@ -16,8 +16,6 @@ export async function getSettings(shop) {
   if (!row) {
     return {
       enabled:              false,
-      abTestEnabled:        false,
-      abTestPercent:        50,
       boardExpiryDays:      30,
       maxItemsPerBoard:     12,
       maxSharesPerDay:      10,
@@ -58,7 +56,6 @@ export function validateSettings(input) {
   // Booleans — switches send "on" when checked, absent (null) when not.
   const parseBool = (v) => v === "on" || v === "true" || v === true;
   data.enabled              = parseBool(input.enabled);
-  data.abTestEnabled        = parseBool(input.abTestEnabled);
   data.notificationsEnabled = parseBool(input.notificationsEnabled);
 
   // Integers within ranges.
@@ -71,7 +68,6 @@ export function validateSettings(input) {
     }
     return n;
   };
-  data.abTestPercent    = validateInt("abTestPercent",    input.abTestPercent,    LIMITS.abTestPercent);
   data.boardExpiryDays  = validateInt("boardExpiryDays",  input.boardExpiryDays,  LIMITS.boardExpiryDays);
   data.maxItemsPerBoard = validateInt("maxItemsPerBoard", input.maxItemsPerBoard, LIMITS.maxItemsPerBoard);
   data.maxSharesPerDay  = validateInt("maxSharesPerDay",  input.maxSharesPerDay,  LIMITS.maxSharesPerDay);

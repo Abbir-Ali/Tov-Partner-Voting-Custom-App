@@ -92,9 +92,7 @@ export const action = async ({ request }) => {
   // Build flat input object from formData.
   const input = {
     enabled:              formData.get("enabled"),
-    abTestEnabled:        formData.get("abTestEnabled"),
     notificationsEnabled: formData.get("notificationsEnabled"),
-    abTestPercent:        formData.get("abTestPercent"),
     boardExpiryDays:      formData.get("boardExpiryDays"),
     maxItemsPerBoard:     formData.get("maxItemsPerBoard"),
     maxSharesPerDay:      formData.get("maxSharesPerDay"),
@@ -252,25 +250,7 @@ export default function SettingsPage() {
           />
         </s-section>
 
-        {/* ── b) A/B Test ───────────────────────────────────────────────── */}
-        <s-section heading="A/B Test">
-          <s-switch
-            label="Enable A/B test"
-            name="abTestEnabled"
-            checked={settings.abTestEnabled || undefined}
-          />
-          <s-number-field
-            label="Percent of visitors who see the share button"
-            name="abTestPercent"
-            min={LIMITS.abTestPercent[0]}
-            max={LIMITS.abTestPercent[1]}
-            step={1}
-            value={String(settings.abTestPercent)}
-            error={errors.abTestPercent}
-          />
-        </s-section>
-
-        {/* ── c) Boards ─────────────────────────────────────────────────── */}
+        {/* ── b) Boards ─────────────────────────────────────────────────── */}
         <s-section heading="Boards">
           <s-number-field
             label="Board expiry (days after sharing)"
@@ -308,7 +288,7 @@ export default function SettingsPage() {
           />
         </s-section>
 
-        {/* ── d) Notifications ──────────────────────────────────────────── */}
+        {/* ── c) Notifications ──────────────────────────────────────────── */}
         <s-section heading="Notifications">
           <s-switch
             label="Email the shopper when voting is done"
@@ -376,7 +356,7 @@ export default function SettingsPage() {
           )}
         </s-section>
 
-        {/* ── e) Vote Page Copy ─────────────────────────────────────────── */}
+        {/* ── d) Vote Page Copy ─────────────────────────────────────────── */}
         <s-section heading="Vote Page Copy">
           {COPY_FIELDS.map(({ key, label, help }) => (
             <s-text-field

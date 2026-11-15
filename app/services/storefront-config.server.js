@@ -3,7 +3,7 @@ import { getSettings } from "../models/settings.server.js";
 import { log } from "../utils/log.server.js";
 
 // Bump this when the storefront config shape changes.
-export const CONFIG_VERSION = 1;
+export const CONFIG_VERSION = 2;
 
 /**
  * Syncs storefront config to the app metafield (theme extensions read this).
@@ -33,8 +33,6 @@ export async function syncStorefrontConfig(admin, shop) {
       configVersion: CONFIG_VERSION,
       enabled: settings.enabled,
       maxItemsPerBoard: settings.maxItemsPerBoard,
-      abTestEnabled: settings.abTestEnabled,
-      abTestPercent: settings.abTestPercent,
       excludeTag: settings.excludeTag,
     });
 

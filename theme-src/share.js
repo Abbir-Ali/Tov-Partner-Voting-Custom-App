@@ -522,6 +522,7 @@
 
     // Store data for share message
     currentShareData = {
+      boardId: responseData.boardId,
       shareUrl: responseData.shareUrl,
       ownerFirstName: payload.ownerFirstName,
       partnerFirstName: payload.partnerFirstName,
@@ -538,7 +539,10 @@
         text: buildShareMessage(),
         url: responseData.shareUrl
       })
-        .then(showSentScreen)
+        .then(function () {
+          sendChannelEvent('native', currentShareData.boardId);
+          showSentScreen();
+        })
         .catch(showChannels);
     } else {
       showChannels();
@@ -683,7 +687,9 @@
     var url = currentShareData.shareUrl;
     var fullText = message + ' ' + url;
 
-    pvb.publishEvent('share_channel', { channel: channel });
+    // Send to proxy before navigation (keepalive survives page unload).
+    // No clientId: event is tied to boardId, not visitor.
+    sendChannelEvent(channel, currentShareData.boardId);
 
     if (channel === 'whatsapp') {
       window.open('https://wa.me/?text=' + encodeURIComponent(fullText), '_blank');
@@ -699,6 +705,18 @@
     }
 
     showSentScreen();
+  }
+
+  // Send share_channel directly to App Proxy (not pixel) so it survives navigation.
+  function sendChannelEvent(channel, boardId) {
+    var apiUrl = ((window.Shopify && window.Shopify.routes && window.Shopify.routes.root) || '/') +
+      'apps/board/api/e';
+    fetch(apiUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify({ type: 'share_channel', boardId: boardId, meta: { channel: channel } }),
+      keepalive: true
+    }).catch(function () {});
   }
 
   function copyToClipboard(text) {
@@ -730,9 +748,13 @@
         title: config.shopName,
         text: buildShareMessage(),
         url: currentShareData.shareUrl
-      }).catch(function() {
-        // User cancelled or failed, stay on sent screen
-      });
+      })
+        .then(function () {
+          sendChannelEvent('native', currentShareData.boardId);
+        })
+        .catch(function () {
+          // User cancelled or failed, stay on sent screen
+        });
     } else {
       // Desktop: go straight to channels
       showChannels();

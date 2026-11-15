@@ -26,7 +26,6 @@ export const LIMITS = {
   boardExpiryDays:     [1, 90],
   maxItemsPerBoard:    [1, 30],
   maxSharesPerDay:     [1, 100],
-  abTestPercent:       [0, 100],
   copyMaxLength:       200,
   excludeTagMaxLength: 40,
 };

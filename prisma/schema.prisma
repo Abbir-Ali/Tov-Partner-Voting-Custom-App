@@ -113,8 +113,6 @@ model ShopSettings {
   id                      String    @id @default(cuid())
   shop                    String    @unique
   enabled                 Boolean   @default(false)
-  abTestEnabled           Boolean   @default(false)
-  abTestPercent           Int       @default(50)
   boardExpiryDays         Int       @default(30)
   maxItemsPerBoard        Int       @default(12)
   maxSharesPerDay         Int       @default(10)
