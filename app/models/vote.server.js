@@ -10,8 +10,28 @@ import {
   RATE_LIMIT_MULTIPLIER,
   RATE_LIMIT_WINDOW_MS,
 } from "./vote.shared.js";
+import { isValidReason } from "./reasons.shared.js";
 
 export { VERDICTS, VOTE_ERRORS };
+
+// PII patterns: email and phone (US/intl formats)
+const EMAIL_PATTERN = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g;
+const PHONE_PATTERN = /(?:\+?\d{1,3}[-.\s]?)?\(?\d{2,4}\)?[-.\s]?\d{2,4}[-.\s]?\d{2,9}/g;
+
+/**
+ * Sanitize reasonText: trim, collapse whitespace, strip PII.
+ * @param {string} text
+ * @returns {string|null}
+ */
+function sanitizeReasonText(text) {
+  if (!text || typeof text !== "string") return null;
+  let clean = text.trim().replace(/\s+/g, " ");
+  if (clean.length > 120) clean = clean.slice(0, 120);
+  // Replace PII with ellipsis
+  clean = clean.replace(EMAIL_PATTERN, "…");
+  clean = clean.replace(PHONE_PATTERN, "…");
+  return clean || null;
+}
 
 /**
  * Submit a vote for a board item. Handles:
@@ -20,12 +40,20 @@ export { VERDICTS, VOTE_ERRORS };
  * - Upsert vote (voterName from board.partnerFirstName)
  * - Atomic SHARED -> VOTED transition when all items voted
  *
- * @param {{ shop: string, token: string, itemId: string, verdict: string, settings: object }}
+ * @param {{ shop: string, token: string, itemId: string, verdict: string, reason?: string, reasonText?: string, settings: object }}
  * @returns {{ ok: true, data: object } | { ok: false, error: { code: string, status: number } }}
  */
-export async function submitVote({ shop, token, itemId, verdict, settings }) {
+export async function submitVote({ shop, token, itemId, verdict, reason, reasonText, settings }) {
   // Validate verdict
   if (!VERDICTS.includes(verdict)) {
+    return {
+      ok: false,
+      error: { code: VOTE_ERRORS.INVALID, status: 400 },
+    };
+  }
+
+  // Validate reason if provided (using shop's chips)
+  if (reason && !isValidReason(verdict, reason, settings.reasonChips, false)) {
     return {
       ok: false,
       error: { code: VOTE_ERRORS.INVALID, status: 400 },
@@ -125,16 +153,29 @@ export async function submitVote({ shop, token, itemId, verdict, settings }) {
     });
 
     // Upsert vote (voterName is always partnerFirstName)
+    // On verdict change: clear reason/reasonText. On same verdict: keep existing if field is undefined.
+    const existingVote = await tx.vote.findUnique({ where: { boardItemId: itemId } });
+    const verdictChanged = existingVote && existingVote.verdict !== verdict;
+
+    // Sanitize reasonText (only for "other" reason)
+    const effectiveReason = verdictChanged ? null : (reason !== undefined ? (reason || null) : existingVote?.reason);
+    const sanitizedText = effectiveReason === "other" && reasonText !== undefined
+      ? sanitizeReasonText(reasonText)
+      : (verdictChanged ? null : (reasonText !== undefined ? sanitizeReasonText(reasonText) : existingVote?.reasonText));
+
     const vote = await tx.vote.upsert({
       where: { boardItemId: itemId },
       create: {
         boardItemId: itemId,
         verdict,
+        reason: reason || null,
+        reasonText: reason === "other" ? sanitizeReasonText(reasonText) : null,
         voterName: board.partnerFirstName || "Partner",
       },
       update: {
         verdict,
-        // voterName stays the same
+        reason: effectiveReason,
+        reasonText: effectiveReason === "other" ? sanitizedText : null,
       },
     });
 

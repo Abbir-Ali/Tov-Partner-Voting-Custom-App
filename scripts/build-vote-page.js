@@ -17,7 +17,9 @@ const ROOT = join(__dirname, "..");
 
 const VOTE_PAGE_DIR = join(ROOT, "app", "vote-page");
 const VOTE_DIST_DIR = join(VOTE_PAGE_DIR, "dist");
-const VOTE_SIZE_LIMIT = 24000; // 24 KB
+// Raised 2026-11-16 (Abbir) for reason chips + v2 vote-page features. Warn at 27 KB.
+const VOTE_SIZE_LIMIT = 30000; // 30 KB
+const VOTE_SIZE_WARN = 27000; // 27 KB
 
 const RESULTS_PAGE_DIR = join(ROOT, "app", "results-page");
 const RESULTS_DIST_DIR = join(RESULTS_PAGE_DIR, "dist");
@@ -27,7 +29,7 @@ const RESULTS_SIZE_LIMIT = 15000; // 15 KB
 const escapeForTemplate = (str) =>
   str.replace(/\\/g, "\\\\").replace(/`/g, "\\`").replace(/\$\{/g, "\\${");
 
-async function buildPage(name, srcDir, distDir, sizeLimit) {
+async function buildPage(name, srcDir, distDir, sizeLimit, sizeWarn = null) {
   mkdirSync(distDir, { recursive: true });
 
   // Build JS
@@ -65,6 +67,10 @@ async function buildPage(name, srcDir, distDir, sizeLimit) {
     process.exit(1);
   }
 
+  if (sizeWarn && totalSize > sizeWarn) {
+    console.warn(`\nWarning: ${name} size ${totalSize} exceeds warning threshold ${sizeWarn}`);
+  }
+
   // Export names: VOTE_JS/VOTE_CSS or RESULTS_JS/RESULTS_CSS
   const exportName = name.toUpperCase();
   const serverModule = `/**
@@ -87,7 +93,7 @@ export const ${exportName}_ASSETS_SIZE = ${totalSize};
 
 async function build() {
   console.log("Building vote page...");
-  await buildPage("vote", VOTE_PAGE_DIR, VOTE_DIST_DIR, VOTE_SIZE_LIMIT);
+  await buildPage("vote", VOTE_PAGE_DIR, VOTE_DIST_DIR, VOTE_SIZE_LIMIT, VOTE_SIZE_WARN);
 
   console.log("Building results page...");
   await buildPage("results", RESULTS_PAGE_DIR, RESULTS_DIST_DIR, RESULTS_SIZE_LIMIT);

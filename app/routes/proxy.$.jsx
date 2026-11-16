@@ -12,6 +12,7 @@
 
 import { authenticate } from "../shopify.server.js";
 import { getSettings } from "../models/settings.server.js";
+import { getActiveChips } from "../models/reasons.shared.js";
 import {
   getBoardByShareToken,
   getBoardByOwnerToken,
@@ -97,6 +98,8 @@ function buildVotePage({
   items,
   votes,
   copy,
+  askReasons,
+  reasonChips,
   shopName,
   shopUrl,
   proxyPath,
@@ -137,12 +140,17 @@ function buildVotePage({
       boardItemId: v.boardItemId,
       verdict: v.verdict,
     })),
+    askReasons,
+    reasonChips,
     copy: {
       stampLove: copy.loveLabel,
       stampMaybe: copy.maybeLabel,
       stampPass: copy.passLabel,
       thanksHeadline: replacePlaceholders(copy.thanksHeadline, placeholders),
       thanksBody: replacePlaceholders(copy.thanksBody, placeholders),
+      passReasonTitle: copy.passReasonTitle,
+      maybeReasonTitle: copy.maybeReasonTitle,
+      reasonHint: replacePlaceholders(copy.reasonHint, placeholders),
     },
     shopName,
     shopUrl,
@@ -197,7 +205,13 @@ function buildResultsPage({
 }) {
   // Build vote map for item lookup
   const voteMap = new Map();
-  for (const v of votes) voteMap.set(v.boardItemId, v.verdict);
+  const reasonMap = new Map();
+  const reasonTextMap = new Map();
+  for (const v of votes) {
+    voteMap.set(v.boardItemId, v.verdict);
+    if (v.reason) reasonMap.set(v.boardItemId, v.reason);
+    if (v.reasonText) reasonTextMap.set(v.boardItemId, v.reasonText);
+  }
 
   // Calculate loved-and-available total on the server
   let lovedAvailableTotal = 0;
@@ -238,6 +252,8 @@ function buildResultsPage({
       url: item.url,
       available: item.available,
       verdict: voteMap.get(item.id) || null,
+      reason: reasonMap.get(item.id) || null,
+      reasonText: reasonTextMap.get(item.id) || null,
     })),
     copy: {
       resultsHeadline: settings.copy.resultsHeadline,
@@ -550,11 +566,19 @@ export const loader = async ({ request, params }) => {
   // Build storage key (hash of token)
   const storageKey = hashToken(shareToken);
 
+  // Get active chips for vote page (code + label, no retired)
+  const reasonChips = {
+    pass: getActiveChips(settings.reasonChips, "PASS"),
+    maybe: getActiveChips(settings.reasonChips, "MAYBE"),
+  };
+
   const html = buildVotePage({
     board,
     items,
     votes,
     copy: settings.copy,
+    askReasons: settings.askReasons,
+    reasonChips,
     shopName,
     shopUrl,
     proxyPath: pathPrefix,

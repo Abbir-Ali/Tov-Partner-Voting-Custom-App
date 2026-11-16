@@ -68,7 +68,7 @@ export async function getAuditBoards(shop, { cursor, filter } = {}) {
           id: true,
           productId: true,
           variantId: true,
-          votes: { select: { verdict: true } },
+          votes: { select: { verdict: true, reason: true, reasonText: true } },
         },
       },
     },
@@ -144,6 +144,8 @@ export async function getAuditBoards(shop, { cursor, filter } = {}) {
         productId: i.productId,
         variantId: i.variantId,
         verdict: i.votes[0]?.verdict || null,
+        reason: i.votes[0]?.reason || null,
+        reasonText: i.votes[0]?.reasonText || null,
       })),
     };
   });

@@ -578,6 +578,91 @@ async function getVoteRateByChannel(shop, days, minBoards = 5) {
 }
 
 /**
+ * Why partners pass/maybe: top reasons by count.
+ * Includes "In their own words" list for "other" texts.
+ * @param {string} shop
+ * @param {number} days
+ */
+async function getPartnerReasons(shop, days) {
+  const { since } = getDateRange(days);
+
+  // Get boards shared in range
+  const boards = await prisma.board.findMany({
+    where: {
+      shop,
+      status: { in: ["SHARED", "VOTED"] },
+      sharedAt: { gte: since },
+    },
+    select: { id: true },
+  });
+
+  if (boards.length === 0) return { pass: [], maybe: [], total: 0, otherTexts: [] };
+
+  const boardIds = boards.map((b) => b.id);
+
+  // Get votes with reasons from items in these boards
+  const items = await prisma.boardItem.findMany({
+    where: { boardId: { in: boardIds } },
+    select: {
+      productId: true,
+      votes: {
+        where: { reason: { not: null } },
+        select: { verdict: true, reason: true, reasonText: true, createdAt: true },
+      },
+    },
+  });
+
+  // Count reasons by verdict
+  const passCounts = {};
+  const maybeCounts = {};
+  let total = 0;
+
+  // Collect "other" texts (latest 10)
+  const otherTextsRaw = [];
+
+  for (const item of items) {
+    for (const vote of item.votes) {
+      total++;
+      if (vote.verdict === "PASS") {
+        passCounts[vote.reason] = (passCounts[vote.reason] || 0) + 1;
+      } else if (vote.verdict === "MAYBE") {
+        maybeCounts[vote.reason] = (maybeCounts[vote.reason] || 0) + 1;
+      }
+      // Collect "other" texts with product ID for title lookup
+      if (vote.reason === "other" && vote.reasonText) {
+        otherTextsRaw.push({
+          text: vote.reasonText,
+          productId: item.productId,
+          verdict: vote.verdict,
+          createdAt: vote.createdAt,
+        });
+      }
+    }
+  }
+
+  // Sort by count
+  const passReasons = Object.entries(passCounts)
+    .map(([reason, count]) => ({ reason, count }))
+    .sort((a, b) => b.count - a.count);
+
+  const maybeReasons = Object.entries(maybeCounts)
+    .map(([reason, count]) => ({ reason, count }))
+    .sort((a, b) => b.count - a.count);
+
+  // Get latest 10 "other" texts, sorted by createdAt desc
+  const otherTexts = otherTextsRaw
+    .sort((a, b) => b.createdAt - a.createdAt)
+    .slice(0, 10)
+    .map((o) => ({
+      text: o.text,
+      productId: o.productId,
+      verdict: o.verdict,
+    }));
+
+  return { pass: passReasons, maybe: maybeReasons, total, otherTexts };
+}
+
+/**
  * Main dashboard data loader.
  * Runs queries in parallel for performance.
  * @param {string} shop
@@ -597,6 +682,7 @@ export async function getDashboardData(shop, days) {
     productFeedback,
     sharesByChannel,
     voteRateByChannel,
+    partnerReasons,
     notifyStats,
     firstEventDate,
   ] = await Promise.all([
@@ -610,6 +696,7 @@ export async function getDashboardData(shop, days) {
     getProductFeedback(shop, validDays),
     getSharesByChannel(shop, validDays),
     getVoteRateByChannel(shop, validDays),
+    getPartnerReasons(shop, validDays),
     getNotificationStats(shop),
     getFirstEventDate(shop),
   ]);
@@ -632,6 +719,7 @@ export async function getDashboardData(shop, days) {
     productFeedback,
     sharesByChannel,
     voteRateByChannel,
+    partnerReasons,
     notifyStats,
     aov,
     firstEventDate,

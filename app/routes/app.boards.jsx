@@ -9,6 +9,7 @@ import {
 } from "../services/audit.server.js";
 import { getSettings } from "../models/settings.server.js";
 import { DEFAULT_COPY } from "../models/settings.shared.js";
+import { getReasonLabel } from "../models/reasons.shared.js";
 
 export const loader = async ({ request }) => {
   const { admin, session } = await authenticate.admin(request);
@@ -70,7 +71,7 @@ export const loader = async ({ request }) => {
     }
   }
 
-  return { boards, nextCursor, filter, verdictLabels };
+  return { boards, nextCursor, filter, verdictLabels, reasonChips: settings.reasonChips };
 };
 
 // Filter options for the segmented control
@@ -115,7 +116,7 @@ const VERDICT_STYLES = {
 };
 
 export default function BoardsPage() {
-  const { boards, nextCursor, filter, verdictLabels } = useLoaderData();
+  const { boards, nextCursor, filter, verdictLabels, reasonChips } = useLoaderData();
   const [expandedId, setExpandedId] = useState(null);
 
   const handleNextPage = () => {
@@ -249,6 +250,13 @@ export default function BoardsPage() {
                         <div style={{ display: "flex", flexWrap: "wrap", gap: "12px" }}>
                           {b.items.map((item) => {
                             const style = VERDICT_STYLES[item.verdict] || VERDICT_STYLES.MAYBE;
+                            const reasonLabel = item.reason
+                              ? getReasonLabel(item.verdict, item.reason, reasonChips)
+                              : null;
+                            // For "other" chip, show the reasonText after the label
+                            const reasonTextDisplay = item.reason === "other" && item.reasonText
+                              ? item.reasonText
+                              : null;
                             return (
                               <div
                                 key={item.id}
@@ -278,6 +286,11 @@ export default function BoardsPage() {
                                   >
                                     {verdictLabels[item.verdict]}
                                   </span>
+                                )}
+                                {reasonLabel && (
+                                  <div style={{ fontSize: "11px", color: "#82736C", marginTop: "4px", fontStyle: "italic" }}>
+                                    {reasonLabel}{reasonTextDisplay ? `: ${reasonTextDisplay}` : ""}
+                                  </div>
                                 )}
                               </div>
                             );

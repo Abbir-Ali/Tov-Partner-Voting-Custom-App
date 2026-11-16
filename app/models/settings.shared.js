@@ -20,6 +20,10 @@ export const DEFAULT_COPY = {
   resultsNoneLoved:       "{partner} didn't love any of these.",
   resultsWaitingHeadline: "{partner} is voting.",
   resultsCta:             "Add Loved to Cart",
+  passReasonTitle:  "What's not right?",
+  maybeReasonTitle: "What would make it a yes?",
+  reasonHint:       "Optional. {shopper} will see your answer.",
+  otherReasonHint:  "{shopper} and TOV will see what you write.",
 };
 
 export const LIMITS = {

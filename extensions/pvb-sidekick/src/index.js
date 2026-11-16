@@ -75,4 +75,13 @@ export default () => {
       return { error: 'unavailable' };
     }
   });
+
+  shopify.tools.register('partner_reasons', async ({ days = 30 }) => {
+    try {
+      const res = await fetch(`/api/sidekick/partner_reasons?days=${days}`);
+      return res.json();
+    } catch {
+      return { error: 'unavailable' };
+    }
+  });
 };

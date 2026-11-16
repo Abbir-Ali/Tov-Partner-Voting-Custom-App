@@ -7,6 +7,7 @@
 import prisma from "../db.server.js";
 import { getNotificationStats } from "./notify.server.js";
 import { getSettings } from "../models/settings.server.js";
+import { getReasonLabel } from "../models/reasons.shared.js";
 import { getTopBoardCustomers, fetchCustomerNames } from "./audit.server.js";
 import { log } from "../utils/log.server.js";
 
@@ -552,6 +553,106 @@ export async function topBoardCustomers(shop, admin, params) {
 }
 
 /**
+ * partner_reasons: why partners chose Maybe or Pass
+ * Includes up to 10 latest "other" texts per product for Sidekick summarization.
+ */
+export async function partnerReasons(shop, params) {
+  const days = parseDays(params.days);
+  const key = cacheKey(shop, "partner_reasons", { days });
+  const cached = getCached(key);
+  if (cached) return cached;
+
+  const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+
+  // Get boards shared in range
+  const boards = await prisma.board.findMany({
+    where: { shop, status: { in: ["SHARED", "VOTED"] }, sharedAt: { gte: since } },
+    select: { id: true },
+  });
+
+  if (boards.length === 0) {
+    const data = { days, passReasons: [], maybeReasons: [], totalReasons: 0, otherTextsByProduct: [] };
+    setCache(key, data);
+    return data;
+  }
+
+  const boardIds = boards.map((b) => b.id);
+
+  // Get votes with reasons
+  const items = await prisma.boardItem.findMany({
+    where: { boardId: { in: boardIds } },
+    select: {
+      productId: true,
+      votes: {
+        where: { reason: { not: null } },
+        select: { verdict: true, reason: true, reasonText: true, createdAt: true },
+      },
+    },
+  });
+
+  // Get shop's reason chips for label lookup
+  const settings = await getSettings(shop);
+  const reasonChips = settings.reasonChips;
+
+  // Count reasons and collect other texts by product
+  const passCounts = {};
+  const maybeCounts = {};
+  let total = 0;
+  const otherByProduct = new Map();
+
+  for (const item of items) {
+    for (const vote of item.votes) {
+      total++;
+      if (vote.verdict === "PASS") {
+        passCounts[vote.reason] = (passCounts[vote.reason] || 0) + 1;
+      } else if (vote.verdict === "MAYBE") {
+        maybeCounts[vote.reason] = (maybeCounts[vote.reason] || 0) + 1;
+      }
+      // Collect "other" texts by product (no names, no board/customer ids)
+      if (vote.reason === "other" && vote.reasonText) {
+        if (!otherByProduct.has(item.productId)) {
+          otherByProduct.set(item.productId, []);
+        }
+        otherByProduct.get(item.productId).push({
+          text: vote.reasonText,
+          verdict: vote.verdict,
+          createdAt: vote.createdAt,
+        });
+      }
+    }
+  }
+
+  const passReasons = Object.entries(passCounts)
+    .map(([reason, count]) => ({ reason: getReasonLabel("PASS", reason, reasonChips), count }))
+    .sort((a, b) => b.count - a.count);
+
+  const maybeReasons = Object.entries(maybeCounts)
+    .map(([reason, count]) => ({ reason: getReasonLabel("MAYBE", reason, reasonChips), count }))
+    .sort((a, b) => b.count - a.count);
+
+  // Build other texts by product: latest 10 per product
+  const otherTextsByProduct = [];
+  for (const [productId, texts] of otherByProduct) {
+    const sorted = texts.sort((a, b) => b.createdAt - a.createdAt).slice(0, 10);
+    otherTextsByProduct.push({
+      productId,
+      texts: sorted.map((t) => ({ text: t.text, verdict: t.verdict })),
+    });
+  }
+
+  const data = {
+    days,
+    passReasons,
+    maybeReasons,
+    totalReasons: total,
+    otherTextsByProduct,
+    note: "otherTextsByProduct contains up to 10 latest free-text responses per product for summarizing themes. No names or board/customer IDs included.",
+  };
+  setCache(key, data);
+  return data;
+}
+
+/**
  * Execute a tool by name
  */
 export async function executeTool(shop, admin, tool, params) {
@@ -579,6 +680,9 @@ export async function executeTool(shop, admin, tool, params) {
       break;
     case "top_board_customers":
       data = await topBoardCustomers(shop, admin, params);
+      break;
+    case "partner_reasons":
+      data = await partnerReasons(shop, params);
       break;
     default:
       return null;

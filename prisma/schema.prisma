@@ -98,6 +98,8 @@ model Vote {
   id          String    @id @default(cuid())
   boardItemId String
   verdict     Verdict
+  reason      String?
+  reasonText  String?   // free-text for "other" chip, max 120 chars
   note        String?
   voterName   String
   createdAt   DateTime  @default(now())
@@ -117,9 +119,11 @@ model ShopSettings {
   maxItemsPerBoard        Int       @default(12)
   maxSharesPerDay         Int       @default(10)
   notificationsEnabled    Boolean   @default(true)
+  askReasons              Boolean   @default(true)
   excludeTag              String    @default("pvb-exclude")
   buyerTag                String    @default("pvb-board-buyer")
   copy                    Json      @default("{}")
+  reasonChips             Json?
   storefrontSyncedVersion Int?
   storefrontSyncedAt      DateTime?
   klaviyoKeyEncrypted     String?

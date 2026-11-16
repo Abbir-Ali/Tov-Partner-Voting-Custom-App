@@ -1,5 +1,6 @@
 import db from "../db.server.js";
 import { DEFAULT_COPY, LIMITS } from "./settings.shared.js";
+import { DEFAULT_PASS_CHIPS, DEFAULT_MAYBE_CHIPS } from "./reasons.shared.js";
 import { encrypt } from "../utils/crypto.server.js";
 import { addBuyerTag } from "../services/customer-tag.server.js";
 
@@ -9,10 +10,16 @@ export { DEFAULT_COPY, LIMITS };
 /**
  * Returns settings for a shop merged with defaults.
  * copy keys with empty-string values fall back to DEFAULT_COPY.
+ * reasonChips defaults to the standard chip lists.
  * Does NOT write to the DB if no row exists.
  */
 export async function getSettings(shop) {
   const row = await db.shopSettings.findUnique({ where: { shop } });
+
+  const defaultReasonChips = {
+    pass: DEFAULT_PASS_CHIPS.map(c => ({ ...c })),
+    maybe: DEFAULT_MAYBE_CHIPS.map(c => ({ ...c })),
+  };
 
   if (!row) {
     return {
@@ -21,9 +28,11 @@ export async function getSettings(shop) {
       maxItemsPerBoard:     12,
       maxSharesPerDay:      10,
       notificationsEnabled: true,
+      askReasons:           true,
       excludeTag:           "pvb-exclude",
       buyerTag:             "pvb-board-buyer",
       copy:                 { ...DEFAULT_COPY },
+      reasonChips:          defaultReasonChips,
       klaviyoKeyEncrypted:  null,
       klaviyoKeyLast4:      null,
       klaviyoConnectedAt:   null,
@@ -43,7 +52,19 @@ export async function getSettings(shop) {
     ),
   };
 
-  return { ...row, copy: mergedCopy };
+  // Merge reasonChips: use saved if valid, else defaults
+  let reasonChips = defaultReasonChips;
+  if (row.reasonChips && typeof row.reasonChips === "object") {
+    const saved = row.reasonChips;
+    if (Array.isArray(saved.pass) && Array.isArray(saved.maybe)) {
+      reasonChips = {
+        pass: saved.pass,
+        maybe: saved.maybe,
+      };
+    }
+  }
+
+  return { ...row, copy: mergedCopy, reasonChips };
 }
 
 /**
@@ -59,6 +80,7 @@ export function validateSettings(input) {
   const parseBool = (v) => v === "on" || v === "true" || v === true;
   data.enabled              = parseBool(input.enabled);
   data.notificationsEnabled = parseBool(input.notificationsEnabled);
+  data.askReasons           = parseBool(input.askReasons);
 
   // Integers within ranges.
   const validateInt = (key, raw, [min, max]) => {
@@ -111,6 +133,117 @@ export function validateSettings(input) {
     }
   }
   data.copy = copy;
+
+  return { data, errors };
+}
+
+// Chip validation limits
+const CHIP_LIMITS = {
+  maxActivePerList: 8,
+  labelMinLength: 2,
+  labelMaxLength: 24,
+  codeMaxLength: 30,
+};
+
+// Valid chip label pattern: letters, numbers, spaces, & - '
+const CHIP_LABEL_PATTERN = /^[a-zA-Z0-9 &'-]+$/;
+
+/**
+ * Generate a unique code from label. Lowercase, a-z0-9_, max 30 chars.
+ * Adds numeric suffix if code already exists in the list.
+ */
+function generateCode(label, existingCodes) {
+  let base = label
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_|_$/g, "")
+    .slice(0, CHIP_LIMITS.codeMaxLength - 2); // leave room for suffix
+  if (!base) base = "chip";
+
+  let code = base;
+  let suffix = 2;
+  while (existingCodes.has(code)) {
+    code = `${base}_${suffix}`;
+    suffix++;
+    if (suffix > 99) break; // safety
+  }
+  return code.slice(0, CHIP_LIMITS.codeMaxLength);
+}
+
+/**
+ * Validate and transform reasonChips input.
+ * @param {object} input - { pass: [...], maybe: [...] }
+ * @param {object} currentChips - Existing chips (to preserve codes)
+ * @returns {{ data: object, errors: Record<string, string> }}
+ */
+export function validateReasonChips(input, currentChips) {
+  const errors = {};
+  const data = { pass: [], maybe: [] };
+
+  for (const listKey of ["pass", "maybe"]) {
+    const inputList = input?.[listKey];
+    if (!Array.isArray(inputList)) {
+      errors[`reasonChips.${listKey}`] = "Must be an array.";
+      continue;
+    }
+
+    // Build map of existing codes for this list
+    const existingMap = new Map();
+    for (const chip of currentChips?.[listKey] || []) {
+      if (chip.code) existingMap.set(chip.code, chip);
+    }
+
+    const newCodes = new Set();
+    let activeCount = 0;
+
+    for (let i = 0; i < inputList.length; i++) {
+      const chip = inputList[i];
+      const prefix = `reasonChips.${listKey}[${i}]`;
+
+      // Validate label
+      const label = String(chip?.label ?? "").trim();
+      if (label.length < CHIP_LIMITS.labelMinLength) {
+        errors[`${prefix}.label`] = `Label must be at least ${CHIP_LIMITS.labelMinLength} characters.`;
+        continue;
+      }
+      if (label.length > CHIP_LIMITS.labelMaxLength) {
+        errors[`${prefix}.label`] = `Label must be ${CHIP_LIMITS.labelMaxLength} characters or fewer.`;
+        continue;
+      }
+      if (!CHIP_LABEL_PATTERN.test(label)) {
+        errors[`${prefix}.label`] = "Only letters, numbers, spaces, &, -, and ' are allowed.";
+        continue;
+      }
+
+      // Determine code: use existing if provided and valid, else generate
+      let code = chip?.code;
+      const isNew = !code || !existingMap.has(code);
+
+      if (isNew) {
+        // New chip: generate code
+        code = generateCode(label, new Set([...existingMap.keys(), ...newCodes]));
+      }
+
+      // Check code uniqueness in this list
+      if (newCodes.has(code)) {
+        errors[`${prefix}.code`] = "Duplicate code in list.";
+        continue;
+      }
+      newCodes.add(code);
+
+      // Validate active
+      const active = chip?.active === true || chip?.active === "true";
+      if (active) {
+        activeCount++;
+        if (activeCount > CHIP_LIMITS.maxActivePerList) {
+          errors[`${prefix}.active`] = `Maximum ${CHIP_LIMITS.maxActivePerList} active chips per list.`;
+          continue;
+        }
+      }
+
+      data[listKey].push({ code, label, active });
+    }
+  }
 
   return { data, errors };
 }

@@ -61,6 +61,18 @@ export async function action({ request, params }) {
     return json({ error: { code: VOTE_ERRORS.INVALID } }, 400);
   }
 
+  // Validate reason if provided (pass undefined when absent to preserve existing)
+  const reason = body.reason;
+  if (reason !== undefined && reason !== null && typeof reason !== "string") {
+    return json({ error: { code: VOTE_ERRORS.INVALID } }, 400);
+  }
+
+  // Validate reasonText if provided (max 120 chars enforced server-side)
+  const reasonText = body.reasonText;
+  if (reasonText !== undefined && reasonText !== null && typeof reasonText !== "string") {
+    return json({ error: { code: VOTE_ERRORS.INVALID } }, 400);
+  }
+
   const token = params.token;
   if (!token) {
     return json({ error: { code: VOTE_ERRORS.NOT_FOUND } }, 404);
@@ -69,12 +81,14 @@ export async function action({ request, params }) {
   // Get settings
   const settings = await getSettings(shop);
 
-  // Submit vote
+  // Submit vote: pass undefined (not null) when fields are absent to preserve existing
   const result = await submitVote({
     shop,
     token,
     itemId: itemId.trim(),
     verdict: verdict.toUpperCase(),
+    reason,
+    reasonText,
     settings,
   });
 

@@ -24,6 +24,7 @@ html,body{margin:0;padding:0;background:var(--s);min-height:100dvh;font-family:M
 .pvb-item-info{flex:1;min-width:0}
 .pvb-item-title{font-size:14px;font-weight:600;margin:0 0 4px;line-height:1.3;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
 .pvb-item-meta{font-size:13px;color:var(--t);margin:0}
+.pvb-item-reason{font-size:11px;color:var(--t);margin:4px 0 0;font-style:italic}
 .pvb-item-right{display:flex;flex-direction:column;align-items:flex-end;gap:6px}
 .pvb-tag{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;padding:4px 10px;border-radius:12px;white-space:nowrap}
 .pvb-tag-love{background:var(--f);color:var(--w)}

@@ -7,6 +7,7 @@ import { DEFAULT_COPY, LIMITS } from "../models/settings.shared.js";
 import {
   getSettings,
   validateSettings,
+  validateReasonChips,
   saveSettings,
   saveKlaviyoKey,
   removeKlaviyoKey,
@@ -100,6 +101,7 @@ export const action = async ({ request }) => {
   const input = {
     enabled:              formData.get("enabled"),
     notificationsEnabled: formData.get("notificationsEnabled"),
+    askReasons:           formData.get("askReasons"),
     boardExpiryDays:      formData.get("boardExpiryDays"),
     maxItemsPerBoard:     formData.get("maxItemsPerBoard"),
     maxSharesPerDay:      formData.get("maxSharesPerDay"),
@@ -111,6 +113,28 @@ export const action = async ({ request }) => {
   }
 
   const { data, errors } = validateSettings(input);
+
+  // Parse and validate reasonChips
+  const reasonChipsJson = formData.get("reasonChips");
+  let reasonChipsInput = null;
+  if (reasonChipsJson) {
+    try {
+      reasonChipsInput = JSON.parse(reasonChipsJson);
+    } catch {
+      errors.reasonChips = "Invalid JSON.";
+    }
+  }
+
+  // Get current settings to preserve chip codes
+  const currentSettings = await getSettings(session.shop);
+
+  if (reasonChipsInput && !errors.reasonChips) {
+    const chipResult = validateReasonChips(reasonChipsInput, currentSettings.reasonChips);
+    Object.assign(errors, chipResult.errors);
+    if (Object.keys(chipResult.errors).length === 0) {
+      data.reasonChips = chipResult.data;
+    }
+  }
 
   // Handle Klaviyo key save (separate from other settings validation)
   const klaviyoKey = formData.get("klaviyoKey")?.trim();
@@ -186,6 +210,20 @@ export default function SettingsPage() {
   // Local state for test email
   const [testEmail, setTestEmail] = useState("");
 
+  // Local state for reason chips (editable copy)
+  const [passChips, setPassChips] = useState(() => settings.reasonChips?.pass || []);
+  const [maybeChips, setMaybeChips] = useState(() => settings.reasonChips?.maybe || []);
+  const [newPassLabel, setNewPassLabel] = useState("");
+  const [newMaybeLabel, setNewMaybeLabel] = useState("");
+
+  // Reset chips when settings reload (after save)
+  useEffect(() => {
+    if (settings.reasonChips) {
+      setPassChips(settings.reasonChips.pass || []);
+      setMaybeChips(settings.reasonChips.maybe || []);
+    }
+  }, [settings.reasonChips]);
+
   // Toast fires on every clean save. actionData?.savedAt is unique each time
   // (Date.now()), so the effect reliably re-fires even on back-to-back saves.
   useEffect(() => {
@@ -225,6 +263,68 @@ export default function SettingsPage() {
 
   const isKlaviyoConnected = !!settings.klaviyoKeyLast4;
   const fetcherErrors = fetcher.data?.errors ?? {};
+
+  // Chip editing helpers
+  const moveChip = (list, setList, index, direction) => {
+    const newList = [...list];
+    const newIndex = index + direction;
+    if (newIndex < 0 || newIndex >= newList.length) return;
+    [newList[index], newList[newIndex]] = [newList[newIndex], newList[index]];
+    setList(newList);
+  };
+
+  const updateChipLabel = (list, setList, index, label) => {
+    const newList = [...list];
+    newList[index] = { ...newList[index], label };
+    setList(newList);
+  };
+
+  const retireChip = (list, setList, index) => {
+    const newList = [...list];
+    newList[index] = { ...newList[index], active: false };
+    setList(newList);
+  };
+
+  const restoreChip = (list, setList, index) => {
+    const newList = [...list];
+    // Check max 8 active
+    const activeCount = newList.filter(c => c.active).length;
+    if (activeCount >= 8) {
+      shopify.toast.show("Maximum 8 active chips per list");
+      return;
+    }
+    newList[index] = { ...newList[index], active: true };
+    setList(newList);
+  };
+
+  const addChip = (list, setList, label, setLabel) => {
+    const trimmed = label.trim();
+    if (trimmed.length < 2 || trimmed.length > 24) {
+      shopify.toast.show("Label must be 2-24 characters");
+      return;
+    }
+    if (!/^[a-zA-Z0-9 &'-]+$/.test(trimmed)) {
+      shopify.toast.show("Only letters, numbers, spaces, &, -, ' allowed");
+      return;
+    }
+    const activeCount = list.filter(c => c.active).length;
+    if (activeCount >= 8) {
+      shopify.toast.show("Maximum 8 active chips per list");
+      return;
+    }
+    // Code will be generated server-side; use a placeholder
+    setList([...list, { code: "", label: trimmed, active: true }]);
+    setLabel("");
+  };
+
+  // Build chips JSON for form submission
+  const reasonChipsJson = JSON.stringify({ pass: passChips, maybe: maybeChips });
+
+  // Split chips into active and retired
+  const activePassChips = passChips.filter(c => c.active);
+  const retiredPassChips = passChips.map((c, i) => ({ ...c, originalIndex: i })).filter(c => !c.active);
+  const activeMaybeChips = maybeChips.filter(c => c.active);
+  const retiredMaybeChips = maybeChips.map((c, i) => ({ ...c, originalIndex: i })).filter(c => !c.active);
 
   return (
     <Form method="post" data-save-bar>
@@ -293,6 +393,11 @@ export default function SettingsPage() {
             step={1}
             value={String(settings.maxSharesPerDay)}
             error={errors.maxSharesPerDay}
+          />
+          <s-switch
+            label="Ask partner why on Maybe and Pass votes"
+            name="askReasons"
+            checked={settings.askReasons || undefined}
           />
           <s-text-field
             label="Exclude tag"
@@ -387,7 +492,142 @@ export default function SettingsPage() {
           )}
         </s-section>
 
-        {/* ── d) Vote Page Copy ─────────────────────────────────────────── */}
+        {/* ── d) Reason Chips ───────────────────────────────────────────── */}
+        <s-section heading="Reason Chips" id="reason-chips">
+          <p style={{ marginBottom: "16px", color: "#6b7177" }}>
+            Partners can pick one reason after Maybe or Not For Us.
+            Add a chip when the same answer keeps showing up under Other.
+          </p>
+
+          {/* Hidden input for form submission */}
+          <input type="hidden" name="reasonChips" value={reasonChipsJson} />
+
+          {/* After Not For Us */}
+          <div style={{ marginBottom: "24px" }}>
+            <h3 style={{ marginBottom: "12px", fontWeight: 600 }}>After Not For Us</h3>
+            {activePassChips.map((chip, i) => {
+              const realIndex = passChips.findIndex(c => c === chip);
+              return (
+                <div key={chip.code || i} style={{ display: "flex", gap: "8px", marginBottom: "8px", alignItems: "center" }}>
+                  <s-text-field
+                    value={chip.label}
+                    onChange={(e) => updateChipLabel(passChips, setPassChips, realIndex, e.target.value)}
+                    style={{ flex: 1 }}
+                  />
+                  <s-button
+                    variant="plain"
+                    onClick={() => moveChip(passChips, setPassChips, realIndex, -1)}
+                    disabled={realIndex === 0 || undefined}
+                  >↑</s-button>
+                  <s-button
+                    variant="plain"
+                    onClick={() => moveChip(passChips, setPassChips, realIndex, 1)}
+                    disabled={realIndex === passChips.length - 1 || undefined}
+                  >↓</s-button>
+                  <s-button
+                    variant="plain"
+                    tone="critical"
+                    onClick={() => retireChip(passChips, setPassChips, realIndex)}
+                  >Remove</s-button>
+                </div>
+              );
+            })}
+            <div style={{ display: "flex", gap: "8px", marginTop: "12px" }}>
+              <s-text-field
+                placeholder="New chip label"
+                value={newPassLabel}
+                onChange={(e) => setNewPassLabel(e.target.value)}
+                style={{ flex: 1 }}
+              />
+              <s-button
+                onClick={() => addChip(passChips, setPassChips, newPassLabel, setNewPassLabel)}
+                disabled={!newPassLabel.trim() || undefined}
+              >Add</s-button>
+            </div>
+            {retiredPassChips.length > 0 && (
+              <details style={{ marginTop: "12px" }}>
+                <summary style={{ cursor: "pointer", color: "#6b7177" }}>
+                  Retired chips ({retiredPassChips.length})
+                </summary>
+                <div style={{ marginTop: "8px" }}>
+                  {retiredPassChips.map((chip) => (
+                    <div key={chip.code} style={{ display: "flex", gap: "8px", marginBottom: "8px", alignItems: "center" }}>
+                      <span style={{ flex: 1, color: "#6b7177" }}>{chip.label}</span>
+                      <s-button
+                        variant="plain"
+                        onClick={() => restoreChip(passChips, setPassChips, chip.originalIndex)}
+                      >Restore</s-button>
+                    </div>
+                  ))}
+                </div>
+              </details>
+            )}
+          </div>
+
+          {/* After Maybe */}
+          <div>
+            <h3 style={{ marginBottom: "12px", fontWeight: 600 }}>After Maybe</h3>
+            {activeMaybeChips.map((chip, i) => {
+              const realIndex = maybeChips.findIndex(c => c === chip);
+              return (
+                <div key={chip.code || i} style={{ display: "flex", gap: "8px", marginBottom: "8px", alignItems: "center" }}>
+                  <s-text-field
+                    value={chip.label}
+                    onChange={(e) => updateChipLabel(maybeChips, setMaybeChips, realIndex, e.target.value)}
+                    style={{ flex: 1 }}
+                  />
+                  <s-button
+                    variant="plain"
+                    onClick={() => moveChip(maybeChips, setMaybeChips, realIndex, -1)}
+                    disabled={realIndex === 0 || undefined}
+                  >↑</s-button>
+                  <s-button
+                    variant="plain"
+                    onClick={() => moveChip(maybeChips, setMaybeChips, realIndex, 1)}
+                    disabled={realIndex === maybeChips.length - 1 || undefined}
+                  >↓</s-button>
+                  <s-button
+                    variant="plain"
+                    tone="critical"
+                    onClick={() => retireChip(maybeChips, setMaybeChips, realIndex)}
+                  >Remove</s-button>
+                </div>
+              );
+            })}
+            <div style={{ display: "flex", gap: "8px", marginTop: "12px" }}>
+              <s-text-field
+                placeholder="New chip label"
+                value={newMaybeLabel}
+                onChange={(e) => setNewMaybeLabel(e.target.value)}
+                style={{ flex: 1 }}
+              />
+              <s-button
+                onClick={() => addChip(maybeChips, setMaybeChips, newMaybeLabel, setNewMaybeLabel)}
+                disabled={!newMaybeLabel.trim() || undefined}
+              >Add</s-button>
+            </div>
+            {retiredMaybeChips.length > 0 && (
+              <details style={{ marginTop: "12px" }}>
+                <summary style={{ cursor: "pointer", color: "#6b7177" }}>
+                  Retired chips ({retiredMaybeChips.length})
+                </summary>
+                <div style={{ marginTop: "8px" }}>
+                  {retiredMaybeChips.map((chip) => (
+                    <div key={chip.code} style={{ display: "flex", gap: "8px", marginBottom: "8px", alignItems: "center" }}>
+                      <span style={{ flex: 1, color: "#6b7177" }}>{chip.label}</span>
+                      <s-button
+                        variant="plain"
+                        onClick={() => restoreChip(maybeChips, setMaybeChips, chip.originalIndex)}
+                      >Restore</s-button>
+                    </div>
+                  ))}
+                </div>
+              </details>
+            )}
+          </div>
+        </s-section>
+
+        {/* ── e) Vote Page Copy ─────────────────────────────────────────── */}
         <s-section heading="Vote Page Copy">
           {COPY_FIELDS.map(({ key, label, help }) => (
             <s-text-field

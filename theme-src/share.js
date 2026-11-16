@@ -674,6 +674,9 @@
     formElement.style.display = 'none';
     sheetOverlay.querySelector('#pvb-footer').style.display = 'none';
     sheetOverlay.querySelector('#pvb-sent').dataset.visible = 'false';
+    // Hide email panel if visible
+    var emailPanel = sheetOverlay.querySelector('#pvb-email-panel');
+    if (emailPanel) emailPanel.dataset.visible = 'false';
     sheetOverlay.querySelector('#pvb-channels').dataset.visible = 'true';
     // Reset copy button label
     var copyLabel = document.getElementById('pvb-copy-label');
@@ -691,18 +694,83 @@
 
     if (channel === 'whatsapp') {
       window.open('https://wa.me/?text=' + encodeURIComponent(fullText), '_blank');
+      showSentScreen();
     } else if (channel === 'email') {
       var subject = currentShareData.ownerFirstName + ' wants your vote';
+      // Desktop (non-touch): show email panel instead of mailto
+      var isTouch = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
+      if (!isTouch) {
+        showEmailPanel(subject, fullText);
+        return;
+      }
+      // Touch: use mailto as before
       window.location.href = 'mailto:?subject=' + encodeURIComponent(subject) +
         '&body=' + encodeURIComponent(fullText);
+      showSentScreen();
     } else if (channel === 'sms') {
       window.location.href = 'sms:?&body=' + encodeURIComponent(fullText);
+      showSentScreen();
     } else if (channel === 'copy') {
       copyToClipboard(url);
       return; // Don't show sent screen for copy
     }
+  }
 
-    showSentScreen();
+  // Desktop email fallback panel
+  function showEmailPanel(subject, body) {
+    formElement.style.display = 'none';
+    sheetOverlay.querySelector('#pvb-footer').style.display = 'none';
+    sheetOverlay.querySelector('#pvb-channels').dataset.visible = 'false';
+    sheetOverlay.querySelector('#pvb-sent').dataset.visible = 'false';
+
+    // Create or show email panel
+    var emailPanel = sheetOverlay.querySelector('#pvb-email-panel');
+    if (!emailPanel) {
+      emailPanel = el('div', 'pvb-email-panel', { id: 'pvb-email-panel' });
+      emailPanel.innerHTML =
+        '<p class="pvb-email-panel-title">Open your email</p>' +
+        '<div class="pvb-email-buttons">' +
+          '<button type="button" class="pvb-email-btn" data-provider="gmail">Gmail</button>' +
+          '<button type="button" class="pvb-email-btn" data-provider="outlook">Outlook</button>' +
+          '<button type="button" class="pvb-email-btn" data-provider="copy">Copy Message</button>' +
+        '</div>' +
+        '<button type="button" class="pvb-email-done">Done</button>';
+
+      emailPanel.querySelector('.pvb-email-buttons').addEventListener('click', function(e) {
+        var provider = e.target.dataset.provider;
+        if (!provider) return;
+        var subjectEnc = encodeURIComponent(subject);
+        var bodyEnc = encodeURIComponent(body);
+        if (provider === 'gmail') {
+          window.open('https://mail.google.com/mail/?view=cm&fs=1&su=' + subjectEnc + '&body=' + bodyEnc, '_blank');
+          showSentScreen();
+        } else if (provider === 'outlook') {
+          window.open('https://outlook.live.com/mail/0/deeplink/compose?subject=' + subjectEnc + '&body=' + bodyEnc, '_blank');
+          showSentScreen();
+        } else if (provider === 'copy') {
+          // Copy subject + body
+          var fullMsg = subject + '\n\n' + body;
+          if (navigator.clipboard) {
+            navigator.clipboard.writeText(fullMsg).then(function() {
+              e.target.textContent = 'Copied';
+            }).catch(function() {
+              e.target.textContent = 'Failed';
+            });
+          } else {
+            copyFallback(fullMsg, e.target);
+          }
+        }
+      });
+
+      emailPanel.querySelector('.pvb-email-done').addEventListener('click', showSentScreen);
+
+      sheetOverlay.querySelector('.pvb-share-body').appendChild(emailPanel);
+    }
+
+    emailPanel.dataset.visible = 'true';
+    // Reset copy button text
+    var copyBtn = emailPanel.querySelector('[data-provider="copy"]');
+    if (copyBtn) copyBtn.textContent = 'Copy Message';
   }
 
   // Send share_channel directly to App Proxy (not pixel) so it survives navigation.
@@ -765,6 +833,9 @@
     formElement.style.display = 'none';
     sheetOverlay.querySelector('#pvb-channels').dataset.visible = 'false';
     sheetOverlay.querySelector('#pvb-footer').style.display = 'none';
+    // Hide email panel if visible
+    var emailPanel = sheetOverlay.querySelector('#pvb-email-panel');
+    if (emailPanel) emailPanel.dataset.visible = 'false';
     var sentSection = sheetOverlay.querySelector('#pvb-sent');
     sentSection.dataset.visible = 'true';
     document.getElementById('pvb-sent-name').textContent = currentShareData.partnerFirstName;

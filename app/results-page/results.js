@@ -325,6 +325,26 @@
 
   // ---- Build item row HTML ----
 
+  // Reason labels (inline to avoid server import)
+  // Fixed labels per Abbir's approval
+  const REASON_LABELS = {
+    color: "Color", size: "Size", price: "Price", style: "Style", material: "Material", comfort: "Comfort",
+    another_color: "Another Color", different_size: "Different Size", lower_price: "Lower Price", in_person: "See It in Person",
+    other: "Other",
+  };
+
+  // Build reason display text: "Not right: X" for Pass, "Would be a yes with: X" for Maybe
+  function getReasonDisplay(item) {
+    if (!item.reason) return null;
+    const label = REASON_LABELS[item.reason] || null;
+    // For "other" chip, use reasonText if available
+    const displayText = item.reason === "other" && item.reasonText ? item.reasonText : label;
+    if (!displayText) return null;
+    if (item.verdict === "PASS") return `Not right: ${displayText}`;
+    if (item.verdict === "MAYBE") return `Would be a yes with: ${displayText}`;
+    return null;
+  }
+
   function itemRow(item, showTag, tagClass, tagText, showAddBtn) {
     const img = item.image
       ? `<img class="pvb-item-img" src="${esc(item.image)}" alt="">`
@@ -343,6 +363,10 @@
       rightHtml += `<button class="pvb-btn-sm pvb-add-single" data-variant="${item.variantId}">Add to Cart</button>`;
     }
 
+    // Show reason text if present (for PASS/MAYBE items)
+    const reasonDisplay = getReasonDisplay(item);
+    const reasonHtml = reasonDisplay ? `<p class="pvb-item-reason">${esc(reasonDisplay)}</p>` : "";
+
     const meta = item.verdict ? item.price : "Waiting for a vote";
 
     return `<div class="pvb-item${unavailClass}${waitClass}" data-id="${item.variantId}">
@@ -350,6 +374,7 @@
       <div class="pvb-item-info">
         <p class="pvb-item-title">${esc(item.title)}</p>
         <p class="pvb-item-meta">${esc(meta)}</p>
+        ${reasonHtml}
       </div>
       <div class="pvb-item-right">${rightHtml}</div>
     </div>`;

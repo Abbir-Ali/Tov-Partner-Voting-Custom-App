@@ -21,6 +21,8 @@ if (process.env.NODE_ENV === "production") {
 const prisma = new PrismaClient();
 
 const CHANNELS = ["whatsapp", "email", "sms", "copy", "native"];
+const PASS_REASONS = ["color", "size", "price", "style", "material", "comfort"];
+const MAYBE_REASONS = ["another_color", "different_size", "lower_price", "in_person"];
 
 function randomId() {
   return crypto.randomBytes(12).toString("hex");
@@ -162,11 +164,19 @@ async function seedData(shop, products) {
       if (hasVoted) {
         // Weight toward LOVE for realism
         const verdict = Math.random() > 0.4 ? "LOVE" : randomChoice(["MAYBE", "PASS"]);
+        // 60% of MAYBE/PASS votes get a reason
+        let reason = null;
+        if (verdict === "PASS" && Math.random() < 0.6) {
+          reason = randomChoice(PASS_REASONS);
+        } else if (verdict === "MAYBE" && Math.random() < 0.6) {
+          reason = randomChoice(MAYBE_REASONS);
+        }
         await prisma.vote.create({
           data: {
             id: `seed-vote-${randomId()}`,
             boardItemId: item.id,
             verdict,
+            reason,
             voterName: "Partner",
           },
         });

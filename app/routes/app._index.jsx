@@ -26,6 +26,9 @@ import {
   getTopBoardCustomers,
   fetchCustomerNames,
 } from "../services/audit.server.js";
+import {
+  getReasonLabel,
+} from "../models/reasons.shared.js";
 
 export const loader = async ({ request }) => {
   const { admin, session } = await authenticate.admin(request);
@@ -95,7 +98,14 @@ export const loader = async ({ request }) => {
     }
   }
 
-  return { syncOk, needsKlaviyoKey, hasFailedNotifs, dashboard, topCustomers };
+  return {
+    syncOk,
+    needsKlaviyoKey,
+    hasFailedNotifs,
+    dashboard,
+    topCustomers,
+    reasonChips: settings.reasonChips,
+  };
 };
 
 export const action = async ({ request }) => {
@@ -242,7 +252,7 @@ function FeedbackBar({ love, maybe, pass, total }) {
 /* eslint-enable react/prop-types */
 
 export default function Index() {
-  const { syncOk, needsKlaviyoKey, hasFailedNotifs, dashboard, topCustomers } = useLoaderData();
+  const { syncOk, needsKlaviyoKey, hasFailedNotifs, dashboard, topCustomers, reasonChips } = useLoaderData();
   const fetcher = useFetcher();
   const shopify = useAppBridge();
 
@@ -345,6 +355,8 @@ export default function Index() {
         .pvb-channel-row { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #F1ECE5; font-size: 13px; }
         .pvb-channel-row:last-child { border-bottom: none; }
         .pvb-empty { color: #82736C; font-size: 13px; font-style: italic; }
+        .pvb-settings-link { display: block; margin-top: 12px; font-size: 12px; color: #82736C; text-decoration: none; }
+        .pvb-settings-link:hover { text-decoration: underline; }
         .pvb-note { font-size: 12px; color: #82736C; margin-top: 8px; line-height: 1.4; }
         .pvb-privacy { font-size: 11px; color: #82736C; margin-top: 8px; }
         .pvb-customer-row { display: grid; grid-template-columns: 1fr 80px 100px 50px; gap: 8px; padding: 8px 0; border-bottom: 1px solid #F1ECE5; font-size: 13px; align-items: center; }
@@ -635,6 +647,44 @@ export default function Index() {
             )}
           </div>
         </div>
+
+        {/* Row 3: Why partners pass/maybe */}
+        {dashboard.partnerReasons.total > 0 && (
+          <div className="pvb-insights-row">
+            <div className="pvb-insight-card">
+              <div className="pvb-insight-title">Why partners pass</div>
+              {dashboard.partnerReasons.pass.length > 0 ? (
+                dashboard.partnerReasons.pass.map((r, idx) => (
+                  <div key={idx} className="pvb-channel-row">
+                    <span>{getReasonLabel("PASS", r.reason, reasonChips)}</span>
+                    <span className="pvb-product-count">{r.count}</span>
+                  </div>
+                ))
+              ) : (
+                <p className="pvb-empty">No pass reasons yet.</p>
+              )}
+              <Link to="/app/settings#reason-chips" className="pvb-settings-link">
+                Turn an answer into a chip
+              </Link>
+            </div>
+            <div className="pvb-insight-card">
+              <div className="pvb-insight-title">Why partners say maybe</div>
+              {dashboard.partnerReasons.maybe.length > 0 ? (
+                dashboard.partnerReasons.maybe.map((r, idx) => (
+                  <div key={idx} className="pvb-channel-row">
+                    <span>{getReasonLabel("MAYBE", r.reason, reasonChips)}</span>
+                    <span className="pvb-product-count">{r.count}</span>
+                  </div>
+                ))
+              ) : (
+                <p className="pvb-empty">No maybe reasons yet.</p>
+              )}
+              <Link to="/app/settings#reason-chips" className="pvb-settings-link">
+                Turn an answer into a chip
+              </Link>
+            </div>
+          </div>
+        )}
       </s-section>
     </s-page>
   );
