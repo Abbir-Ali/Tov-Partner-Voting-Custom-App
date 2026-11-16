@@ -1,0 +1,135 @@
+[
+  {
+    "$schema": "https://extensions.shopifycdn.com/shopifycloud/schemas/v1/tool.json",
+    "name": "board_performance",
+    "description": "Get partner voting board performance: revenue from boards, order count, AOV, partner vote rate, and funnel counts for a time period. Early funnel (button seen, saved) comes from storefront tracking and may not match later funnel steps.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "days": {
+          "type": "integer",
+          "description": "Time period in days (7, 14, 30, or 60)",
+          "enum": [7, 14, 30, 60],
+          "default": 30
+        }
+      }
+    }
+  },
+  {
+    "$schema": "https://extensions.shopifycdn.com/shopifycloud/schemas/v1/tool.json",
+    "name": "top_shared_products",
+    "description": "Get the most shared products on voting boards: product title, GID, board count, and percent loved by partners",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "days": {
+          "type": "integer",
+          "description": "Time period in days (7, 14, 30, or 60)",
+          "enum": [7, 14, 30, 60],
+          "default": 30
+        },
+        "limit": {
+          "type": "integer",
+          "description": "Max results (1-10)",
+          "minimum": 1,
+          "maximum": 10,
+          "default": 10
+        }
+      }
+    }
+  },
+  {
+    "$schema": "https://extensions.shopifycdn.com/shopifycloud/schemas/v1/tool.json",
+    "name": "product_partner_feedback",
+    "description": "Get partner votes for a specific product: loved, maybe, not for us counts and percent loved. Requires 5+ votes.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "product_title": {
+          "type": "string",
+          "description": "Product title to search for"
+        },
+        "product_id": {
+          "type": "string",
+          "description": "Product GID (gid://shopify/Product/...)"
+        }
+      }
+    }
+  },
+  {
+    "$schema": "https://extensions.shopifycdn.com/shopifycloud/schemas/v1/tool.json",
+    "name": "orders_from_boards",
+    "description": "Get recent orders that came from shared voting boards: order number, date, amount, pieces, loved count. No customer info.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "days": {
+          "type": "integer",
+          "description": "Time period in days (7, 14, 30, or 60)",
+          "enum": [7, 14, 30, 60],
+          "default": 30
+        },
+        "limit": {
+          "type": "integer",
+          "description": "Max results (1-10)",
+          "minimum": 1,
+          "maximum": 10,
+          "default": 10
+        }
+      }
+    }
+  },
+  {
+    "$schema": "https://extensions.shopifycdn.com/shopifycloud/schemas/v1/tool.json",
+    "name": "shares_by_channel",
+    "description": "Get board share counts by channel (WhatsApp, Email, SMS, Copy link, Share sheet) and vote rate per channel",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "days": {
+          "type": "integer",
+          "description": "Time period in days (7, 14, 30, or 60)",
+          "enum": [7, 14, 30, 60],
+          "default": 30
+        }
+      }
+    }
+  },
+  {
+    "$schema": "https://extensions.shopifycdn.com/shopifycloud/schemas/v1/tool.json",
+    "name": "notification_health",
+    "description": "Get voting-done email health: sent, pending, failed counts and whether Klaviyo is connected",
+    "inputSchema": {
+      "type": "object",
+      "properties": {}
+    }
+  },
+  {
+    "$schema": "https://extensions.shopifycdn.com/shopifycloud/schemas/v1/tool.json",
+    "name": "top_board_customers",
+    "description": "Only use when the merchant asks about their customers (top customers, repeat buyers, who ordered from boards). Returns customer name, board orders, revenue, repeat buyer status, and admin link. Never returns email, phone, or address.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "days": {
+          "type": "integer",
+          "description": "Time period in days (7, 14, 30, or 60)",
+          "enum": [7, 14, 30, 60],
+          "default": 30
+        },
+        "limit": {
+          "type": "integer",
+          "description": "Max results (1-10)",
+          "minimum": 1,
+          "maximum": 10,
+          "default": 10
+        },
+        "repeat_only": {
+          "type": "boolean",
+          "description": "Only show repeat buyers (2+ board orders all-time)",
+          "default": false
+        }
+      }
+    }
+  }
+]

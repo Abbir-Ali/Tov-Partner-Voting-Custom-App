@@ -1,0 +1,14 @@
+api_version = "2026-10"
+
+[[extensions]]
+name = "Partner Voting Board Tools"
+description = "Partner Voting Board analytics: revenue and orders from shared furniture boards, partner vote rates, which products shoppers ask a second opinion on, what partners think of each product (Loved / Maybe / Not For Us), share channels, and voting-done email health."
+handle = "pvb-sidekick"
+uid = "67c37289-bdfc-11ea-d04e-2b8d3f0b0310f94bec07"
+type = "ui_extension"
+
+[[extensions.targeting]]
+module = "./src/index.js"
+target = "admin.app.tools.data"
+tools = "./tools.json"
+instructions = "./instructions.md"

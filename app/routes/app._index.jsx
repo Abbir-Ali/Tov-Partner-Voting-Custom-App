@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import { Link, useLoaderData, useFetcher } from "react-router";
 import { useAppBridge } from "@shopify/app-bridge-react";
 import { boundary } from "@shopify/shopify-app-react-router/server";
@@ -247,6 +248,24 @@ export default function Index() {
 
   const currentDays = dashboard.range;
 
+  // Check if Sidekick is available (runs once on mount)
+  const [sidekickEnabled, setSidekickEnabled] = useState(false);
+  useEffect(() => {
+    shopify.sidekick?.isEnabled().then(setSidekickEnabled).catch(() => {});
+  }, [shopify]);
+
+  const handleAskSidekick = async () => {
+    try {
+      await shopify.sidekick.launch({
+        message: `Summarize my partner board results for the last ${currentDays} days and point out products with low partner approval.`,
+      });
+    } catch (err) {
+      if (err?.message?.startsWith("sidekick.launch:")) {
+        shopify.toast.show("Sidekick is unavailable right now");
+      }
+    }
+  };
+
   const handleRetryFailed = () => {
     fetcher.submit({ intent: "retryFailed" }, { method: "post" });
   };
@@ -282,9 +301,11 @@ export default function Index() {
   return (
     <s-page heading="Partner Voting Board">
       <style>{`
-        .pvb-range-btns { display: flex; gap: 8px; margin-bottom: 16px; }
+        .pvb-range-btns { display: flex; gap: 8px; margin-bottom: 16px; align-items: center; }
         .pvb-range-btn { padding: 6px 12px; border: 1px solid #82736C; border-radius: 20px; background: #FEFBF6; color: #3F3D3E; text-decoration: none; font-size: 13px; font-weight: 500; letter-spacing: 0.05em; text-transform: uppercase; }
         .pvb-range-btn[data-active="true"] { background: #485B59; color: #FEFBF6; border-color: #485B59; }
+        .pvb-sidekick-btn { margin-left: auto; padding: 6px 12px; border: 1px solid #485B59; border-radius: 20px; background: #FEFBF6; color: #485B59; font-size: 13px; font-weight: 500; letter-spacing: 0.05em; text-transform: uppercase; cursor: pointer; }
+        .pvb-sidekick-btn:hover { background: #485B59; color: #FEFBF6; }
         .pvb-kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; margin: 16px 0; }
         .pvb-kpi-card { background: #FEFBF6; border: 1px solid #F1ECE5; border-radius: 8px; padding: 16px; }
         .pvb-kpi-value { font-size: 28px; font-weight: 600; color: #3F3D3E; }
@@ -367,6 +388,11 @@ export default function Index() {
             {d} days
           </Link>
         ))}
+        {sidekickEnabled && (
+          <button className="pvb-sidekick-btn" onClick={handleAskSidekick}>
+            Ask Sidekick
+          </button>
+        )}
       </div>
 
       {/* Revenue card */}

@@ -659,3 +659,61 @@ notify.sent          shop=... boardId=...
 notify.skipped       shop=... boardId=... reason=no_key
 notify.failed        shop=... boardId=... code=401 attempt=1
 ```
+
+
+
+## Sidekick (Admin AI) Test (Task 13)
+
+### Prerequisites
+
+1. `api_version = "2026-10"` must be the first line of `extensions/pvb-sidekick/shopify.extension.toml` (required for admin.app.tools.data)
+2. `shopify app dev` running with tunnel
+3. Some board/order/event data in the database
+
+### Setup
+
+1. Restart `shopify app dev` if the extension was added since last start
+2. Open the admin in browser: https://admin.shopify.com/store/abbir-official-dev-store
+3. Open Dev Console (click the icon or press Ctrl+Shift+D on Windows)
+4. Find `pvb-sidekick` in the extensions list
+5. Click "admin.app.tools.data" to activate the preview
+
+### Test steps
+
+| Step | Action | Expected |
+|------|--------|----------|
+| 1 | Ask Sidekick: "How are partner boards doing?" | Prompt to allow Partner Voting Board |
+| 2 | Click "Allow" | Sidekick calls board_performance, responds with revenue/orders/AOV/vote rate |
+| 3 | Check logs/app.log | Line: `sidekick.tool shop=... tool=board_performance ms=...` |
+| 4 | Ask: "Which products do people share most?" | top_shared_products results |
+| 5 | Ask: "What do partners think of [product name]?" | product_partner_feedback results (or "not enough votes") |
+| 6 | Ask: "Who are my top board customers?" | top_board_customers results with names, orders, revenue, repeat status |
+| 7 | Ask: "Which customers are repeat board buyers?" | top_board_customers with repeat_only=true |
+| 8 | Ask: "Are voting-done emails working?" | notification_health results |
+
+### Performance check
+
+The `product_partner_feedback` tool should complete in under 200 ms (uses cached product titles).
+Check logs/app.log for actual ms values.
+
+### Ask Sidekick button
+
+1. Open the app dashboard: Admin → Apps → Partner Voting Board
+2. Verify "Ask Sidekick" button appears in the header
+3. Click the button
+4. Expected: Sidekick opens with Partner Voting Board context
+
+### Funnel note
+
+The `board_performance` response includes a `funnelNote` explaining that early funnel
+(button seen, saved) comes from storefront tracking (cookies, since tracking started),
+while later funnel (shared, opened, voted) comes from every board.
+
+### Privacy verification
+
+| Tool | Returns | Never returns |
+|------|---------|---------------|
+| top_board_customers | customer name, orders, revenue, repeat status, adminUrl | email, phone, address, notes |
+| All other tools | aggregates, product titles/IDs, order numbers | any customer info |
+
+Partner names (voter) and shopper first names from share form are never returned.
