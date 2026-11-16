@@ -138,22 +138,42 @@ export const action = async ({ request }) => {
   }));
 
   // 6. Create the board
-  const { board, shareToken, ownerToken } = await createBoard({
+  const { board, shareToken, ownerToken, groupToken, voterTokens } = await createBoard({
     shop, data, customerId, settings,
   });
 
-  log.info("board.created", { shop, items: data.items.length });
+  log.info("board.created", { shop, items: data.items.length, group: !!groupToken });
 
   // Record analytics event
   await recordEvent(shop, "board_shared", { boardId: board.id });
 
-  return json(
-    {
-      boardId:    board.id,
-      shareUrl:   `https://${shop}${pathPrefix}/${shareToken}`,
-      resultsUrl: `https://${shop}${pathPrefix}/results/${ownerToken}`,
-      expiresAt:  board.expiresAt,
-    },
-    201
-  );
+  // Build links array for response
+  const links = voterTokens.map(({ name, token }) => ({
+    name,
+    url: `https://${shop}${pathPrefix}/${token}`,
+    kind: "personal",
+  }));
+
+  if (groupToken) {
+    links.push({
+      name: null,
+      url: `https://${shop}${pathPrefix}/${groupToken}`,
+      kind: "group",
+    });
+  }
+
+  const response = {
+    boardId:    board.id,
+    shareUrl:   `https://${shop}${pathPrefix}/${shareToken}`, // First voter's link for backward compat
+    resultsUrl: `https://${shop}${pathPrefix}/results/${ownerToken}`,
+    expiresAt:  board.expiresAt,
+    links,
+  };
+
+  // Include group link when enabled (backward compat)
+  if (groupToken) {
+    response.groupUrl = `https://${shop}${pathPrefix}/${groupToken}`;
+  }
+
+  return json(response, 201);
 };

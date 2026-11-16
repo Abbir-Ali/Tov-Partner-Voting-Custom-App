@@ -351,7 +351,21 @@
     textWrap.className = 'pvb-shared-text';
     var line1 = document.createElement('div');
     line1.className = 'pvb-shared-line1';
-    line1.textContent = 'Shared with ' + capitalizeFirst(e.partnerFirstName || '');
+
+    // Build "Shared with" text from voterNames array or legacy partnerFirstName
+    var names = e.voterNames || (e.partnerFirstName ? [e.partnerFirstName] : []);
+    var sharedText = 'Shared';
+    if (names.length === 1) {
+      sharedText = 'Shared with ' + capitalizeFirst(names[0]);
+    } else if (names.length === 2) {
+      sharedText = 'Shared with ' + capitalizeFirst(names[0]) + ' and ' + capitalizeFirst(names[1]);
+    } else if (names.length > 2) {
+      var allNames = names.map(capitalizeFirst);
+      sharedText = 'Shared with ' + allNames.slice(0, -1).join(', ') + ' and ' + allNames[allNames.length - 1];
+    }
+    if (e.hasGroupLink) sharedText += ' + group link';
+    line1.textContent = sharedText;
+
     var line2 = document.createElement('div');
     line2.className = 'pvb-shared-line2';
     line2.textContent = 'See their votes anytime';

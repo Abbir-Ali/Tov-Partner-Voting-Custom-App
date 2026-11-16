@@ -45,6 +45,31 @@ enum Verdict {
   PASS
 }
 
+enum VoterKind {
+  PERSONAL
+  GROUP
+}
+
+model Voter {
+  id              String     @id @default(cuid())
+  boardId         String
+  token           String     @unique
+  firstName       String     @db.VarChar(30)
+  kind            VoterKind  @default(PERSONAL)
+  openedAt        DateTime?
+  completedAt     DateTime?
+  notifiedAt      DateTime?
+  notifyAttempts  Int        @default(0)
+  notifyErrorCode String?
+  createdAt       DateTime   @default(now())
+
+  board           Board      @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  votes           Vote[]
+
+  @@index([boardId])
+  @@map("voters")
+}
+
 model Board {
   id                String      @id @default(cuid())
   shop              String
@@ -66,11 +91,15 @@ model Board {
   voteWindowStart   DateTime?
   notifyAttempts    Int         @default(0)
   notifyErrorCode   String?
+  hidePrices        Boolean     @default(false)
+  groupToken        String?     @unique
+  maxVoters         Int         @default(5)
   expiresAt         DateTime
   createdAt         DateTime    @default(now())
   updatedAt         DateTime    @updatedAt
 
   items             BoardItem[]
+  voters            Voter[]
 
   @@index([shop, customerId])
   @@index([expiresAt])
@@ -100,6 +129,7 @@ model BoardItem {
 model Vote {
   id          String    @id @default(cuid())
   boardItemId String
+  voterId     String
   verdict     Verdict
   reason      String?
   reasonText  String?   // free-text for "other" chip, max 120 chars
@@ -109,8 +139,10 @@ model Vote {
   updatedAt   DateTime  @updatedAt
 
   boardItem   BoardItem @relation(fields: [boardItemId], references: [id], onDelete: Cascade)
+  voter       Voter     @relation(fields: [voterId], references: [id], onDelete: Cascade)
 
-  @@unique([boardItemId])
+  @@unique([boardItemId, voterId])
+  @@index([voterId])
   @@map("votes")
 }
 

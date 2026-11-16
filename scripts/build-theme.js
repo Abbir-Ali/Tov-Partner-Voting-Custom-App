@@ -29,7 +29,7 @@ const bundles = [
   { entry: 'entry-button.js', output: 'pvb-button.js', limit: 10000 },
   { entry: 'entry-pill.js', output: 'pvb-drawer.js', limit: 10000 },
   { entry: 'entry-panel.js', output: 'pvb-panel.js', limit: 15000 },
-  { entry: 'entry-share.js', output: 'pvb-share.js', limit: 15000 }
+  { entry: 'entry-share.js', output: 'pvb-share.js', limit: 25000, warn: 22000 }
 ];
 
 async function build() {

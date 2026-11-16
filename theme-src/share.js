@@ -1,4 +1,4 @@
-﻿/**
+/**
  * PVB Share: share sheet UI and POST logic.
  * Lazy-loaded on first tap of "Get a Second Opinion".
  * Requires core.js (window.__pvb).
@@ -13,11 +13,11 @@
   var pvb = window.__pvb;
   if (!pvb) return;
 
-  // â”€â”€â”€ Storage Keys â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ─── Storage Keys ─────────────────────────────────────────────────────────
   var OWNER_KEY = 'pvb:owner:v1';
   var SHARES_KEY = 'pvb:shares:v1';
 
-  // â”€â”€â”€ Module State â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ─── Module State ─────────────────────────────────────────────────────────
   var sheetOverlay = null;
   var formElement = null;
   var submitButton = null;
@@ -34,7 +34,7 @@
     isLoggedIn: false
   };
 
-  // â”€â”€â”€ Config Loading â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ─── Config Loading ─────────────────────────────────────────────────────────
   function loadConfig() {
     var d = document.querySelector('[data-pvb-drawer]');
     if (!d) return;
@@ -44,7 +44,7 @@
     config.isLoggedIn = d.dataset.loggedIn === 'true';
   }
 
-  // â”€â”€â”€ Owner Name Storage â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ─── Owner Name Storage ─────────────────────────────────────────────────────
   function getOwnerName() {
     try { return localStorage.getItem(OWNER_KEY) || ''; } catch (e) { return ''; }
   }
@@ -53,7 +53,7 @@
     try { localStorage.setItem(OWNER_KEY, name); } catch (e) { /* storage unavailable */ }
   }
 
-  // â”€â”€â”€ Share History Storage â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ─── Share History Storage ──────────────────────────────────────────────────
   function getShareHistory() {
     try {
       var raw = localStorage.getItem(SHARES_KEY);
@@ -69,7 +69,8 @@
     try {
       var history = getShareHistory();
       history.unshift({
-        partnerFirstName: data.partnerFirstName,
+        voterNames: data.voterNames || [data.partnerFirstName],
+        hasGroupLink: data.hasGroupLink || false,
         resultsUrl: data.resultsUrl,
         count: data.count,
         sharedAt: Date.now()
@@ -79,7 +80,7 @@
     } catch (e) { /* storage unavailable */ }
   }
 
-  // â”€â”€â”€ DOM Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ─── DOM Helpers ──────────────────────────────────────────────────────────
   function el(tag, cls, attrs) {
     var e = document.createElement(tag);
     if (cls) e.className = cls;
@@ -98,7 +99,7 @@
     }, 300);
   }
 
-  // â”€â”€â”€ Build Share Sheet â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ─── Build Share Sheet ────────────────────────────────────────────────────
   function buildSheet() {
     if (sheetOverlay) return sheetOverlay;
 
@@ -142,61 +143,118 @@
       novalidate: ''
     });
 
-    // Form field builder
-    function buildField(id, name, label, type, required, maxLength, value) {
-      var fieldDiv = el('div', 'pvb-field');
+    // ─── Names List ─────────────────────────────────────────────────────────
+    var namesSection = el('div', 'pvb-field pvb-names-section');
+    var namesLabel = el('label', 'pvb-field-label');
+    namesLabel.dataset.required = '';
+    namesLabel.textContent = 'Who should vote?';
+    namesSection.appendChild(namesLabel);
 
-      var labelEl = el('label', 'pvb-field-label', { for: id });
-      if (required) labelEl.dataset.required = '';
-      labelEl.textContent = label;
-      fieldDiv.appendChild(labelEl);
+    var namesList = el('div', 'pvb-names-list', { id: 'pvb-names-list' });
+    namesSection.appendChild(namesList);
 
-      var input;
-      if (type === 'textarea') {
-        input = el('textarea', 'pvb-field-input pvb-field-textarea', {
-          id: id,
-          name: name,
-          maxlength: maxLength,
-          rows: '2'
-        });
-      } else {
-        input = el('input', 'pvb-field-input', {
-          type: type,
-          id: id,
-          name: name,
-          maxlength: maxLength
-        });
-        if (required) input.required = true;
-      }
-      if (value) input.value = value;
-      fieldDiv.appendChild(input);
+    var namesError = el('span', 'pvb-field-error', { id: 'pvb-voter-names-error' });
+    namesSection.appendChild(namesError);
 
-      var errorSpan = el('span', 'pvb-field-error', { id: id + '-error' });
-      fieldDiv.appendChild(errorSpan);
+    var addBtn = el('button', 'pvb-names-add', { type: 'button', id: 'pvb-add-name' });
+    addBtn.textContent = 'Add Another Person';
+    namesSection.appendChild(addBtn);
 
-      return fieldDiv;
-    }
-
-    // Partner name (required)
-    form.appendChild(buildField('pvb-partner-name', 'partnerFirstName', 'Their first name', 'text', true, '40'));
+    form.appendChild(namesSection);
 
     // Note (optional, with counter)
-    var noteField = buildField('pvb-note', 'note', 'Add a note', 'textarea', false, '280');
+    var noteField = el('div', 'pvb-field');
+    var noteLabelEl = el('label', 'pvb-field-label', { for: 'pvb-note' });
+    noteLabelEl.textContent = 'Add a note';
+    noteField.appendChild(noteLabelEl);
+    var noteInput = el('textarea', 'pvb-field-input pvb-field-textarea', {
+      id: 'pvb-note',
+      name: 'note',
+      maxlength: '280',
+      rows: '2'
+    });
+    noteField.appendChild(noteInput);
     var hintSpan = el('span', 'pvb-field-hint');
     hintSpan.innerHTML = '<span></span><span class="pvb-char-counter">0/280</span>';
     noteField.appendChild(hintSpan);
     form.appendChild(noteField);
 
     // Board name (optional)
-    var boardNameField = buildField('pvb-board-name', 'boardName', 'Name this board', 'text', false, '60');
-    boardNameField.querySelector('input').placeholder = 'Living Room Ideas';
+    var boardNameField = el('div', 'pvb-field');
+    var boardNameLabel = el('label', 'pvb-field-label', { for: 'pvb-board-name' });
+    boardNameLabel.textContent = 'Name this board';
+    boardNameField.appendChild(boardNameLabel);
+    var boardNameInput = el('input', 'pvb-field-input', {
+      type: 'text',
+      id: 'pvb-board-name',
+      name: 'boardName',
+      maxlength: '60',
+      placeholder: 'Living Room Ideas'
+    });
+    boardNameField.appendChild(boardNameInput);
     form.appendChild(boardNameField);
 
+    // Group link toggle
+    var groupField = el('div', 'pvb-field pvb-field-toggle', { id: 'pvb-group-field' });
+    var groupLabel = el('label', 'pvb-toggle-row');
+    groupLabel.innerHTML =
+      '<span class="pvb-toggle-text">Also make a group link</span>' +
+      '<input type="checkbox" name="groupVoting" id="pvb-group-voting" class="pvb-toggle-input">' +
+      '<span class="pvb-toggle-switch"></span>';
+    groupField.appendChild(groupLabel);
+    var groupHint = el('span', 'pvb-toggle-hint', { id: 'pvb-group-hint' });
+    groupHint.textContent = 'Anyone with it can vote once.';
+    groupField.appendChild(groupHint);
+    form.appendChild(groupField);
+
+    // Hide prices toggle
+    var hidePricesField = el('div', 'pvb-field pvb-field-toggle');
+    var hidePricesLabel = el('label', 'pvb-toggle-row');
+    hidePricesLabel.innerHTML =
+      '<span class="pvb-toggle-text">Hide prices from voters</span>' +
+      '<input type="checkbox" name="hidePrices" id="pvb-hide-prices" class="pvb-toggle-input">' +
+      '<span class="pvb-toggle-switch"></span>';
+    hidePricesField.appendChild(hidePricesLabel);
+    var hidePricesHint = el('span', 'pvb-toggle-hint');
+    hidePricesHint.textContent = 'They see the pieces, not the prices.';
+    hidePricesField.appendChild(hidePricesHint);
+    form.appendChild(hidePricesField);
+
     // Owner name (required, prefilled)
-    form.appendChild(buildField('pvb-owner-name', 'ownerFirstName', 'Your first name', 'text', true, '40', prefillOwnerName));
+    var ownerField = el('div', 'pvb-field');
+    var ownerLabel = el('label', 'pvb-field-label', { for: 'pvb-owner-name' });
+    ownerLabel.dataset.required = '';
+    ownerLabel.textContent = 'Your first name';
+    ownerField.appendChild(ownerLabel);
+    var ownerInput = el('input', 'pvb-field-input', {
+      type: 'text',
+      id: 'pvb-owner-name',
+      name: 'ownerFirstName',
+      maxlength: '40',
+      required: ''
+    });
+    ownerInput.value = prefillOwnerName;
+    ownerField.appendChild(ownerInput);
+    ownerField.appendChild(el('span', 'pvb-field-error', { id: 'pvb-owner-first-name-error' }));
+    form.appendChild(ownerField);
 
     // Owner email (required unless logged in, prefilled)
-    form.appendChild(buildField('pvb-owner-email', 'ownerEmail', 'Your email', 'email', emailRequired, '254', prefillEmail));
+    var emailField = el('div', 'pvb-field');
+    var emailLabel = el('label', 'pvb-field-label', { for: 'pvb-owner-email' });
+    if (emailRequired) emailLabel.dataset.required = '';
+    emailLabel.textContent = 'Your email';
+    emailField.appendChild(emailLabel);
+    var emailInput = el('input', 'pvb-field-input', {
+      type: 'email',
+      id: 'pvb-owner-email',
+      name: 'ownerEmail',
+      maxlength: '254'
+    });
+    if (emailRequired) emailInput.required = true;
+    emailInput.value = prefillEmail;
+    emailField.appendChild(emailInput);
+    emailField.appendChild(el('span', 'pvb-field-error', { id: 'pvb-owner-email-error' }));
+    form.appendChild(emailField);
 
     // General error
     form.appendChild(el('div', 'pvb-share-error', { id: 'pvb-general-error' }));
@@ -209,49 +267,14 @@
     // Channels section (shown after successful API call)
     var channels = el('div', 'pvb-share-channels', { id: 'pvb-channels' });
     channels.dataset.visible = 'false';
-
-    var channelsTitle = el('p', 'pvb-share-channels-title');
-    channelsTitle.textContent = 'Share via';
-    channels.appendChild(channelsTitle);
-
-    var channelGrid = el('div', 'pvb-channel-grid');
-    // Order: WhatsApp, SMS (touch only), Email, Copy Link
-    var channelData = [
-      ['whatsapp', 'WhatsApp'],
-      ['sms', 'SMS'],
-      ['email', 'Email'],
-      ['copy', 'Copy Link']
-    ];
-    var isTouch = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
-    channelData.forEach(function (item) {
-      if (item[0] === 'sms' && !isTouch) return;
-      var btn = el('button', 'pvb-channel-btn', {
-        type: 'button',
-        'data-channel': item[0]
-      });
-      var labelAttr = item[0] === 'copy' ? ' id="pvb-copy-label"' : '';
-      btn.innerHTML = '<span class="pvb-channel-label"' + labelAttr + '>' + item[1] + '</span>';
-      channelGrid.appendChild(btn);
-    });
-    channels.appendChild(channelGrid);
-
-    // More Options button (system share sheet), shown only if navigator.share exists
-    if (navigator.share) {
-      var moreOptionsBtn = el('button', 'pvb-channel-more', { type: 'button' });
-      moreOptionsBtn.textContent = 'More Options';
-      moreOptionsBtn.addEventListener('click', handleMoreOptions);
-      channels.appendChild(moreOptionsBtn);
-    }
-
-    // Done button (always shown, goes to sent screen after Copy Link)
-    var doneBtn = el('button', 'pvb-channel-back', { type: 'button' });
-    doneBtn.textContent = 'Done';
-    doneBtn.addEventListener('click', showSentScreen);
-    channels.appendChild(doneBtn);
-
     body.appendChild(channels);
 
-    // Sent confirmation
+    // Links screen (shown after board creation)
+    var linksScreen = el('div', 'pvb-links-screen', { id: 'pvb-links-screen' });
+    linksScreen.dataset.visible = 'false';
+    body.appendChild(linksScreen);
+
+    // Sent confirmation (for single-link flow)
     var sentSection = el('div', 'pvb-share-sent', { id: 'pvb-sent' });
     sentSection.dataset.visible = 'false';
     sentSection.innerHTML =
@@ -274,7 +297,7 @@
       form: 'pvb-share-form',
       id: 'pvb-submit'
     });
-    submit.textContent = 'Send';
+    submit.textContent = 'Create Link';
     footer.appendChild(submit);
     panel.appendChild(footer);
 
@@ -286,7 +309,7 @@
     formElement = form;
     submitButton = submit;
 
-    // â”€â”€â”€ Event Listeners â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ─── Event Listeners ─────────────────────────────────────────────────────
     overlay.addEventListener('click', function (e) {
       if (e.target === overlay) closeSheet();
     });
@@ -296,35 +319,39 @@
     sentSection.querySelector('.pvb-sent-share-again').addEventListener('click', handleShareAgain);
     sentSection.querySelector('.pvb-sent-more').addEventListener('click', function(e) {
       e.preventDefault();
-      showChannels();
+      showChannelsForLink(currentShareData.links[0]);
     });
 
     // Note character counter
-    var noteInput = form.querySelector('[name="note"]');
-    var charCounter = body.querySelector('.pvb-char-counter');
     noteInput.addEventListener('input', function () {
-      charCounter.textContent = noteInput.value.length + '/280';
+      body.querySelector('.pvb-char-counter').textContent = noteInput.value.length + '/280';
     });
 
-    // Mobile: scroll input into view when focused (after keyboard opens)
+    // Add first name field
+    addNameField();
+
+    // Add name button
+    addBtn.addEventListener('click', function() {
+      addNameField();
+      updateGroupToggleState();
+      updateSubmitButtonText();
+    });
+
+    // Group toggle: update button text
+    var groupToggle = document.getElementById('pvb-group-voting');
+    if (groupToggle) {
+      groupToggle.addEventListener('change', updateSubmitButtonText);
+    }
+
+    // Mobile: scroll input into view when focused
     form.querySelectorAll('input, textarea').forEach(function (input) {
       input.addEventListener('focus', handleInputFocus);
     });
-
-    // Update submit button text
-    form.querySelector('[name="partnerFirstName"]').addEventListener('input', updateSubmitButtonText);
 
     // Form submission
     form.addEventListener('submit', function (e) {
       e.preventDefault();
       submitShare();
-    });
-
-    // Channel buttons
-    channelGrid.querySelectorAll('.pvb-channel-btn').forEach(function (btn) {
-      btn.addEventListener('click', function () {
-        handleChannelClick(btn.dataset.channel);
-      });
     });
 
     // Keyboard handling
@@ -341,14 +368,104 @@
     return sheetOverlay;
   }
 
-  // â”€â”€â”€ Submit Button Text â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-  function updateSubmitButtonText() {
-    if (!submitButton) return;
-    var partnerName = formElement.querySelector('[name="partnerFirstName"]').value.trim();
-    submitButton.textContent = partnerName ? 'Send to ' + partnerName : 'Send';
+  // ─── Names List ─────────────────────────────────────────────────────────────
+  function addNameField() {
+    var list = document.getElementById('pvb-names-list');
+    if (!list) return;
+
+    var count = list.querySelectorAll('.pvb-name-row').length;
+    if (count >= 5) return;
+
+    var row = el('div', 'pvb-name-row');
+    var input = el('input', 'pvb-field-input pvb-name-input', {
+      type: 'text',
+      name: 'voterName',
+      placeholder: count === 0 ? 'Their first name' : 'First name',
+      maxlength: '30'
+    });
+    row.appendChild(input);
+
+    // Remove button (not on first field)
+    if (count > 0) {
+      var removeBtn = el('button', 'pvb-name-remove', { type: 'button', 'aria-label': 'Remove' });
+      removeBtn.innerHTML = '&times;';
+      removeBtn.addEventListener('click', function() {
+        row.remove();
+        updateGroupToggleState();
+        updateSubmitButtonText();
+      });
+      row.appendChild(removeBtn);
+    }
+
+    list.appendChild(row);
+
+    // Update add button visibility
+    updateAddButtonState();
+
+    // Focus new input
+    input.focus();
+    input.addEventListener('input', function() {
+      updateSubmitButtonText();
+      // Clear duplicate name error when field changes
+      var errorEl = document.getElementById('pvb-voter-names-error');
+      if (errorEl && errorEl.textContent.indexOf('different name') !== -1) {
+        errorEl.textContent = '';
+        errorEl.dataset.visible = 'false';
+      }
+    });
   }
 
-  // â”€â”€â”€ Open Sheet â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  function updateAddButtonState() {
+    var list = document.getElementById('pvb-names-list');
+    var addBtn = document.getElementById('pvb-add-name');
+    if (!list || !addBtn) return;
+
+    var count = list.querySelectorAll('.pvb-name-row').length;
+    addBtn.style.display = count >= 5 ? 'none' : '';
+  }
+
+  function updateGroupToggleState() {
+    var list = document.getElementById('pvb-names-list');
+    var groupField = document.getElementById('pvb-group-field');
+    var groupInput = document.getElementById('pvb-group-voting');
+    var groupHint = document.getElementById('pvb-group-hint');
+    if (!list || !groupField || !groupInput) return;
+
+    var count = list.querySelectorAll('.pvb-name-row').length;
+    if (count >= 5) {
+      groupInput.checked = false;
+      groupInput.disabled = true;
+      groupField.classList.add('pvb-toggle-disabled');
+      if (groupHint) groupHint.textContent = 'Remove a name to add a group link.';
+    } else {
+      groupInput.disabled = false;
+      groupField.classList.remove('pvb-toggle-disabled');
+      if (groupHint) groupHint.textContent = 'Anyone with it can vote once.';
+    }
+  }
+
+  function getVoterNames() {
+    var list = document.getElementById('pvb-names-list');
+    if (!list) return [];
+    var names = [];
+    list.querySelectorAll('.pvb-name-input').forEach(function(input) {
+      var name = input.value.trim();
+      if (name) names.push(name);
+    });
+    return names;
+  }
+
+  // ─── Submit Button Text ─────────────────────────────────────────────────────
+  function updateSubmitButtonText() {
+    if (!submitButton) return;
+    var names = getVoterNames();
+    var groupOn = document.getElementById('pvb-group-voting');
+    var linkCount = names.length + (groupOn && groupOn.checked ? 1 : 0);
+    if (linkCount === 0) linkCount = 1;
+    submitButton.textContent = linkCount === 1 ? 'Create Link' : 'Create ' + linkCount + ' Links';
+  }
+
+  // ─── Open Sheet ─────────────────────────────────────────────────────────────
   function openSheet() {
     if (sheetIsOpen) return;
     loadConfig();
@@ -360,6 +477,7 @@
     // Reset to form view
     formElement.style.display = '';
     sheetOverlay.querySelector('#pvb-channels').dataset.visible = 'false';
+    sheetOverlay.querySelector('#pvb-links-screen').dataset.visible = 'false';
     sheetOverlay.querySelector('#pvb-sent').dataset.visible = 'false';
     sheetOverlay.querySelector('#pvb-general-error').dataset.visible = 'false';
     sheetOverlay.querySelector('#pvb-ineligible').dataset.visible = 'false';
@@ -375,7 +493,7 @@
     pvb.publishEvent('share_open', { count: pvb.getCount() });
   }
 
-  // â”€â”€â”€ Close Sheet â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ─── Close Sheet ────────────────────────────────────────────────────────────
   function closeSheet() {
     if (!sheetOverlay || !sheetIsOpen) return;
 
@@ -389,7 +507,7 @@
     }
   }
 
-  // â”€â”€â”€ Focus Trap â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ─── Focus Trap ─────────────────────────────────────────────────────────────
   function trapFocus(e) {
     var panel = sheetOverlay.querySelector('.pvb-share-panel');
     var focusable = panel.querySelectorAll(
@@ -407,12 +525,13 @@
     }
   }
 
-  // â”€â”€â”€ Field Validation â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ─── Field Validation ───────────────────────────────────────────────────────
   function clearFieldErrors() {
     if (!formElement) return;
 
     formElement.querySelectorAll('.pvb-field-error').forEach(function (el) {
       el.textContent = '';
+      el.dataset.visible = 'false';
     });
     formElement.querySelectorAll('.pvb-field-input').forEach(function (el) {
       el.removeAttribute('aria-invalid');
@@ -420,13 +539,22 @@
   }
 
   function showFieldError(fieldName, message) {
-    var input = formElement.querySelector('[name="' + fieldName + '"]');
-    if (!input) return;
-
-    input.setAttribute('aria-invalid', 'true');
     var errorEl = document.getElementById('pvb-' + fieldName.replace(/([A-Z])/g, '-$1').toLowerCase() + '-error');
     if (errorEl) {
       errorEl.textContent = message;
+      errorEl.dataset.visible = 'true';
+    }
+    // Mark input invalid
+    var input = formElement.querySelector('[name="' + fieldName + '"]');
+    if (input) input.setAttribute('aria-invalid', 'true');
+  }
+
+  // Scroll to first invalid field and focus it
+  function scrollToFirstError() {
+    var firstError = formElement.querySelector('[aria-invalid="true"]');
+    if (firstError) {
+      firstError.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      setTimeout(function() { firstError.focus(); }, 300);
     }
   }
 
@@ -434,10 +562,23 @@
     clearFieldErrors();
     var isValid = true;
 
-    var partnerName = formElement.querySelector('[name="partnerFirstName"]').value.trim();
-    if (!partnerName) {
-      showFieldError('partnerFirstName', 'Enter their name');
+    // Voter names
+    var names = getVoterNames();
+    if (names.length === 0) {
+      showFieldError('voterNames', 'Add at least one person\'s name.');
       isValid = false;
+    } else {
+      // Check for duplicates
+      var seen = {};
+      for (var i = 0; i < names.length; i++) {
+        var lower = names[i].toLowerCase();
+        if (seen[lower]) {
+          showFieldError('voterNames', 'Use a different name for each person.');
+          isValid = false;
+          break;
+        }
+        seen[lower] = true;
+      }
     }
 
     var ownerName = formElement.querySelector('[name="ownerFirstName"]').value.trim();
@@ -459,25 +600,34 @@
     return isValid;
   }
 
-  // â”€â”€â”€ Submit Share â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ─── Submit Share ───────────────────────────────────────────────────────────
   function submitShare() {
-    if (isSubmitting || !validateForm()) return;
+    if (isSubmitting) return;
+    if (!validateForm()) {
+      scrollToFirstError();
+      return;
+    }
 
     isSubmitting = true;
     submitButton.disabled = true;
     submitButton.dataset.loading = 'true';
-    submitButton.textContent = 'Sending...';
+    submitButton.textContent = 'Creating...';
 
     sheetOverlay.querySelector('#pvb-general-error').dataset.visible = 'false';
     sheetOverlay.querySelector('#pvb-ineligible').dataset.visible = 'false';
 
     var items = pvb.getItems();
+    var voterNames = getVoterNames();
+    var groupVoting = formElement.querySelector('[name="groupVoting"]').checked;
+
     var payload = {
-      partnerFirstName: formElement.querySelector('[name="partnerFirstName"]').value.trim(),
+      voterNames: voterNames,
       ownerFirstName: formElement.querySelector('[name="ownerFirstName"]').value.trim(),
       ownerEmail: formElement.querySelector('[name="ownerEmail"]').value.trim() || null,
       name: formElement.querySelector('[name="boardName"]').value.trim() || null,
       note: formElement.querySelector('[name="note"]').value.trim() || null,
+      groupVoting: groupVoting,
+      hidePrices: formElement.querySelector('[name="hidePrices"]').checked,
       items: items.map(function (item) {
         return { variantId: item.variantId };
       })
@@ -517,35 +667,42 @@
       });
   }
 
-  // â”€â”€â”€ Success Handler â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ─── Success Handler ────────────────────────────────────────────────────────
   function handleSuccess(responseData, payload) {
     // Save owner name (never email)
     saveOwnerName(payload.ownerFirstName);
 
     // Save to share history
     saveShareToHistory({
-      partnerFirstName: payload.partnerFirstName,
+      voterNames: payload.voterNames,
+      hasGroupLink: payload.groupVoting,
       resultsUrl: responseData.resultsUrl,
       count: pvb.getCount()
     });
 
-    // Store data for share message
+    // Store data for share messages
     currentShareData = {
       boardId: responseData.boardId,
+      links: responseData.links || [],
       shareUrl: responseData.shareUrl,
       ownerFirstName: payload.ownerFirstName,
-      partnerFirstName: payload.partnerFirstName,
       note: payload.note,
       itemCount: pvb.getCount()
     };
 
     pvb.dispatchEvent('pvb:shared', { count: pvb.getCount() });
 
-    // Always show our channel buttons first (not navigator.share)
-    showChannels();
+    // Show links screen or single-link flow
+    if (currentShareData.links.length === 1 && currentShareData.links[0].kind === 'personal') {
+      // Single personal link: use existing channel flow
+      showChannelsForLink(currentShareData.links[0]);
+    } else {
+      // Multiple links or group link: show links screen
+      showLinksScreen();
+    }
   }
 
-  // â”€â”€â”€ Error Handler â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ─── Error Handler ──────────────────────────────────────────────────────────
   function handleError(data) {
     var err = data.error || data;
 
@@ -578,7 +735,6 @@
 
     // Anything else
     showGeneralError('Something went wrong. Try again in a moment.');
-    return;
   }
 
   function getReasonText(reason) {
@@ -605,10 +761,7 @@
     container.innerHTML = '<p>Some pieces can\'t be shared right now:</p>';
 
     items.forEach(function (item) {
-      // Convert API GID to numeric ID for comparison
       var numericId = pvb.toNumericId(item.variantId);
-
-      // Get title from board items cache, then look up product
       var boardItems = pvb.getItems();
       var title = 'A saved piece';
       var boardItem = null;
@@ -619,7 +772,6 @@
         }
       }
 
-      // Try to get product title from handle
       if (boardItem && boardItem.handle) {
         pvb.fetchProduct(boardItem.handle).then(function (product) {
           if (product && product.title) {
@@ -651,16 +803,26 @@
     container.dataset.visible = 'true';
   }
 
-  // â”€â”€â”€ Share Message â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-  function buildShareMessage() {
+  // ─── Share Message ──────────────────────────────────────────────────────────
+  function buildShareMessage(link) {
     var count = currentShareData.itemCount;
     var pieces = count === 1 ? '1 piece' : count + ' pieces';
     var shopName = config.shopName.trim();
-    var message = currentShareData.ownerFirstName +
-      ' wants your vote on ' +
-      pieces +
-      ' from ' +
-      shopName + '.';
+    var message;
+
+    if (link && link.kind === 'personal' && link.name) {
+      // Personal link: "[Owner] wants your take on X pieces, [Name]."
+      message = currentShareData.ownerFirstName +
+        ' wants your take on ' + pieces + ' from ' + shopName + ', ' + link.name + '.';
+    } else if (link && link.kind === 'group') {
+      // Group link: generic
+      message = currentShareData.ownerFirstName +
+        ' wants your vote on ' + pieces + ' from ' + shopName + '.';
+    } else {
+      // Fallback
+      message = currentShareData.ownerFirstName +
+        ' wants your vote on ' + pieces + ' from ' + shopName + '.';
+    }
 
     if (currentShareData.note) {
       message += ' "' + currentShareData.note + '"';
@@ -669,61 +831,281 @@
     return message;
   }
 
-  // â”€â”€â”€ Channel Sharing â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-  function showChannels() {
-    formElement.style.display = 'none';
-    sheetOverlay.querySelector('#pvb-footer').style.display = 'none';
-    sheetOverlay.querySelector('#pvb-sent').dataset.visible = 'false';
-    // Hide email panel if visible
-    var emailPanel = sheetOverlay.querySelector('#pvb-email-panel');
-    if (emailPanel) emailPanel.dataset.visible = 'false';
-    sheetOverlay.querySelector('#pvb-channels').dataset.visible = 'true';
-    // Reset copy button label
-    var copyLabel = document.getElementById('pvb-copy-label');
-    if (copyLabel) copyLabel.textContent = 'Copy Link';
-  }
-
-  function handleChannelClick(channel) {
-    var message = buildShareMessage();
-    var url = currentShareData.shareUrl;
-    var fullText = message + ' ' + url;
-
-    // Send to proxy before navigation (keepalive survives page unload).
-    // No clientId: event is tied to boardId, not visitor.
-    sendChannelEvent(channel, currentShareData.boardId);
-
-    if (channel === 'whatsapp') {
-      window.open('https://wa.me/?text=' + encodeURIComponent(fullText), '_blank');
-      showSentScreen();
-    } else if (channel === 'email') {
-      var subject = currentShareData.ownerFirstName + ' wants your vote';
-      // Desktop (non-touch): show email panel instead of mailto
-      var isTouch = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
-      if (!isTouch) {
-        showEmailPanel(subject, fullText);
-        return;
-      }
-      // Touch: use mailto as before
-      window.location.href = 'mailto:?subject=' + encodeURIComponent(subject) +
-        '&body=' + encodeURIComponent(fullText);
-      showSentScreen();
-    } else if (channel === 'sms') {
-      window.location.href = 'sms:?&body=' + encodeURIComponent(fullText);
-      showSentScreen();
-    } else if (channel === 'copy') {
-      copyToClipboard(url);
-      return; // Don't show sent screen for copy
-    }
-  }
-
-  // Desktop email fallback panel
-  function showEmailPanel(subject, body) {
+  // ─── Links Screen ───────────────────────────────────────────────────────────
+  function showLinksScreen() {
     formElement.style.display = 'none';
     sheetOverlay.querySelector('#pvb-footer').style.display = 'none';
     sheetOverlay.querySelector('#pvb-channels').dataset.visible = 'false';
     sheetOverlay.querySelector('#pvb-sent').dataset.visible = 'false';
 
-    // Create or show email panel
+    var linksScreen = sheetOverlay.querySelector('#pvb-links-screen');
+    linksScreen.innerHTML = '';
+
+    var title = el('h3', 'pvb-links-title');
+    title.textContent = 'Send the links';
+    linksScreen.appendChild(title);
+
+    var linksList = el('div', 'pvb-links-list');
+
+    currentShareData.links.forEach(function(link) {
+      var row = el('div', 'pvb-link-row');
+
+      var header = el('div', 'pvb-link-header');
+      var label = el('span', 'pvb-link-label');
+      if (link.kind === 'personal') {
+        label.textContent = link.name;
+      } else {
+        label.textContent = 'Group link';
+        var hint = el('span', 'pvb-link-hint');
+        hint.textContent = 'Anyone can vote once';
+        header.appendChild(hint);
+      }
+      header.insertBefore(label, header.firstChild);
+      row.appendChild(header);
+
+      // Channel buttons
+      var channels = el('div', 'pvb-link-channels');
+      var isTouch = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
+
+      // WhatsApp
+      var waBtn = el('button', 'pvb-link-btn', { type: 'button', 'data-channel': 'whatsapp' });
+      waBtn.textContent = 'WhatsApp';
+      waBtn.addEventListener('click', function() { shareViaChannel('whatsapp', link); });
+      channels.appendChild(waBtn);
+
+      // SMS (touch only)
+      if (isTouch) {
+        var smsBtn = el('button', 'pvb-link-btn', { type: 'button', 'data-channel': 'sms' });
+        smsBtn.textContent = 'SMS';
+        smsBtn.addEventListener('click', function() { shareViaChannel('sms', link); });
+        channels.appendChild(smsBtn);
+      }
+
+      // Email
+      var emailBtn = el('button', 'pvb-link-btn', { type: 'button', 'data-channel': 'email' });
+      emailBtn.textContent = 'Email';
+      emailBtn.addEventListener('click', function() { shareViaChannel('email', link); });
+      channels.appendChild(emailBtn);
+
+      // Copy
+      var copyBtn = el('button', 'pvb-link-btn pvb-link-copy-btn', { type: 'button', 'data-channel': 'copy' });
+      copyBtn.textContent = 'Copy Link';
+      copyBtn.addEventListener('click', function() {
+        copyLinkToClipboard(link.url, copyBtn);
+        sendChannelEvent('copy', currentShareData.boardId);
+      });
+      channels.appendChild(copyBtn);
+
+      // More options
+      if (navigator.share) {
+        var moreBtn = el('button', 'pvb-link-btn pvb-link-more', { type: 'button' });
+        moreBtn.textContent = 'More';
+        moreBtn.addEventListener('click', function() { shareViaNative(link); });
+        channels.appendChild(moreBtn);
+      }
+
+      row.appendChild(channels);
+      linksList.appendChild(row);
+    });
+
+    linksScreen.appendChild(linksList);
+
+    // Done button
+    var doneBtn = el('button', 'pvb-links-done', { type: 'button' });
+    doneBtn.textContent = 'Done';
+    doneBtn.addEventListener('click', closeSheet);
+    linksScreen.appendChild(doneBtn);
+
+    linksScreen.dataset.visible = 'true';
+  }
+
+  function shareViaChannel(channel, link) {
+    var message = buildShareMessage(link);
+    var url = link.url;
+    var fullText = message + ' ' + url;
+
+    sendChannelEvent(channel, currentShareData.boardId);
+
+    if (channel === 'whatsapp') {
+      window.open('https://wa.me/?text=' + encodeURIComponent(fullText), '_blank');
+    } else if (channel === 'email') {
+      var subject = currentShareData.ownerFirstName + ' wants your vote';
+      var isTouch = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
+      if (!isTouch) {
+        // Desktop: show email options
+        showEmailOptions(subject, fullText);
+        return;
+      }
+      window.location.href = 'mailto:?subject=' + encodeURIComponent(subject) +
+        '&body=' + encodeURIComponent(fullText);
+    } else if (channel === 'sms') {
+      window.location.href = 'sms:?&body=' + encodeURIComponent(fullText);
+    }
+  }
+
+  function shareViaNative(link) {
+    if (!navigator.share) return;
+    var message = buildShareMessage(link);
+    navigator.share({
+      title: config.shopName,
+      text: message,
+      url: link.url
+    })
+      .then(function() {
+        sendChannelEvent('native', currentShareData.boardId);
+      })
+      .catch(function() {});
+  }
+
+  function copyLinkToClipboard(url, btn) {
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(url).then(function() {
+        btn.textContent = 'Copied';
+        setTimeout(function() { btn.textContent = 'Copy Link'; }, 2000);
+      }).catch(function() {
+        copyFallback(url, btn);
+      });
+    } else {
+      copyFallback(url, btn);
+    }
+  }
+
+  function showEmailOptions(subject, body) {
+    // Create a modal-style panel for email options
+    var panel = sheetOverlay.querySelector('#pvb-email-modal');
+    if (!panel) {
+      panel = el('div', 'pvb-email-modal', { id: 'pvb-email-modal' });
+      panel.innerHTML =
+        '<div class="pvb-email-modal-content">' +
+          '<p class="pvb-email-title">Open your email</p>' +
+          '<div class="pvb-email-options">' +
+            '<button type="button" class="pvb-email-option" data-provider="gmail">Gmail</button>' +
+            '<button type="button" class="pvb-email-option" data-provider="outlook">Outlook</button>' +
+            '<button type="button" class="pvb-email-option" data-provider="copy">Copy Message</button>' +
+          '</div>' +
+          '<button type="button" class="pvb-email-back">Back</button>' +
+        '</div>';
+      sheetOverlay.querySelector('.pvb-share-body').appendChild(panel);
+    }
+
+    panel.querySelector('.pvb-email-options').onclick = function(e) {
+      var provider = e.target.dataset.provider;
+      if (!provider) return;
+      var subjectEnc = encodeURIComponent(subject);
+      var bodyEnc = encodeURIComponent(body);
+      if (provider === 'gmail') {
+        window.open('https://mail.google.com/mail/?view=cm&fs=1&su=' + subjectEnc + '&body=' + bodyEnc, '_blank');
+        panel.dataset.visible = 'false';
+      } else if (provider === 'outlook') {
+        window.open('https://outlook.live.com/mail/0/deeplink/compose?subject=' + subjectEnc + '&body=' + bodyEnc, '_blank');
+        panel.dataset.visible = 'false';
+      } else if (provider === 'copy') {
+        var fullMsg = subject + '\n\n' + body;
+        if (navigator.clipboard) {
+          navigator.clipboard.writeText(fullMsg).then(function() {
+            e.target.textContent = 'Copied';
+          });
+        }
+      }
+    };
+
+    panel.querySelector('.pvb-email-back').onclick = function() {
+      panel.dataset.visible = 'false';
+    };
+
+    panel.dataset.visible = 'true';
+  }
+
+  // ─── Channel Sharing (single-link flow) ─────────────────────────────────────
+  function showChannelsForLink(link) {
+    formElement.style.display = 'none';
+    sheetOverlay.querySelector('#pvb-footer').style.display = 'none';
+    sheetOverlay.querySelector('#pvb-links-screen').dataset.visible = 'false';
+    sheetOverlay.querySelector('#pvb-sent').dataset.visible = 'false';
+
+    var channels = sheetOverlay.querySelector('#pvb-channels');
+    channels.innerHTML = '';
+
+    var channelsTitle = el('p', 'pvb-share-channels-title');
+    channelsTitle.textContent = 'Share via';
+    channels.appendChild(channelsTitle);
+
+    var channelGrid = el('div', 'pvb-channel-grid');
+    var isTouch = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
+
+    var channelData = [
+      ['whatsapp', 'WhatsApp'],
+      ['sms', 'SMS'],
+      ['email', 'Email'],
+      ['copy', 'Copy Link']
+    ];
+
+    channelData.forEach(function(item) {
+      if (item[0] === 'sms' && !isTouch) return;
+      var btn = el('button', 'pvb-channel-btn', { type: 'button', 'data-channel': item[0] });
+      var labelId = item[0] === 'copy' ? ' id="pvb-copy-label"' : '';
+      btn.innerHTML = '<span class="pvb-channel-label"' + labelId + '>' + item[1] + '</span>';
+      btn.addEventListener('click', function() {
+        handleChannelClick(item[0], link);
+      });
+      channelGrid.appendChild(btn);
+    });
+
+    channels.appendChild(channelGrid);
+
+    if (navigator.share) {
+      var moreBtn = el('button', 'pvb-channel-more', { type: 'button' });
+      moreBtn.textContent = 'More Options';
+      moreBtn.addEventListener('click', function() {
+        shareViaNative(link);
+      });
+      channels.appendChild(moreBtn);
+    }
+
+    var doneBtn = el('button', 'pvb-channel-back', { type: 'button' });
+    doneBtn.textContent = 'Done';
+    doneBtn.addEventListener('click', function() {
+      showSentScreen(link);
+    });
+    channels.appendChild(doneBtn);
+
+    channels.dataset.visible = 'true';
+  }
+
+  function handleChannelClick(channel, link) {
+    var message = buildShareMessage(link);
+    var url = link.url;
+    var fullText = message + ' ' + url;
+
+    sendChannelEvent(channel, currentShareData.boardId);
+
+    if (channel === 'whatsapp') {
+      window.open('https://wa.me/?text=' + encodeURIComponent(fullText), '_blank');
+      showSentScreen(link);
+    } else if (channel === 'email') {
+      var subject = currentShareData.ownerFirstName + ' wants your vote';
+      var isTouch = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
+      if (!isTouch) {
+        showEmailPanel(subject, fullText, link);
+        return;
+      }
+      window.location.href = 'mailto:?subject=' + encodeURIComponent(subject) +
+        '&body=' + encodeURIComponent(fullText);
+      showSentScreen(link);
+    } else if (channel === 'sms') {
+      window.location.href = 'sms:?&body=' + encodeURIComponent(fullText);
+      showSentScreen(link);
+    } else if (channel === 'copy') {
+      copyToClipboard(url);
+    }
+  }
+
+  function showEmailPanel(subject, body, link) {
+    formElement.style.display = 'none';
+    sheetOverlay.querySelector('#pvb-footer').style.display = 'none';
+    sheetOverlay.querySelector('#pvb-channels').dataset.visible = 'false';
+    sheetOverlay.querySelector('#pvb-sent').dataset.visible = 'false';
+
     var emailPanel = sheetOverlay.querySelector('#pvb-email-panel');
     if (!emailPanel) {
       emailPanel = el('div', 'pvb-email-panel', { id: 'pvb-email-panel' });
@@ -735,45 +1117,41 @@
           '<button type="button" class="pvb-email-btn" data-provider="copy">Copy Message</button>' +
         '</div>' +
         '<button type="button" class="pvb-email-done">Done</button>';
-
-      emailPanel.querySelector('.pvb-email-buttons').addEventListener('click', function(e) {
-        var provider = e.target.dataset.provider;
-        if (!provider) return;
-        var subjectEnc = encodeURIComponent(subject);
-        var bodyEnc = encodeURIComponent(body);
-        if (provider === 'gmail') {
-          window.open('https://mail.google.com/mail/?view=cm&fs=1&su=' + subjectEnc + '&body=' + bodyEnc, '_blank');
-          showSentScreen();
-        } else if (provider === 'outlook') {
-          window.open('https://outlook.live.com/mail/0/deeplink/compose?subject=' + subjectEnc + '&body=' + bodyEnc, '_blank');
-          showSentScreen();
-        } else if (provider === 'copy') {
-          // Copy subject + body
-          var fullMsg = subject + '\n\n' + body;
-          if (navigator.clipboard) {
-            navigator.clipboard.writeText(fullMsg).then(function() {
-              e.target.textContent = 'Copied';
-            }).catch(function() {
-              e.target.textContent = 'Failed';
-            });
-          } else {
-            copyFallback(fullMsg, e.target);
-          }
-        }
-      });
-
-      emailPanel.querySelector('.pvb-email-done').addEventListener('click', showSentScreen);
-
       sheetOverlay.querySelector('.pvb-share-body').appendChild(emailPanel);
     }
 
+    emailPanel.querySelector('.pvb-email-buttons').onclick = function(e) {
+      var provider = e.target.dataset.provider;
+      if (!provider) return;
+      var subjectEnc = encodeURIComponent(subject);
+      var bodyEnc = encodeURIComponent(body);
+      if (provider === 'gmail') {
+        window.open('https://mail.google.com/mail/?view=cm&fs=1&su=' + subjectEnc + '&body=' + bodyEnc, '_blank');
+        showSentScreen(link);
+      } else if (provider === 'outlook') {
+        window.open('https://outlook.live.com/mail/0/deeplink/compose?subject=' + subjectEnc + '&body=' + bodyEnc, '_blank');
+        showSentScreen(link);
+      } else if (provider === 'copy') {
+        var fullMsg = subject + '\n\n' + body;
+        if (navigator.clipboard) {
+          navigator.clipboard.writeText(fullMsg).then(function() {
+            e.target.textContent = 'Copied';
+          }).catch(function() {
+            e.target.textContent = 'Failed';
+          });
+        } else {
+          copyFallback(fullMsg, e.target);
+        }
+      }
+    };
+
+    emailPanel.querySelector('.pvb-email-done').onclick = function() {
+      showSentScreen(link);
+    };
+
     emailPanel.dataset.visible = 'true';
-    // Reset copy button text
-    var copyBtn = emailPanel.querySelector('[data-provider="copy"]');
-    if (copyBtn) copyBtn.textContent = 'Copy Message';
   }
 
-  // Send share_channel directly to App Proxy (not pixel) so it survives navigation.
   function sendChannelEvent(channel, boardId) {
     var apiUrl = ((window.Shopify && window.Shopify.routes && window.Shopify.routes.root) || '/') +
       'apps/board/api/e';
@@ -788,7 +1166,7 @@
   function copyToClipboard(text) {
     var label = document.getElementById('pvb-copy-label');
     if (navigator.clipboard) {
-      navigator.clipboard.writeText(text).then(function () { label.textContent = 'Copied'; }).catch(function () { copyFallback(text, label); });
+      navigator.clipboard.writeText(text).then(function () { if (label) label.textContent = 'Copied'; }).catch(function () { copyFallback(text, label); });
     } else {
       copyFallback(text, label);
     }
@@ -800,56 +1178,40 @@
     ta.style.cssText = 'position:fixed;opacity:0';
     document.body.appendChild(ta);
     ta.select();
-    try { document.execCommand('copy'); label.textContent = 'Copied'; } catch (e) { label.textContent = 'Failed'; }
+    try { document.execCommand('copy'); if (label) label.textContent = 'Copied'; } catch (e) { if (label) label.textContent = 'Failed'; }
     document.body.removeChild(ta);
   }
 
-  // â”€â”€â”€ Share Again Handler â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ─── Share Again Handler ────────────────────────────────────────────────────
   function handleShareAgain() {
     if (!currentShareData) return;
-    // Always show our channel buttons
-    showChannels();
-  }
-
-  // More Options: open the system share sheet
-  function handleMoreOptions() {
-    if (!currentShareData || !navigator.share) return;
-    navigator.share({
-      title: config.shopName,
-      text: buildShareMessage(),
-      url: currentShareData.shareUrl
-    })
-      .then(function () {
-        sendChannelEvent('native', currentShareData.boardId);
-        showSentScreen();
-      })
-      .catch(function () {
-        // User cancelled, stay on channels screen
-      });
-  }
-
-  // â”€â”€â”€ Sent Screen â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-  function showSentScreen() {
-    formElement.style.display = 'none';
-    sheetOverlay.querySelector('#pvb-channels').dataset.visible = 'false';
-    sheetOverlay.querySelector('#pvb-footer').style.display = 'none';
-    // Hide email panel if visible
-    var emailPanel = sheetOverlay.querySelector('#pvb-email-panel');
-    if (emailPanel) emailPanel.dataset.visible = 'false';
-    var sentSection = sheetOverlay.querySelector('#pvb-sent');
-    sentSection.dataset.visible = 'true';
-    document.getElementById('pvb-sent-name').textContent = currentShareData.partnerFirstName;
-    document.getElementById('pvb-sent-body').textContent =
-      "We'll let you know the moment " + currentShareData.partnerFirstName +
-      " votes. Your board stays saved here.";
-
-    // "More ways to share" link always visible - opens channel buttons
-    var moreLink = document.getElementById('pvb-sent-more');
-    if (moreLink) {
-      moreLink.style.display = '';
+    if (currentShareData.links.length > 1 || (currentShareData.links[0] && currentShareData.links[0].kind === 'group')) {
+      showLinksScreen();
+    } else {
+      showChannelsForLink(currentShareData.links[0]);
     }
   }
 
-  // â”€â”€â”€ Initialize â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ─── Sent Screen ────────────────────────────────────────────────────────────
+  function showSentScreen(link) {
+    formElement.style.display = 'none';
+    sheetOverlay.querySelector('#pvb-channels').dataset.visible = 'false';
+    sheetOverlay.querySelector('#pvb-footer').style.display = 'none';
+    var emailPanel = sheetOverlay.querySelector('#pvb-email-panel');
+    if (emailPanel) emailPanel.dataset.visible = 'false';
+
+    var sentSection = sheetOverlay.querySelector('#pvb-sent');
+    sentSection.dataset.visible = 'true';
+
+    var name = link && link.name ? link.name : currentShareData.links[0].name;
+    document.getElementById('pvb-sent-name').textContent = name;
+    document.getElementById('pvb-sent-body').textContent =
+      "We'll let you know the moment " + name + " votes. Your board stays saved here.";
+
+    var moreLink = document.getElementById('pvb-sent-more');
+    if (moreLink) moreLink.style.display = '';
+  }
+
+  // ─── Initialize ─────────────────────────────────────────────────────────────
   window.addEventListener('pvb:share-request', openSheet);
 })();

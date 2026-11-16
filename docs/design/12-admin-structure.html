@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Admin Structure</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="ds/tov/colors_and_type.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0}
+.eb{font-size:12px;font-weight:700;letter-spacing:0.045em;text-transform:uppercase}
+.ui{font-family:-apple-system,BlinkMacSystemFont,"Inter","Segoe UI",Helvetica,Arial,sans-serif;color:#303030}
+.card{background:#FFFFFF;border-radius:12px;box-shadow:0 1px 0 rgba(26,26,26,.07),0 1px 3px rgba(26,26,26,.08)}
+.lbl{font-size:12px;color:#616161}
+.h{font-size:14px;font-weight:650}
+.nav a{display:block;padding:6px 10px;border-radius:8px;font-size:13px;color:#303030;text-decoration:none}
+.nav a.on{background:#EBEBEB;font-weight:650}
+.nav .sub{padding-left:22px;font-size:12px;color:#616161}
+.btn{display:inline-flex;align-items:center;height:28px;padding:0 12px;border-radius:8px;font-size:12px;font-weight:600}
+.pri{background:#303030;color:#FFFFFF}
+.sec{background:#FFFFFF;border:1px solid #D4D4D4;color:#303030}
+.badge{font-size:11px;font-weight:600;padding:2px 8px;border-radius:999px}
+.ok{background:#E3F1DF;color:#2E6B33}
+.wait{background:#FFF1D6;color:#7A4F00}
+.row{display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid #F1F1F1;font-size:13px}
+.kpi{flex:1;padding:12px 14px;display:flex;flex-direction:column;gap:4px}
+.kpi b{font-size:20px;font-weight:650}
+.chk{width:16px;height:16px;border-radius:999px;display:inline-flex;align-items:center;justify-content:center;font-size:10px;flex-shrink:0}
+</style>
+</helmet>
+<div style="width:1410px;height:1100px;box-sizing:border-box;background:#FEFBF6;color:#3F3D3E;font-family:Montserrat,Helvetica,Arial,sans-serif;padding:40px 60px;display:flex;flex-direction:column;gap:22px">
+  <div style="display:flex;justify-content:space-between;align-items:flex-end">
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <div class="eb" style="color:#82736C">Admin structure · Proposal</div>
+      <div style="font-family:'GT Ultra Fine',Georgia,serif;font-size:36px;line-height:40px">One job per page, like the best Shopify apps</div>
+    </div>
+    <div style="font-size:13px;line-height:20px;color:#606060;max-width:470px;text-align:right">Polaris look inside the Shopify admin. Home answers "is it working and what do I do next", every other page has one job. All numbers are sample data.</div>
+  </div>
+
+  <div style="display:flex;gap:28px;align-items:flex-start;flex-grow:1;min-height:0">
+
+    <!-- Sitemap -->
+    <div style="width:300px;display:flex;flex-direction:column;gap:12px">
+      <div class="eb">1 · Pages</div>
+      <div class="ui card" style="padding:14px 12px;display:flex;flex-direction:column;gap:2px" >
+        <div class="nav">
+          <a class="on">Home</a>
+          <a>Analytics</a>
+          <a class="sub">Revenue and funnel</a>
+          <a class="sub">Products</a>
+          <a class="sub">Partner reasons</a>
+          <a class="sub">Sharing</a>
+          <a>Boards</a>
+          <a>Customers</a>
+          <a>Settings</a>
+          <a class="sub">General</a>
+          <a class="sub">Vote page</a>
+          <a class="sub">Reason chips</a>
+          <a class="sub">Notifications</a>
+          <a class="sub">Data and privacy</a>
+          <a>Help</a>
+        </div>
+      </div>
+      <div class="ui card" style="padding:14px 16px;display:flex;flex-direction:column;gap:8px;font-size:12px;line-height:18px">
+        <span class="h">Patterns used on every page</span>
+        <span>Page title + one primary action top right</span>
+        <span>Date range in the title bar, shared across Analytics</span>
+        <span>Cards with a title, one-line help and "View all"</span>
+        <span>Index tables with filters, search and pagination</span>
+        <span>Empty states that say what to do next</span>
+        <span>Save bar for every settings page</span>
+        <span>Footer: "Learn more about Partner Voting Board"</span>
+      </div>
+    </div>
+
+    <!-- Home -->
+    <div style="flex:1.3;display:flex;flex-direction:column;gap:12px;min-width:0">
+      <div class="eb">2 · Home</div>
+      <div class="ui" style="background:#F1F1F1;border-radius:16px;padding:18px 20px;display:flex;flex-direction:column;gap:12px">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <span style="font-size:18px;font-weight:650">Partner Voting Board</span>
+          <span style="display:flex;gap:8px"><span class="btn sec">Ask Sidekick</span><span class="btn pri">View Analytics</span></span>
+        </div>
+        <div class="card" style="padding:14px 16px;display:flex;flex-direction:column;gap:8px">
+          <div style="display:flex;justify-content:space-between;align-items:center"><span class="h">Setup guide</span><span class="lbl">3 of 5 done</span></div>
+          <div style="height:6px;border-radius:999px;background:#EBEBEB;overflow:hidden"><i style="display:block;width:60%;height:100%;background:#485B59"></i></div>
+          <div class="row"><span style="display:flex;gap:8px;align-items:center"><span class="chk ok">✓</span>Turn on the Save button in your theme</span><span class="badge ok">Done</span></div>
+          <div class="row"><span style="display:flex;gap:8px;align-items:center"><span class="chk ok">✓</span>Connect Klaviyo for voting-done emails</span><span class="badge ok">Done</span></div>
+          <div class="row"><span style="display:flex;gap:8px;align-items:center"><span class="chk ok">✓</span>Review your reason chips</span><span class="badge ok">Done</span></div>
+          <div class="row"><span style="display:flex;gap:8px;align-items:center"><span class="chk" style="border:1px solid #8A8A8A"></span>Customize the vote page copy</span><span class="btn sec">Open</span></div>
+          <div class="row" style="border:none"><span style="display:flex;gap:8px;align-items:center"><span class="chk" style="border:1px solid #8A8A8A"></span>Allow Sidekick to use the app</span><span class="btn sec">How</span></div>
+        </div>
+        <div style="display:flex;gap:10px">
+          <div class="card kpi"><span class="lbl">Revenue from boards · 30 days</span><b>$18,235</b></div>
+          <div class="card kpi"><span class="lbl">Boards shared</span><b>25</b></div>
+          <div class="card kpi"><span class="lbl">Partner vote rate</span><b>76%</b></div>
+        </div>
+        <div style="display:flex;gap:10px">
+          <div class="card" style="flex:1;padding:14px 16px;display:flex;flex-direction:column;gap:6px">
+            <span class="h">Needs attention</span>
+            <div class="row"><span>Rattan Sideboard: most Not For Us is Price</span><span class="lbl">View</span></div>
+            <div class="row" style="border:none"><span>2 voting-done emails pending</span><span class="lbl">Retry</span></div>
+          </div>
+          <div class="card" style="flex:1;padding:14px 16px;display:flex;flex-direction:column;gap:6px">
+            <span class="h">Latest boards</span>
+            <div class="row"><span>Hamza · 3 pieces</span><span class="badge ok">Voted</span></div>
+            <div class="row" style="border:none"><span>Zaid · 2 pieces</span><span class="badge wait">Waiting</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Settings -->
+    <div style="flex:1;display:flex;flex-direction:column;gap:12px;min-width:0">
+      <div class="eb">3 · Settings (one section per page)</div>
+      <div class="ui" style="background:#F1F1F1;border-radius:16px;padding:18px 20px;display:flex;flex-direction:column;gap:12px">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <span style="font-size:18px;font-weight:650">Settings</span>
+        </div>
+        <div class="card" style="padding:6px 16px">
+          <div class="row"><span style="display:flex;flex-direction:column;gap:2px"><b style="font-weight:600">General</b><span class="lbl">On/off, board expiry, max pieces, share limits</span></span><span class="lbl">›</span></div>
+          <div class="row"><span style="display:flex;flex-direction:column;gap:2px"><b style="font-weight:600">Vote page</b><span class="lbl">Headlines, button labels, thank-you text</span></span><span class="lbl">›</span></div>
+          <div class="row"><span style="display:flex;flex-direction:column;gap:2px"><b style="font-weight:600">Reason chips</b><span class="lbl">Why-not chips after Maybe and Not For Us</span></span><span class="lbl">›</span></div>
+          <div class="row"><span style="display:flex;flex-direction:column;gap:2px"><b style="font-weight:600">Notifications</b><span class="lbl">Klaviyo key, test event, email health</span></span><span class="lbl">›</span></div>
+          <div class="row"><span style="display:flex;flex-direction:column;gap:2px"><b style="font-weight:600">Customers and tags</b><span class="lbl">Board buyer tag, tag past buyers</span></span><span class="lbl">›</span></div>
+          <div class="row" style="border:none"><span style="display:flex;flex-direction:column;gap:2px"><b style="font-weight:600">Data and privacy</b><span class="lbl">What we store, retention, exclude tag</span></span><span class="lbl">›</span></div>
+        </div>
+        <div class="card" style="padding:14px 16px;display:flex;flex-direction:column;gap:10px">
+          <div style="display:flex;gap:16px">
+            <div style="width:150px;display:flex;flex-direction:column;gap:4px"><span class="h">Notifications</span><span class="lbl">Email the shopper when someone votes.</span></div>
+            <div style="flex:1;display:flex;flex-direction:column;gap:8px">
+              <div style="display:flex;justify-content:space-between;align-items:center;font-size:13px"><span>Email the shopper after each vote</span><span style="width:32px;height:18px;border-radius:999px;background:#303030;display:inline-block"></span></div>
+              <div style="background:#E3F1DF;border-radius:8px;padding:8px 10px;font-size:12px">Klaviyo connected · key ending 1c7a</div>
+              <div class="lbl">Sent 19 · Pending 0 · Failed 0 (30 days)</div>
+            </div>
+          </div>
+        </div>
+        <div class="lbl" style="line-height:18px">Each settings page uses the same two-column layout: title and help on the left, fields on the right, save bar on change.</div>
+      </div>
+    </div>
+
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1410,"height":1100}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

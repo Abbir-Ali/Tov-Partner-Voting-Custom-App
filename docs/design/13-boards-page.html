@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Boards Page</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="ds/tov/colors_and_type.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0}
+.eb{font-size:12px;font-weight:700;letter-spacing:0.045em;text-transform:uppercase}
+.ui{font-family:-apple-system,BlinkMacSystemFont,"Inter","Segoe UI",Helvetica,Arial,sans-serif;color:#303030;font-size:13px}
+.card{background:#FFFFFF;border-radius:12px;box-shadow:0 1px 0 rgba(26,26,26,.07),0 1px 3px rgba(26,26,26,.08)}
+.lbl{font-size:12px;color:#616161}
+.btn{display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 10px;border-radius:8px;font-size:12px;font-weight:550;background:#FFFFFF;border:1px solid #D4D4D4;color:#303030;white-space:nowrap}
+.tab{padding:6px 10px;border-radius:8px;font-size:12px;font-weight:550;color:#4A4A4A}
+.tab.on{background:#EBEBEB;color:#303030}
+.pill{display:inline-flex;align-items:center;gap:6px;height:26px;padding:0 10px;border-radius:999px;border:1px dashed #B5B5B5;font-size:12px;color:#4A4A4A}
+.pill.set{border:1px solid #303030;background:#F3F3F3;color:#303030}
+.badge{font-size:11px;font-weight:550;padding:2px 8px;border-radius:8px;white-space:nowrap}
+.b-ok{background:#CDFEE1;color:#0C5132}
+.b-wait{background:#FFEF9D;color:#4F4700}
+.b-off{background:#E3E3E3;color:#4A4A4A}
+.b-info{background:#E0F0FF;color:#00527C}
+th{font-size:12px;font-weight:550;color:#616161;text-align:left;padding:8px 10px;background:#F7F7F7;border-bottom:1px solid #EBEBEB;white-space:nowrap}
+td{padding:9px 10px;border-bottom:1px solid #F1F1F1;vertical-align:middle;white-space:nowrap}
+.th{width:26px;height:26px;border-radius:6px;background:#F1ECE5;border:1px solid #FFFFFF;display:inline-block;margin-left:-6px}
+.v{display:inline-flex;gap:6px;font-size:12px}
+.v b{font-weight:600}
+a{color:#005BD3;text-decoration:none}
+</style>
+</helmet>
+<div style="width:1410px;height:1150px;box-sizing:border-box;background:#FEFBF6;color:#3F3D3E;font-family:Montserrat,Helvetica,Arial,sans-serif;padding:40px 60px;display:flex;flex-direction:column;gap:20px">
+  <div style="display:flex;justify-content:space-between;align-items:flex-end">
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <div class="eb" style="color:#82736C">Boards page · Proposal</div>
+      <div style="font-family:'GT Ultra Fine',Georgia,serif;font-size:36px;line-height:40px">Built like Shopify's Orders list</div>
+    </div>
+    <div style="font-size:13px;line-height:20px;color:#606060;max-width:470px;text-align:right">Saved views as tabs, one search box, filter pills, sort, compact rows. Click a row to open the board's own page. Sample data.</div>
+  </div>
+
+  <div style="display:flex;gap:24px;align-items:flex-start;flex-grow:1;min-height:0">
+
+    <!-- List -->
+    <div class="ui" style="flex:1.7;background:#F1F1F1;border-radius:16px;padding:18px 20px;display:flex;flex-direction:column;gap:12px;min-width:0">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <span style="font-size:18px;font-weight:650">Boards</span>
+        <span style="display:flex;gap:8px"><span class="btn">Export</span><span class="btn">Analytics</span></span>
+      </div>
+      <div style="display:flex;gap:10px">
+        <div class="card" style="flex:1;padding:10px 12px"><div class="lbl">Shared · 30 days</div><b style="font-size:16px">27</b></div>
+        <div class="card" style="flex:1;padding:10px 12px"><div class="lbl">Waiting for votes</div><b style="font-size:16px">6</b></div>
+        <div class="card" style="flex:1;padding:10px 12px"><div class="lbl">Voted</div><b style="font-size:16px">21</b></div>
+        <div class="card" style="flex:1;padding:10px 12px"><div class="lbl">With an order</div><b style="font-size:16px">4</b></div>
+      </div>
+      <div class="card" style="overflow:hidden">
+        <div style="display:flex;gap:4px;padding:8px 10px;border-bottom:1px solid #EBEBEB;align-items:center">
+          <span class="tab on">All</span><span class="tab">Waiting for votes</span><span class="tab">Voted, no order</span><span class="tab">Ordered</span><span class="tab">Repeat buyers</span><span class="tab">Expiring soon</span><span class="tab" style="color:#8A8A8A">+</span>
+        </div>
+        <div style="display:flex;gap:8px;padding:10px;align-items:center;border-bottom:1px solid #EBEBEB">
+          <div style="flex:1;height:30px;border:1px solid #D4D4D4;border-radius:8px;display:flex;align-items:center;padding:0 10px;color:#8A8A8A;font-size:12px">Search partner, shopper first name, order number or product</div>
+          <span class="btn">Sort: Newest ▾</span>
+        </div>
+        <div style="display:flex;gap:6px;padding:8px 10px;flex-wrap:wrap;border-bottom:1px solid #EBEBEB">
+          <span class="pill set">Shared: Last 30 days ✕</span><span class="pill set">Status: Voted ✕</span><span class="pill">Order</span><span class="pill">Shopper type</span><span class="pill">Shared via</span><span class="pill">Product</span><span class="pill">Reason</span><span class="pill">Pieces</span><span class="lbl" style="align-self:center;margin-left:4px">Clear all</span>
+        </div>
+        <table style="width:100%;border-collapse:collapse">
+          <thead><tr><th>Board</th><th>Shopper</th><th>Partner</th><th>Pieces</th><th>Votes</th><th>Status</th><th>Order</th><th>Expires</th></tr></thead>
+          <tbody>
+            <tr><td><b style="font-weight:600">Nov 16</b> <span class="lbl">· 2 h ago</span></td><td>Abbir <span class="lbl">guest</span></td><td>Zaid</td><td><span style="padding-left:6px"><i class="th"></i><i class="th"></i><i class="th"></i></span> <span class="lbl">3</span></td><td><span class="v"><b style="color:#485B59">1 loved</b><span class="lbl">1 maybe · 1 no</span></span></td><td><span class="badge b-ok">Voted</span></td><td>—</td><td class="lbl">Dec 16</td></tr>
+            <tr style="background:#FAFAFA"><td><b style="font-weight:600">Nov 16</b> <span class="lbl">· 3 h ago</span></td><td>Abbir <span class="lbl">guest</span></td><td>Hamza</td><td><span style="padding-left:6px"><i class="th"></i><i class="th"></i></span> <span class="lbl">2</span></td><td><span class="v"><b style="color:#485B59">0 loved</b><span class="lbl">2 maybe</span></span></td><td><span class="badge b-ok">Voted</span></td><td>—</td><td class="lbl">Dec 16</td></tr>
+            <tr><td><b style="font-weight:600">Nov 15</b></td><td>Abbir AA</td><td>Hamza</td><td><span style="padding-left:6px"><i class="th"></i><i class="th"></i><i class="th"></i></span> <span class="lbl">12</span></td><td><span class="v"><b style="color:#485B59">8 loved</b><span class="lbl">2 maybe · 2 no</span></span></td><td><span class="badge b-info">Ordered</span></td><td><a>#1003</a> <span class="lbl">$13,521</span></td><td class="lbl">Dec 15</td></tr>
+            <tr><td><b style="font-weight:600">Nov 15</b></td><td>Abbir Ali</td><td>Mudsar</td><td><span style="padding-left:6px"><i class="th"></i><i class="th"></i></span> <span class="lbl">2</span></td><td><span class="v"><b style="color:#485B59">1 loved</b><span class="lbl">1 maybe</span></span></td><td><span class="badge b-info">Ordered</span></td><td><a>#1002</a> <span class="lbl">$1,414</span></td><td class="lbl">Dec 15</td></tr>
+            <tr><td><b style="font-weight:600">Nov 15</b></td><td>Abbir <span class="lbl">guest</span></td><td>Ali</td><td><span style="padding-left:6px"><i class="th"></i><i class="th"></i></span> <span class="lbl">2</span></td><td class="lbl">No votes yet</td><td><span class="badge b-wait">Waiting for votes</span></td><td>—</td><td class="lbl">Dec 15</td></tr>
+            <tr><td><b style="font-weight:600">Nov 13</b></td><td>Abbir <span class="lbl">guest</span></td><td>Zaid</td><td><span style="padding-left:6px"><i class="th"></i><i class="th"></i><i class="th"></i></span> <span class="lbl">5</span></td><td class="lbl">No votes yet</td><td><span class="badge b-wait">Waiting for votes</span></td><td>—</td><td style="color:#8E1F0B">in 2 days</td></tr>
+          </tbody>
+        </table>
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px">
+          <span class="lbl">Showing 1–25 of 312 boards</span>
+          <span style="display:flex;gap:6px"><span class="btn">‹ Previous</span><span class="btn">Next ›</span></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Detail -->
+    <div class="ui" style="flex:1;background:#F1F1F1;border-radius:16px;padding:18px 20px;display:flex;flex-direction:column;gap:12px;min-width:0">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <span style="font-size:18px;font-weight:650">‹ Board · Nov 15</span>
+        <span class="badge b-info">Ordered</span>
+      </div>
+      <div class="card" style="padding:14px 16px;display:flex;flex-direction:column;gap:8px">
+        <span style="font-weight:650">Summary</span>
+        <div style="display:grid;grid-template-columns:110px 1fr;row-gap:6px"><span class="lbl">Shopper</span><a>Abbir AA</a><span class="lbl">Partner</span><span>Hamza</span><span class="lbl">Shared via</span><span>WhatsApp</span><span class="lbl">Order</span><span><a>#1003</a> · $13,521</span><span class="lbl">Expires</span><span>Dec 15, 2026</span></div>
+      </div>
+      <div class="card" style="padding:14px 16px;display:flex;flex-direction:column;gap:8px">
+        <div style="display:flex;justify-content:space-between"><span style="font-weight:650">Pieces · 12</span><span class="lbl">8 loved · 2 maybe · 2 no</span></div>
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid #F1F1F1"><span>Tristine 96" Sofa <span class="lbl">Cream</span></span><span class="badge b-ok">Loved</span></div>
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid #F1F1F1"><span>Noor Wedge Corner <span class="lbl">Wheat</span></span><span style="display:flex;gap:6px;align-items:center"><span class="lbl">Another Color</span><span class="badge b-off">Maybe</span></span></div>
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0"><span>Noor Wedge Corner <span class="lbl">Baby Blue</span></span><span style="display:flex;gap:6px;align-items:center"><span class="lbl">Price</span><span class="badge" style="background:#FED3D1;color:#8E1F0B">Not for us</span></span></div>
+      </div>
+      <div class="card" style="padding:14px 16px;display:flex;flex-direction:column;gap:8px">
+        <span style="font-weight:650">Timeline</span>
+        <div class="lbl" style="line-height:20px">Nov 15, 10:43 · Order #1003 placed<br>Nov 15, 10:41 · Shopper opened results<br>Nov 15, 10:40 · Hamza finished voting · email sent<br>Nov 15, 10:39 · Hamza opened the board<br>Nov 15, 10:38 · Shared via WhatsApp</div>
+      </div>
+      <div class="lbl">No notes and no emails are shown. Names come from Shopify when the page loads.</div>
+    </div>
+
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1410,"height":1150}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

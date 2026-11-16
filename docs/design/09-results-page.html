@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Results Page</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="ds/tov/colors_and_type.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0}
+.ph{width:390px;height:844px;border-radius:40px;background:#F1ECE5;box-shadow:0 20px 50px -20px rgba(63,61,62,0.45);overflow:hidden;display:flex;flex-direction:column;box-sizing:border-box;position:relative}
+.top{display:flex;justify-content:center;padding:28px 24px 0}
+.store{font-size:12px;font-weight:700;letter-spacing:0.045em;text-transform:uppercase;color:#82736C}
+.eyebrow{font-size:12px;font-weight:700;letter-spacing:0.045em;text-transform:uppercase}
+.serif{font-family:'GT Ultra Fine',Georgia,serif}
+.row{display:flex;align-items:center;gap:12px;background:#FFFFFF;border-radius:14px;padding:8px 12px 8px 8px}
+.thumb{width:56px;height:56px;border-radius:10px;background:#FEFBF6;padding:6px;box-sizing:border-box;flex-shrink:0}
+.thumb img{width:100%;height:100%;object-fit:contain;mix-blend-mode:multiply;display:block}
+.name{font-size:13px;font-weight:600;line-height:17px}
+.price{font-size:12px;color:#82736C}
+.tag{font-size:10px;font-weight:700;letter-spacing:0.045em;text-transform:uppercase;padding:4px 9px;border-radius:999px;flex-shrink:0}
+.sec{display:flex;justify-content:space-between;align-items:baseline;margin:4px 2px 0}
+.cta{height:54px;border-radius:999px;background:#3F3D3E;color:#FEFBF6;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;letter-spacing:0.045em;text-transform:uppercase}
+.ghost{height:34px;padding:0 14px;border-radius:999px;border:1px solid #3F3D3E;display:flex;align-items:center;font-size:10px;font-weight:700;letter-spacing:0.045em;text-transform:uppercase;flex-shrink:0}
+.cap{font-size:12px;font-weight:700;letter-spacing:0.045em;text-transform:uppercase}
+.note{font-size:12px;line-height:18px;color:#606060}
+</style>
+</helmet>
+<div style="width:1410px;height:1010px;box-sizing:border-box;background:#FEFBF6;color:#3F3D3E;font-family:Montserrat,Helvetica,Arial,sans-serif;padding:40px 60px;display:flex;flex-direction:column;gap:24px">
+  <div style="display:flex;justify-content:space-between;align-items:flex-end">
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <div class="eyebrow" style="color:#82736C">Results page · Task 9 proposal</div>
+      <div class="serif" style="font-size:36px;line-height:40px">From "loved it" to a ready cart</div>
+    </div>
+    <div style="font-size:13px;line-height:20px;color:#606060;max-width:440px;text-align:right">The shopper's private link. Loved pieces go to the cart in one tap, Maybes stay one tap away, and the page is honest about anything we can't add.</div>
+  </div>
+
+  <div style="display:flex;gap:60px;align-items:flex-start">
+
+    <!-- 1 · Results ready -->
+    <div style="display:flex;flex-direction:column;gap:12px;width:390px">
+      <div class="cap">1 · Voting done</div>
+      <div class="ph">
+        <div class="top"><span class="store">TOV Furniture</span></div>
+        <div style="flex-grow:1;overflow:hidden;padding:20px 24px 0;display:flex;flex-direction:column;gap:14px">
+          <div style="display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center">
+            <div style="width:48px;height:48px;border-radius:999px;background:#F9D2D2;font-size:18px;font-weight:700;display:flex;align-items:center;justify-content:center">A</div>
+            <div class="serif" style="font-size:30px;line-height:34px">Alex loved 2 of 4.</div>
+            <div class="note">Your Living Room Board · voted today</div>
+          </div>
+          <div class="sec"><span class="eyebrow">Loved · 2</span><span class="price">$1,348</span></div>
+          <div class="row"><div class="thumb"><img src="/_blob/93d858188eaf4fa2506571eb25b733eb" alt=""></div><div style="flex-grow:1;display:flex;flex-direction:column;gap:2px"><span class="name">Cognac Swivel Club Chair</span><span class="price">Cognac · $749</span></div><span class="tag" style="background:#485B59;color:#FFFFFF">Loved</span></div>
+          <div class="row"><div class="thumb"><img src="/_blob/86c22272f5363293e173eb00649913d7" alt=""></div><div style="flex-grow:1;display:flex;flex-direction:column;gap:2px"><span class="name">Sage Oval Coffee Table</span><span class="price">Sage · $599</span></div><span class="tag" style="background:#485B59;color:#FFFFFF">Loved</span></div>
+          <div class="sec"><span class="eyebrow">Maybe · 1</span></div>
+          <div class="row"><div class="thumb"><img src="/_blob/f1acbac330843cb4d4d661f03e47d046" alt=""></div><div style="flex-grow:1;display:flex;flex-direction:column;gap:2px"><span class="name">Ceramic Table Lamp</span><span class="price">$189</span></div><span class="ghost">Add to Cart</span></div>
+          <div class="sec"><span class="eyebrow" style="color:#82736C">Not for us · 1</span><span class="price" style="text-decoration:underline">Show</span></div>
+        </div>
+        <div style="padding:14px 24px 30px;background:#F1ECE5;box-shadow:0 -10px 20px -14px rgba(63,61,62,0.35);display:flex;flex-direction:column;gap:8px;align-items:center">
+          <div class="cta" style="width:100%">Add Loved to Cart · $1,348</div>
+          <span class="note">Opens your cart with both pieces. Nothing is charged yet.</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 2 · Still voting -->
+    <div style="display:flex;flex-direction:column;gap:12px;width:390px">
+      <div class="cap">2 · Partner still voting</div>
+      <div class="ph">
+        <div class="top"><span class="store">TOV Furniture</span></div>
+        <div style="flex-grow:1;padding:20px 24px 0;display:flex;flex-direction:column;gap:14px">
+          <div style="display:flex;flex-direction:column;align-items:center;gap:10px;text-align:center">
+            <div style="width:48px;height:48px;border-radius:999px;background:#F9D2D2;display:flex;align-items:center;justify-content:center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#3F3D3E" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></div>
+            <div class="serif" style="font-size:30px;line-height:34px">Alex is voting.</div>
+            <div class="note">2 of 4 pieces so far. This page updates when you open it again.</div>
+          </div>
+          <div style="display:flex;gap:6px;padding:0 30px">
+            <div style="flex:1;height:4px;border-radius:999px;background:#3F3D3E"></div>
+            <div style="flex:1;height:4px;border-radius:999px;background:#3F3D3E"></div>
+            <div style="flex:1;height:4px;border-radius:999px;background:#CFC3C3"></div>
+            <div style="flex:1;height:4px;border-radius:999px;background:#CFC3C3"></div>
+          </div>
+          <div class="sec"><span class="eyebrow">So far</span></div>
+          <div class="row"><div class="thumb"><img src="/_blob/93d858188eaf4fa2506571eb25b733eb" alt=""></div><div style="flex-grow:1;display:flex;flex-direction:column;gap:2px"><span class="name">Cognac Swivel Club Chair</span><span class="price">$749</span></div><span class="tag" style="background:#485B59;color:#FFFFFF">Loved</span></div>
+          <div class="row"><div class="thumb"><img src="/_blob/65d474934b6b7626d1e7b059efca837e" alt=""></div><div style="flex-grow:1;display:flex;flex-direction:column;gap:2px"><span class="name">Rattan Sideboard</span><span class="price">$1,299</span></div><span class="tag" style="border:1px solid #A40713;color:#A40713">Not For Us</span></div>
+          <div class="row" style="opacity:0.55"><div class="thumb"><img src="/_blob/86c22272f5363293e173eb00649913d7" alt=""></div><div style="flex-grow:1;display:flex;flex-direction:column;gap:2px"><span class="name">Sage Oval Coffee Table</span><span class="price">Waiting for a vote</span></div></div>
+          <div class="row" style="opacity:0.55"><div class="thumb"><img src="/_blob/f1acbac330843cb4d4d661f03e47d046" alt=""></div><div style="flex-grow:1;display:flex;flex-direction:column;gap:2px"><span class="name">Ceramic Table Lamp</span><span class="price">Waiting for a vote</span></div></div>
+        </div>
+        <div style="padding:14px 24px 30px;display:flex;flex-direction:column;gap:8px;align-items:center">
+          <div class="cta" style="width:100%;background:#FEFBF6;color:#3F3D3E;border:1px solid #3F3D3E;box-sizing:border-box">Copy Alex's Link</div>
+          <span class="note">Send it again if Alex lost it.</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 3 · Sold out handling -->
+    <div style="display:flex;flex-direction:column;gap:12px;width:390px">
+      <div class="cap">3 · A loved piece sold out</div>
+      <div class="ph">
+        <div class="top"><span class="store">TOV Furniture</span></div>
+        <div style="flex-grow:1;padding:20px 24px 0;display:flex;flex-direction:column;gap:14px">
+          <div style="display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center">
+            <div style="width:48px;height:48px;border-radius:999px;background:#F9D2D2;font-size:18px;font-weight:700;display:flex;align-items:center;justify-content:center">A</div>
+            <div class="serif" style="font-size:30px;line-height:34px">Alex loved 2 of 4.</div>
+          </div>
+          <div style="background:#FFFFFF;border-left:3px solid #82736C;border-radius:10px;padding:12px 14px;font-size:12px;line-height:18px">Cognac Swivel Club Chair is sold out, so it won't be added to your cart. It stays on your board.</div>
+          <div class="sec"><span class="eyebrow">Loved · 2</span><span class="price">$599 available</span></div>
+          <div class="row" style="opacity:0.6"><div class="thumb"><img src="/_blob/93d858188eaf4fa2506571eb25b733eb" alt=""></div><div style="flex-grow:1;display:flex;flex-direction:column;gap:2px"><span class="name">Cognac Swivel Club Chair</span><span class="price">$749</span></div><span class="tag" style="background:#F1ECE5;color:#3F3D3E">Sold Out</span></div>
+          <div class="row"><div class="thumb"><img src="/_blob/86c22272f5363293e173eb00649913d7" alt=""></div><div style="flex-grow:1;display:flex;flex-direction:column;gap:2px"><span class="name">Sage Oval Coffee Table</span><span class="price">Sage · $599</span></div><span class="tag" style="background:#485B59;color:#FFFFFF">Loved</span></div>
+          <div class="sec"><span class="eyebrow">Maybe · 1</span></div>
+          <div class="row"><div class="thumb"><img src="/_blob/f1acbac330843cb4d4d661f03e47d046" alt=""></div><div style="flex-grow:1;display:flex;flex-direction:column;gap:2px"><span class="name">Ceramic Table Lamp</span><span class="price">$189</span></div><span class="ghost">Add to Cart</span></div>
+        </div>
+        <div style="padding:14px 24px 30px;box-shadow:0 -10px 20px -14px rgba(63,61,62,0.35);display:flex;flex-direction:column;gap:8px;align-items:center">
+          <div class="cta" style="width:100%">Add 1 Loved Piece to Cart · $599</div>
+          <span class="note">If nothing is available, this becomes Shop Similar Pieces.</span>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1410,"height":1010}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

@@ -2,7 +2,9 @@
  * Splat route: handles /proxy and /proxy/* via the App Proxy at /apps/board.
  *
  * Routes:
- * - /<shareToken> -> Vote page
+ * - /<voterToken> -> Vote page (personal voter link)
+ * - /<groupToken> -> Vote page (group mode, asks for first name)
+ * - /<shareToken> -> Vote page (legacy/backfill - voter.token = board.shareToken)
  * - /results/<ownerToken> -> Results placeholder page
  * - empty or unknown -> Not found page
  *
@@ -16,9 +18,14 @@ import { getActiveChips } from "../models/reasons.shared.js";
 import {
   getBoardByShareToken,
   getBoardByOwnerToken,
-  setPartnerOpenedAt,
 } from "../models/board.server.js";
-import { getVotesForBoard } from "../models/vote.server.js";
+import { getVotesForVoter, getVotesForBoard } from "../models/vote.server.js";
+import {
+  getVoterByToken,
+  getBoardByGroupToken,
+  setVoterOpenedAt,
+  buildGroupSummary,
+} from "../models/voter.server.js";
 import { fetchVariants } from "../services/products.server.js";
 import { VOTE_JS, VOTE_CSS } from "../vote-page/dist/vote-assets.server.js";
 import { RESULTS_JS, RESULTS_CSS } from "../results-page/dist/results-assets.server.js";
@@ -92,6 +99,7 @@ function hashToken(token) {
 /**
  * Build the vote page HTML.
  * The JS renders welcome screen then voting UI dynamically.
+ * Supports: personal voter link (knows voter), group mode (asks name first), hide prices.
  */
 function buildVotePage({
   board,
@@ -104,10 +112,16 @@ function buildVotePage({
   shopUrl,
   proxyPath,
   storageKey,
+  voterToken,
+  voterFirstName,
+  groupMode,
+  groupToken,
+  hidePrices,
+  groupSummary,
 }) {
   const placeholders = {
     shopper: board.ownerFirstName,
-    partner: board.partnerFirstName,
+    partner: voterFirstName || board.partnerFirstName,
     count: items.length,
   };
 
@@ -123,23 +137,39 @@ function buildVotePage({
     board: {
       shareToken: board.shareToken,
       ownerFirstName: board.ownerFirstName,
-      partnerFirstName: board.partnerFirstName,
+      partnerFirstName: voterFirstName || board.partnerFirstName,
       name: board.name,
       note: board.note,
       status: board.status,
     },
-    items: items.map((item) => ({
-      id: item.id,
-      title: item.title,
-      price: item.price,
-      image: item.image,
-      url: item.url,
-      available: item.available,
-    })),
+    // Group mode: needs name form first
+    groupMode: groupMode || false,
+    groupToken: groupToken || null,
+    // Voter info (null in group mode until joined)
+    voterToken: voterToken || null,
+    voterFirstName: voterFirstName || null,
+    // Hide prices: items have no price field when true
+    hidePrices: hidePrices || false,
+    items: items.map((item) => {
+      const itemData = {
+        id: item.id,
+        title: item.title,
+        image: item.image,
+        url: item.url,
+        available: item.available,
+      };
+      // Only include price when not hidden
+      if (!hidePrices) {
+        itemData.price = item.price;
+      }
+      return itemData;
+    }),
     votes: votes.map((v) => ({
       boardItemId: v.boardItemId,
       verdict: v.verdict,
     })),
+    // Group summary for thank-you screen (null until voter completes)
+    groupSummary: groupSummary || null,
     askReasons,
     reasonChips,
     copy: {
@@ -193,56 +223,83 @@ ${VOTE_JS}
 /**
  * Build the results page HTML.
  * The JS renders State A (voted) or State B (voting) dynamically.
+ * Supports single-voter (legacy) and multi-voter (group) boards.
  */
 function buildResultsPage({
   board,
   items,
   votes,
+  voters,
   settings,
   shopName,
   shopUrl,
   proxyPath,
 }) {
-  // Build vote map for item lookup
-  const voteMap = new Map();
-  const reasonMap = new Map();
-  const reasonTextMap = new Map();
+  const isGroup = voters.length > 1;
+  const completedVoters = voters.filter((v) => v.completedAt);
+
+  // Build per-voter vote maps: itemId -> { voterId -> { verdict, reason, reasonText } }
+  const votesByItem = new Map();
   for (const v of votes) {
-    voteMap.set(v.boardItemId, v.verdict);
-    if (v.reason) reasonMap.set(v.boardItemId, v.reason);
-    if (v.reasonText) reasonTextMap.set(v.boardItemId, v.reasonText);
+    if (!votesByItem.has(v.boardItemId)) {
+      votesByItem.set(v.boardItemId, new Map());
+    }
+    votesByItem.get(v.boardItemId).set(v.voter.id, {
+      verdict: v.verdict,
+      reason: v.reason || null,
+      reasonText: v.reasonText || null,
+      voterFirstName: v.voter.firstName,
+    });
   }
 
-  // Calculate loved-and-available total on the server
-  let lovedAvailableTotal = 0;
+  // Calculate "loved by most" total (LOVE from > half of completed voters)
+  const halfVoters = completedVoters.length / 2;
+  let lovedByMostTotal = 0;
   let currencyCode = null;
   for (const item of items) {
-    const verdict = voteMap.get(item.id);
-    if (verdict === "LOVE" && item.available) {
-      lovedAvailableTotal += item.priceCents || 0;
+    const itemVotes = votesByItem.get(item.id);
+    if (!itemVotes) continue;
+    let loveCount = 0;
+    for (const [, vote] of itemVotes) {
+      if (vote.verdict === "LOVE") loveCount++;
+    }
+    // Single voter: loveCount > 0; Multi: loveCount > half
+    const isLovedByMost = isGroup ? loveCount > halfVoters : loveCount > 0;
+    if (isLovedByMost && item.available) {
+      lovedByMostTotal += item.priceCents || 0;
       if (!currencyCode && item.currencyCode) {
         currencyCode = item.currencyCode;
       }
     }
   }
-  // Format total with proper currency (convert cents back to dollars)
-  const lovedTotalFormatted = formatPrice(lovedAvailableTotal / 100, currencyCode || "USD");
+  const lovedTotalFormatted = formatPrice(lovedByMostTotal / 100, currencyCode || "USD");
 
-  // Build absolute events URL (works with Markets locale prefixes)
+  // Build absolute events URL
   const eventsUrl = `${proxyPath}/api/e`;
 
-  // Build data JSON
-  const dataObj = {
-    shopName,
-    partnerFirstName: board.partnerFirstName,
-    status: board.status,
-    voted: votes.length,
-    total: items.length,
-    shareUrl: `${shopUrl}${proxyPath}/${board.shareToken}`,
-    boardId: board.id,
-    lovedTotalFormatted,
-    eventsUrl,
-    items: items.map((item) => ({
+  // Build voters array for client (id, firstName, done, shareUrl)
+  const votersData = voters.map((v) => ({
+    id: v.id,
+    firstName: v.firstName,
+    done: !!v.completedAt,
+    shareUrl: `${shopUrl}${proxyPath}/${v.token}`,
+  }));
+
+  // Build items with per-voter votes
+  const itemsData = items.map((item) => {
+    const itemVotes = votesByItem.get(item.id) || new Map();
+    // Per-voter votes: { voterId: { verdict, reason, reasonText } }
+    const perVoter = {};
+    for (const [voterId, vote] of itemVotes) {
+      perVoter[voterId] = {
+        verdict: vote.verdict,
+        reason: vote.reason,
+        reasonText: vote.reasonText,
+        voterFirstName: vote.voterFirstName,
+      };
+    }
+    return {
+      id: item.id,
       variantId: item.variantId,
       title: item.title,
       variantTitle: item.variantTitle,
@@ -251,17 +308,33 @@ function buildResultsPage({
       image: item.image,
       url: item.url,
       available: item.available,
-      verdict: voteMap.get(item.id) || null,
-      reason: reasonMap.get(item.id) || null,
-      reasonText: reasonTextMap.get(item.id) || null,
-    })),
+      votes: perVoter,
+    };
+  });
+
+  // Build data JSON
+  const dataObj = {
+    shopName,
+    boardId: board.id,
+    status: board.status,
+    total: items.length,
+    eventsUrl,
+    lovedTotalFormatted,
+    // Single-voter compat: partnerFirstName from first voter
+    partnerFirstName: voters[0]?.firstName || board.partnerFirstName,
+    shareUrl: voters[0] ? `${shopUrl}${proxyPath}/${voters[0].token}` : "",
+    // Multi-voter data
+    isGroup,
+    voters: votersData,
+    votersDone: completedVoters.length,
+    votersTotal: voters.length,
+    items: itemsData,
     copy: {
       resultsHeadline: settings.copy.resultsHeadline,
       resultsNoneLoved: settings.copy.resultsNoneLoved,
       resultsWaitingHeadline: settings.copy.resultsWaitingHeadline,
       resultsCta: settings.copy.resultsCta,
     },
-    // Liquid routes will be injected via data attributes (outside {% raw %})
   };
 
   const dataBase64 = encodeDataAsBase64(dataObj);
@@ -473,6 +546,7 @@ export const loader = async ({ request, params }) => {
         board,
         items,
         votes,
+        voters: board.voters || [],
         settings,
         shopName,
         shopUrl,
@@ -482,25 +556,228 @@ export const loader = async ({ request, params }) => {
     );
   }
 
-  // Route: <shareToken> -> vote page
-  const shareToken = splat;
+  // Route: <token> -> vote page
+  // Try resolving in order: Voter.token, Board.groupToken, Board.shareToken (legacy backfill)
+  const token = splat;
 
   // Validate token format (basic sanity check - cuid is 25 chars)
-  if (shareToken.length < 20 || shareToken.length > 40 || /[^a-zA-Z0-9_-]/.test(shareToken)) {
+  if (token.length < 20 || token.length > 40 || /[^a-zA-Z0-9_-]/.test(token)) {
     log.info("proxy.vote_page", { shop, status: "not_found" });
     return errorPage("This link doesn't work", "Check the URL and try again.");
   }
 
-  const board = await getBoardByShareToken(shop, shareToken);
-  if (!board) {
-    log.info("proxy.vote_page", { shop, status: "not_found" });
-    return errorPage("This link doesn't work", "Check the URL and try again.");
-  }
-
-  // Check if feature is enabled
+  // Check if feature is enabled first (saves DB lookups if disabled)
   if (!settings.enabled) {
     log.info("proxy.vote_page", { shop, status: "disabled" });
     return errorPage("This board isn't available", "Check back later.");
+  }
+
+  // Try 1: Voter token (personal link)
+  const voter = await getVoterByToken(token);
+  if (voter && voter.board.shop === shop) {
+    const board = voter.board;
+
+    // Check expiry
+    if (board.expiresAt < new Date()) {
+      const expiredHeadline = settings.copy.expiredHeadline || "This board has closed";
+      const expiredBody = replacePlaceholders(
+        settings.copy.expiredBody || "Ask {shopper} to share a new link.",
+        { shopper: board.ownerFirstName, partner: voter.firstName, count: board.items.length }
+      );
+      log.info("proxy.vote_page", { shop, status: "expired", mode: "voter" });
+      return errorPage(expiredHeadline, expiredBody);
+    }
+
+    // Set voter openedAt if null (first visit)
+    if (!voter.openedAt) {
+      await setVoterOpenedAt(voter.id);
+      await recordEvent(shop, "partner_opened", { boardId: board.id });
+    }
+
+    // Get existing votes for this voter
+    const votes = await getVotesForVoter(voter.id);
+
+    // Fetch live product data
+    const variantGids = board.items.map((item) => item.variantId);
+    let variants = new Map();
+    if (admin) {
+      try {
+        variants = await fetchVariants(admin, variantGids);
+      } catch (err) {
+        log.error("proxy.vote_page_variants", { code: err.code || "unknown" });
+      }
+    }
+
+    // Build items array with product data
+    const items = board.items.map((item) => {
+      const variant = variants.get(item.variantId);
+      const title = variant
+        ? variant.variantTitle && variant.variantTitle !== "Default Title"
+          ? `${variant.productTitle} - ${variant.variantTitle}`
+          : variant.productTitle
+        : "Item";
+      const price = variant ? formatPrice(variant.price, variant.currencyCode) : "";
+      const image = variant?.imageUrl || "";
+      const handle = variant?.handle || "";
+      const productUrl = handle ? `${shopUrl}/products/${handle}` : shopUrl;
+
+      return {
+        id: item.id,
+        title: title || "Item",
+        price,
+        image,
+        url: productUrl,
+        available: variant?.availableForSale ?? true,
+      };
+    });
+
+    // Build storage key (hash of voter token)
+    const storageKey = hashToken(token);
+
+    // Get active chips for vote page
+    const reasonChips = {
+      pass: getActiveChips(settings.reasonChips, "PASS"),
+      maybe: getActiveChips(settings.reasonChips, "MAYBE"),
+    };
+
+    // Get group summary if voter completed (for thank-you screen)
+    let groupSummary = null;
+    if (voter.completedAt) {
+      groupSummary = await buildGroupSummary(board.id, voter.id, items, board.ownerFirstName);
+    }
+
+    const html = buildVotePage({
+      board,
+      items,
+      votes,
+      copy: settings.copy,
+      askReasons: settings.askReasons,
+      reasonChips,
+      shopName,
+      shopUrl,
+      proxyPath: pathPrefix,
+      storageKey,
+      voterToken: token,
+      voterFirstName: voter.firstName,
+      groupMode: false,
+      groupToken: null,
+      hidePrices: board.hidePrices,
+      groupSummary,
+    });
+
+    log.info("proxy.vote_page", { shop, status: board.status, mode: "voter" });
+
+    return liquid(html, { layout: false, headers: NO_STORE });
+  }
+
+  // Try 2: Group token (asks for first name first)
+  const groupBoard = await getBoardByGroupToken(token);
+  if (groupBoard && groupBoard.shop === shop) {
+    const board = groupBoard;
+
+    // Check expiry
+    if (board.expiresAt < new Date()) {
+      const expiredHeadline = settings.copy.expiredHeadline || "This board has closed";
+      const expiredBody = replacePlaceholders(
+        settings.copy.expiredBody || "Ask {shopper} to share a new link.",
+        { shopper: board.ownerFirstName, partner: "", count: 0 }
+      );
+      log.info("proxy.vote_page", { shop, status: "expired", mode: "group" });
+      return errorPage(expiredHeadline, expiredBody);
+    }
+
+    // Check board status (must be SHARED or VOTED to join)
+    if (board.status !== "SHARED" && board.status !== "VOTED") {
+      log.info("proxy.vote_page", { shop, status: "not_shared", mode: "group" });
+      return errorPage("This link doesn't work", "Check the URL and try again.");
+    }
+
+    // Check if board is full
+    if (board._count.voters >= board.maxVoters) {
+      log.info("proxy.vote_page", { shop, status: "full", mode: "group" });
+      return errorPage(
+        "This board is full",
+        `${board.ownerFirstName}'s board already has ${board.maxVoters} voters.`
+      );
+    }
+
+    // Fetch live product data for the group join page (shows items preview)
+    const fullBoard = await getBoardByShareToken(shop, board.shareToken);
+    const variantGids = fullBoard?.items.map((item) => item.variantId) || [];
+    let variants = new Map();
+    if (admin && variantGids.length > 0) {
+      try {
+        variants = await fetchVariants(admin, variantGids);
+      } catch (err) {
+        log.error("proxy.vote_page_variants", { code: err.code || "unknown" });
+      }
+    }
+
+    // Build items array
+    const items = (fullBoard?.items || []).map((item) => {
+      const variant = variants.get(item.variantId);
+      const title = variant
+        ? variant.variantTitle && variant.variantTitle !== "Default Title"
+          ? `${variant.productTitle} - ${variant.variantTitle}`
+          : variant.productTitle
+        : "Item";
+      const price = variant ? formatPrice(variant.price, variant.currencyCode) : "";
+      const image = variant?.imageUrl || "";
+      const handle = variant?.handle || "";
+      const productUrl = handle ? `${shopUrl}/products/${handle}` : shopUrl;
+
+      return {
+        id: item.id,
+        title: title || "Item",
+        price,
+        image,
+        url: productUrl,
+        available: variant?.availableForSale ?? true,
+      };
+    });
+
+    const storageKey = hashToken(token);
+    const reasonChips = {
+      pass: getActiveChips(settings.reasonChips, "PASS"),
+      maybe: getActiveChips(settings.reasonChips, "MAYBE"),
+    };
+
+    const html = buildVotePage({
+      board: {
+        shareToken: board.shareToken,
+        ownerFirstName: board.ownerFirstName,
+        partnerFirstName: "",
+        name: fullBoard?.name || "",
+        note: fullBoard?.note || null,
+        status: board.status,
+      },
+      items,
+      votes: [],
+      copy: settings.copy,
+      askReasons: settings.askReasons,
+      reasonChips,
+      shopName,
+      shopUrl,
+      proxyPath: pathPrefix,
+      storageKey,
+      voterToken: null,
+      voterFirstName: null,
+      groupMode: true,
+      groupToken: token,
+      hidePrices: board.hidePrices,
+      groupSummary: null,
+    });
+
+    log.info("proxy.vote_page", { shop, status: board.status, mode: "group" });
+
+    return liquid(html, { layout: false, headers: NO_STORE });
+  }
+
+  // Try 3: Board shareToken (legacy backfill - voter.token = board.shareToken)
+  const board = await getBoardByShareToken(shop, token);
+  if (!board) {
+    log.info("proxy.vote_page", { shop, status: "not_found" });
+    return errorPage("This link doesn't work", "Check the URL and try again.");
   }
 
   // Check expiry
@@ -510,23 +787,26 @@ export const loader = async ({ request, params }) => {
       settings.copy.expiredBody || "Ask {shopper} to share a new link.",
       { shopper: board.ownerFirstName, partner: board.partnerFirstName, count: board.items.length }
     );
-    log.info("proxy.vote_page", { shop, status: "expired" });
+    log.info("proxy.vote_page", { shop, status: "expired", mode: "legacy" });
     return errorPage(expiredHeadline, expiredBody);
   }
 
-  // Set partnerOpenedAt if null (conditional update)
-  const wasFirstOpen = await setPartnerOpenedAt(board.id);
+  // For legacy boards, find the voter with matching token (backfill created it)
+  const legacyVoter = await getVoterByToken(token);
+  if (!legacyVoter) {
+    // Board exists but no voter - should not happen after migration, treat as not found
+    log.info("proxy.vote_page", { shop, status: "no_voter", mode: "legacy" });
+    return errorPage("This link doesn't work", "Check the URL and try again.");
+  }
 
-  // Record partner_opened event only on first open
-  if (wasFirstOpen) {
+  // Set voter openedAt if null (first visit)
+  if (!legacyVoter.openedAt) {
+    await setVoterOpenedAt(legacyVoter.id);
     await recordEvent(shop, "partner_opened", { boardId: board.id });
   }
 
-  // Get existing votes
-  const votes = await getVotesForBoard(board.id);
-
-  // If board is already VOTED, show done screen via initial data
-  // (The JS will detect all items voted and show the done screen)
+  // Get existing votes for this voter
+  const votes = await getVotesForVoter(legacyVoter.id);
 
   // Fetch live product data
   const variantGids = board.items.map((item) => item.variantId);
@@ -536,7 +816,6 @@ export const loader = async ({ request, params }) => {
       variants = await fetchVariants(admin, variantGids);
     } catch (err) {
       log.error("proxy.vote_page_variants", { code: err.code || "unknown" });
-      // Continue with empty variants - items will show without product data
     }
   }
 
@@ -564,13 +843,19 @@ export const loader = async ({ request, params }) => {
   });
 
   // Build storage key (hash of token)
-  const storageKey = hashToken(shareToken);
+  const storageKey = hashToken(token);
 
-  // Get active chips for vote page (code + label, no retired)
+  // Get active chips for vote page
   const reasonChips = {
     pass: getActiveChips(settings.reasonChips, "PASS"),
     maybe: getActiveChips(settings.reasonChips, "MAYBE"),
   };
+
+  // Get group summary if voter completed (for thank-you screen)
+  let groupSummary = null;
+  if (legacyVoter.completedAt) {
+    groupSummary = await buildGroupSummary(board.id, legacyVoter.id, items, board.ownerFirstName);
+  }
 
   const html = buildVotePage({
     board,
@@ -583,9 +868,15 @@ export const loader = async ({ request, params }) => {
     shopUrl,
     proxyPath: pathPrefix,
     storageKey,
+    voterToken: token,
+    voterFirstName: legacyVoter.firstName,
+    groupMode: false,
+    groupToken: null,
+    hidePrices: board.hidePrices,
+    groupSummary,
   });
 
-  log.info("proxy.vote_page", { shop, status: board.status });
+  log.info("proxy.vote_page", { shop, status: board.status, mode: "legacy" });
 
   return liquid(html, { layout: false, headers: NO_STORE });
 };

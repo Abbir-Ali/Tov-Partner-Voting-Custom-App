@@ -66,18 +66,57 @@ export function validateCreateInput(body, settings, { isLoggedIn = false } = {})
     data.ownerFirstName = capitalizeIfAllLower(ownerFirstName);
   }
 
-  // partnerFirstName — required, same rules
-  const partnerFirstName = typeof body.partnerFirstName === "string"
+  // voterNames — array of 1-5 names (new format) or partnerFirstName (legacy)
+  const rawVoterNames = Array.isArray(body.voterNames) ? body.voterNames : null;
+  const legacyPartner = typeof body.partnerFirstName === "string"
     ? body.partnerFirstName.trim() : "";
-  if (!partnerFirstName) {
-    errors.partnerFirstName = "Your partner's first name is required.";
-  } else if (partnerFirstName.length > BOARD_LIMITS.firstNameMax) {
-    errors.partnerFirstName = `Keep your partner's name under ${BOARD_LIMITS.firstNameMax} characters.`;
-  } else if (!NAME_RE.test(partnerFirstName)) {
-    errors.partnerFirstName =
-      "Only letters, spaces, hyphens, and apostrophes are allowed.";
+
+  if (rawVoterNames) {
+    // New format: voterNames array
+    const names = rawVoterNames
+      .map((n) => (typeof n === "string" ? n.trim() : ""))
+      .filter((n) => n.length > 0)
+      .slice(0, 5);
+
+    if (names.length === 0) {
+      errors.voterNames = "Add at least one person's name.";
+    } else {
+      const seen = new Set();
+      const validated = [];
+      for (const name of names) {
+        if (name.length > BOARD_LIMITS.firstNameMax) {
+          errors.voterNames = `Keep names under ${BOARD_LIMITS.firstNameMax} characters.`;
+          break;
+        }
+        if (!NAME_RE.test(name)) {
+          errors.voterNames = "Only letters, spaces, hyphens, and apostrophes allowed.";
+          break;
+        }
+        const lower = name.toLowerCase();
+        if (seen.has(lower)) {
+          errors.voterNames = "Use a different name for each person.";
+          break;
+        }
+        seen.add(lower);
+        validated.push(capitalizeIfAllLower(name));
+      }
+      if (!errors.voterNames) {
+        data.voterNames = validated;
+        data.partnerFirstName = validated[0]; // First name for backward compat
+      }
+    }
+  } else if (legacyPartner) {
+    // Legacy format: single partnerFirstName
+    if (legacyPartner.length > BOARD_LIMITS.firstNameMax) {
+      errors.partnerFirstName = `Keep your partner's name under ${BOARD_LIMITS.firstNameMax} characters.`;
+    } else if (!NAME_RE.test(legacyPartner)) {
+      errors.partnerFirstName = "Only letters, spaces, hyphens, and apostrophes allowed.";
+    } else {
+      data.partnerFirstName = capitalizeIfAllLower(legacyPartner);
+      data.voterNames = [data.partnerFirstName];
+    }
   } else {
-    data.partnerFirstName = capitalizeIfAllLower(partnerFirstName);
+    errors.partnerFirstName = "Your partner's first name is required.";
   }
 
   // note — optional
@@ -140,6 +179,22 @@ export function validateCreateInput(body, settings, { isLoggedIn = false } = {})
     }
   }
 
+  // groupVoting — optional boolean, but disabled if 5 personal voters
+  const maxPersonalVoters = 5;
+  const voterCount = data.voterNames ? data.voterNames.length : 1;
+  if (body.groupVoting === true && voterCount >= maxPersonalVoters) {
+    // Can't have group link if already at max personal voters
+    data.groupVoting = false;
+  } else {
+    data.groupVoting = body.groupVoting === true;
+  }
+
+  // hidePrices — optional boolean
+  data.hidePrices = body.hidePrices === true;
+
+  // maxVoters — fixed at 5 (removed user input)
+  data.maxVoters = 5;
+
   return { data, errors };
 }
 
@@ -150,25 +205,32 @@ export function validateCreateInput(body, settings, { isLoggedIn = false } = {})
  * `data.items` must already be enriched with `productId` and `position`.
  *
  * @param {{ shop: string, data: object, customerId: string|null, settings: object }}
- * @returns {{ board: object, shareToken: string, ownerToken: string }}
+ * @returns {{ board: object, shareToken: string, ownerToken: string, groupToken: string|null }}
  */
 export async function createBoard({ shop, data, customerId, settings }) {
-  const shareToken = newToken();
   const ownerToken = newToken();
+  const groupToken = data.groupVoting ? newToken() : null;
   const now        = new Date();
   const expiresAt  = new Date(
     now.getTime() + settings.boardExpiryDays * 24 * 60 * 60 * 1000
   );
 
-  const board = await db.$transaction(async (tx) => {
+  // Generate tokens for each voter name
+  const voterTokens = (data.voterNames || [data.partnerFirstName]).map((name) => ({
+    name,
+    token: newToken(),
+  }));
+
+  const result = await db.$transaction(async (tx) => {
     if (!data.creatorKey) {
       throw new Error("createBoard called without data.creatorKey");
     }
-    return tx.board.create({
+    const newBoard = await tx.board.create({
       data: {
         shop,
-        shareToken,
+        shareToken: voterTokens[0].token, // First voter's token for backward compat
         ownerToken,
+        groupToken,
         creatorKey: data.creatorKey,
         customerId:      customerId ?? null,
         ownerFirstName:  data.ownerFirstName,
@@ -179,6 +241,8 @@ export async function createBoard({ shop, data, customerId, settings }) {
         status:  "SHARED",
         sharedAt: now,
         expiresAt,
+        hidePrices: data.hidePrices ?? false,
+        maxVoters: data.maxVoters ?? 5,
         items: {
           create: data.items.map((item) => ({
             productId: item.productId,
@@ -188,9 +252,29 @@ export async function createBoard({ shop, data, customerId, settings }) {
         },
       },
     });
+
+    // Create personal voter for each name
+    for (const { name, token } of voterTokens) {
+      await tx.voter.create({
+        data: {
+          boardId: newBoard.id,
+          token,
+          firstName: name,
+          kind: "PERSONAL",
+        },
+      });
+    }
+
+    return newBoard;
   });
 
-  return { board, shareToken, ownerToken };
+  return {
+    board: result,
+    shareToken: voterTokens[0].token,
+    ownerToken,
+    groupToken,
+    voterTokens,
+  };
 }
 
 // ─── Queries ─────────────────────────────────────────────────────────────────
@@ -214,6 +298,7 @@ export async function countSharesToday(shop, ck) {
  * @returns {Promise<object|null>}
  */
 export async function getBoardByShareToken(shop, token) {
+  if (typeof token !== "string" || !token) return null;
   return db.board.findFirst({
     where: { shop, shareToken: token, status: { in: ["SHARED", "VOTED"] } },
     include: { items: { orderBy: { position: "asc" } } },
@@ -222,16 +307,28 @@ export async function getBoardByShareToken(shop, token) {
 
 
 /**
- * Returns the board with its items for the given owner token.
+ * Returns the board with its items and voters for the given owner token.
  * Used by the results page. Always filters by shop AND token.
  * Only SHARED and VOTED boards are returned.
  *
  * @returns {Promise<object|null>}
  */
 export async function getBoardByOwnerToken(shop, token) {
+  if (typeof token !== "string" || !token) return null;
   return db.board.findFirst({
     where: { shop, ownerToken: token, status: { in: ["SHARED", "VOTED"] } },
-    include: { items: { orderBy: { position: "asc" } } },
+    include: {
+      items: { orderBy: { position: "asc" } },
+      voters: {
+        select: {
+          id: true,
+          token: true,
+          firstName: true,
+          completedAt: true,
+        },
+        orderBy: { createdAt: "asc" },
+      },
+    },
   });
 }
 

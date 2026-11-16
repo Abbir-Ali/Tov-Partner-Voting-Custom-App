@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Admin Dashboard</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="ds/tov/colors_and_type.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0}
+.ui{font-family:-apple-system,BlinkMacSystemFont,"Inter","Segoe UI",Helvetica,Arial,sans-serif;color:#303030}
+.card{background:#FFFFFF;border-radius:12px;box-shadow:0 1px 0 rgba(26,26,26,.07),0 1px 3px rgba(26,26,26,.08)}
+.muted{color:#616161}
+.lbl{font-size:13px;color:#616161}
+.num{font-size:24px;font-weight:650;letter-spacing:-0.01em}
+.seg{display:flex;background:#F1F1F1;border-radius:10px;padding:3px;gap:2px}
+.seg span{padding:6px 12px;border-radius:8px;font-size:13px;color:#4A4A4A}
+.seg .on{background:#FFFFFF;box-shadow:0 1px 2px rgba(0,0,0,.12);color:#303030;font-weight:600}
+.pill{font-size:12px;font-weight:600;padding:2px 8px;border-radius:999px}
+.up{background:#E3F1DF;color:#2E6B33}
+.th{font-size:12px;color:#616161;font-weight:600;text-align:left;padding:10px 16px;border-bottom:1px solid #EBEBEB}
+.td{font-size:13px;padding:12px 16px;border-bottom:1px solid #F1F1F1}
+.bar{height:28px;border-radius:6px;background:#E6E1DB;position:relative;overflow:hidden}
+.bar i{position:absolute;left:0;top:0;bottom:0;background:#485B59;border-radius:6px}
+.cap{font-family:Montserrat,Helvetica,Arial,sans-serif;font-size:12px;font-weight:700;letter-spacing:0.045em;text-transform:uppercase}
+</style>
+</helmet>
+<div style="width:1410px;height:1620px;box-sizing:border-box;background:#FEFBF6;color:#3F3D3E;font-family:Montserrat,Helvetica,Arial,sans-serif;padding:40px 60px;display:flex;flex-direction:column;gap:20px">
+  <div style="display:flex;justify-content:space-between;align-items:flex-end">
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <div class="cap" style="color:#82736C">Admin dashboard · Task 12 proposal</div>
+      <div style="font-family:'GT Ultra Fine',Georgia,serif;font-size:36px;line-height:40px">Revenue first, then the funnel behind it</div>
+    </div>
+    <div style="font-size:13px;line-height:20px;color:#606060;max-width:460px;text-align:right">Inside the Shopify admin (Polaris look). All numbers below are sample data for the mock; the real page reads the events we track since Task 11.</div>
+  </div>
+
+  <!-- Admin frame -->
+  <div class="ui" style="flex-grow:1;background:#F1F1F1;border-radius:16px;padding:24px 28px;display:flex;flex-direction:column;gap:16px;box-shadow:0 20px 50px -30px rgba(63,61,62,.5)">
+    <!-- Page header -->
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <div style="display:flex;align-items:center;gap:10px">
+        <div style="width:28px;height:28px;border-radius:8px;background:#F9D2D2;display:flex;align-items:center;justify-content:center"><svg width="16" height="16" viewBox="0 0 24 24" fill="#3F3D3E" aria-hidden="true"><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z"/></svg></div>
+        <span style="font-size:20px;font-weight:650">Partner Voting Board</span>
+      </div>
+      <div style="display:flex;gap:10px;align-items:center">
+        <div class="seg"><span>7 days</span><span>14 days</span><span class="on">30 days</span><span>60 days</span></div>
+        <div style="background:#FFFFFF;border:1px solid #D4D4D4;border-radius:8px;padding:6px 12px;font-size:13px">Daily ▾</div>
+      </div>
+    </div>
+
+    <!-- Hero revenue + chart -->
+    <div class="card" style="padding:20px 24px;display:flex;flex-direction:column;gap:14px">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start">
+        <div style="display:flex;flex-direction:column;gap:4px">
+          <span class="lbl">Revenue from boards</span>
+          <div style="display:flex;align-items:baseline;gap:10px"><span style="font-size:34px;font-weight:700;letter-spacing:-0.02em">$21,373.00</span><span class="pill up">↑ 18% vs previous 30 days</span></div>
+          <span class="lbl">Orders placed from a shared board</span>
+          <span style="font-size:12px;line-height:18px;color:#616161;background:#F7F7F7;border-radius:8px;padding:6px 10px;margin-top:4px;max-width:620px"><b style="color:#303030">How we count:</b> an order counts only when its cart was filled from a board's results page, so the board ID travels with the order. No time window and no estimates.</span>
+        </div>
+        <div style="display:flex;gap:16px;font-size:12px" class="muted">
+          <span style="display:flex;align-items:center;gap:6px"><i style="width:10px;height:10px;border-radius:3px;background:#485B59;display:inline-block"></i>Cumulative revenue</span>
+        </div>
+      </div>
+      <svg width="1186" height="240" viewBox="-18 -8 1186 250" aria-hidden="true" style="display:block">
+                <g stroke="#EBEBEB" stroke-width="1"><line x1="0" x2="1150" y1="0" y2="0"/><line x1="0" x2="1150" y1="73" y2="73"/><line x1="0" x2="1150" y1="147" y2="147"/><line x1="0" x2="1150" y1="220" y2="220"/></g>
+        <path d="M0.0,220.0 L39.7,215.3 L79.3,215.3 L119.0,206.5 L158.6,203.8 L198.3,203.8 L237.9,188.4 L277.6,188.4 L317.2,181.2 L356.9,181.2 L396.6,169.6 L436.2,169.6 L475.9,169.6 L515.5,152.5 L555.2,152.5 L594.8,143.7 L634.5,138.1 L674.1,138.1 L713.8,138.1 L753.4,124.8 L793.1,124.8 L832.8,109.4 L872.4,109.4 L912.1,109.4 L951.7,99.2 L991.4,99.2 L1031.0,92.0 L1070.7,74.8 L1110.3,74.8 L1150.0,63.3 L1150,220 L0,220 Z" fill="#485B59" fill-opacity=".10"/>
+        <path d="M0.0,220.0 L39.7,215.3 L79.3,215.3 L119.0,206.5 L158.6,203.8 L198.3,203.8 L237.9,188.4 L277.6,188.4 L317.2,181.2 L356.9,181.2 L396.6,169.6 L436.2,169.6 L475.9,169.6 L515.5,152.5 L555.2,152.5 L594.8,143.7 L634.5,138.1 L674.1,138.1 L713.8,138.1 L753.4,124.8 L793.1,124.8 L832.8,109.4 L872.4,109.4 L912.1,109.4 L951.7,99.2 L991.4,99.2 L1031.0,92.0 L1070.7,74.8 L1110.3,74.8 L1150.0,63.3" fill="none" stroke="#485B59" stroke-width="2.5" stroke-linejoin="round"/>
+        <circle cx="1150" cy="63.3" r="4.5" fill="#485B59"/>
+        <g font-size="11" fill="#8A8A8A"><text x="0" y="238">Oct 17</text><text x="276" y="238">Oct 24</text><text x="554" y="238">Oct 31</text><text x="832" y="238">Nov 7</text><text x="1104" y="238">Nov 15</text></g>
+      </svg>
+    </div>
+
+    <!-- KPI row -->
+    <div style="display:flex;gap:16px">
+      <div class="card" style="flex:1;padding:16px 20px;display:flex;flex-direction:column;gap:6px"><span class="lbl">Orders from boards</span><span class="num">14</span><span class="lbl">of 61 boards shared</span></div>
+      <div class="card" style="flex:1;padding:16px 20px;display:flex;flex-direction:column;gap:6px"><span class="lbl">Average order value</span><span class="num">$1,526.64</span><span class="lbl">Store average: see Shopify Analytics</span></div>
+      <div class="card" style="flex:1;padding:16px 20px;display:flex;flex-direction:column;gap:6px"><span class="lbl">Partner vote rate</span><span class="num">72%</span><span class="lbl">44 of 61 partners voted</span></div>
+      <div class="card" style="flex:1;padding:16px 20px;display:flex;flex-direction:column;gap:6px"><span class="lbl">"Voting done" emails</span><span class="num">44</span><span class="lbl">0 pending · 0 failed</span></div>
+    </div>
+
+    <!-- Funnel + orders -->
+    <div style="display:flex;gap:16px;flex-grow:1;min-height:0">
+      <div class="card" style="width:500px;padding:18px 20px;display:flex;flex-direction:column;gap:12px">
+        <div style="display:flex;justify-content:space-between;align-items:baseline"><span style="font-size:14px;font-weight:650">Funnel</span><span class="lbl">last 30 days</span></div>
+        <div style="display:grid;grid-template-columns:150px 1fr 56px;row-gap:10px;column-gap:12px;align-items:center;font-size:13px">
+          <span>Button seen</span><div class="bar"><i style="width:100%"></i></div><b style="text-align:right">8,240</b>
+          <span>Saved to board</span><div class="bar"><i style="width:21%"></i></div><b style="text-align:right">1,733</b>
+          <span>Shared</span><div class="bar"><i style="width:9%"></i></div><b style="text-align:right">61</b>
+          <span>Partner opened</span><div class="bar"><i style="width:7.5%"></i></div><b style="text-align:right">52</b>
+          <span>Voting done</span><div class="bar"><i style="width:6.5%"></i></div><b style="text-align:right">44</b>
+          <span>Added to cart</span><div class="bar"><i style="width:4.6%"></i></div><b style="text-align:right">29</b>
+          <span>Ordered</span><div class="bar"><i style="width:3%"></i></div><b style="text-align:right">14</b>
+        </div>
+              </div>
+
+      <div class="card" style="flex:1;display:flex;flex-direction:column;min-width:0">
+        <div style="display:flex;justify-content:space-between;align-items:baseline;padding:18px 20px 8px"><span style="font-size:14px;font-weight:650">Orders from boards</span><span class="lbl" style="color:#005BD3">Export CSV</span></div>
+        <table style="width:100%;border-collapse:collapse">
+          <thead><tr><th class="th">Order</th><th class="th">Date</th><th class="th">Board</th><th class="th" style="text-align:right">Amount</th></tr></thead>
+          <tbody>
+            <tr><td class="td" style="color:#005BD3;font-weight:600">#1042</td><td class="td">Nov 14</td><td class="td">5 pieces · loved 3</td><td class="td" style="text-align:right">$1,574.40</td></tr>
+            <tr><td class="td" style="color:#005BD3;font-weight:600">#1039</td><td class="td">Nov 13</td><td class="td">4 pieces · loved 2</td><td class="td" style="text-align:right">$2,100.80</td></tr>
+            <tr><td class="td" style="color:#005BD3;font-weight:600">#1036</td><td class="td">Nov 12</td><td class="td">3 pieces · loved 1</td><td class="td" style="text-align:right">$1,199.20</td></tr>
+            <tr><td class="td" style="color:#005BD3;font-weight:600">#1031</td><td class="td">Nov 10</td><td class="td">6 pieces · loved 4</td><td class="td" style="text-align:right">$2,340.00</td></tr>
+            <tr><td class="td" style="color:#005BD3;font-weight:600">#1027</td><td class="td">Nov 8</td><td class="td">2 pieces · loved 2</td><td class="td" style="text-align:right">$980.00</td></tr>
+            <tr><td class="td" style="color:#005BD3;font-weight:600;border-bottom:none">#1022</td><td class="td" style="border-bottom:none">Nov 6</td><td class="td" style="border-bottom:none">4 pieces · loved 3</td><td class="td" style="text-align:right;border-bottom:none">$1,813.60</td></tr>
+          </tbody>
+        </table>
+        <div class="lbl" style="padding:10px 20px 14px;margin-top:auto">Order numbers open the order in Shopify. No customer names are stored by the app.</div>
+      </div>
+    </div>
+
+    <!-- Insights row (from competitor analysis) -->
+    <div style="display:flex;gap:16px;height:380px;flex-shrink:0">
+      <div class="card" style="flex:1;padding:18px 20px;display:flex;flex-direction:column;gap:12px">
+        <div style="display:flex;justify-content:space-between;align-items:baseline"><span style="font-size:14px;font-weight:650">Top shared products</span><span class="lbl">boards shared</span></div>
+        <table style="width:100%;border-collapse:collapse;font-size:13px">
+          <tr><td style="padding:9px 0;border-bottom:1px solid #F1F1F1">Cognac Swivel Club Chair</td><td style="text-align:right;font-weight:650;border-bottom:1px solid #F1F1F1">23</td></tr>
+          <tr><td style="padding:9px 0;border-bottom:1px solid #F1F1F1">Sage Oval Coffee Table</td><td style="text-align:right;font-weight:650;border-bottom:1px solid #F1F1F1">19</td></tr>
+          <tr><td style="padding:9px 0;border-bottom:1px solid #F1F1F1">Boucle Lounge Sofa</td><td style="text-align:right;font-weight:650;border-bottom:1px solid #F1F1F1">17</td></tr>
+          <tr><td style="padding:9px 0;border-bottom:1px solid #F1F1F1">Rattan Sideboard</td><td style="text-align:right;font-weight:650;border-bottom:1px solid #F1F1F1">12</td></tr>
+          <tr><td style="padding:9px 0;border-bottom:1px solid #F1F1F1">Ceramic Table Lamp</td><td style="text-align:right;font-weight:650;border-bottom:1px solid #F1F1F1">9</td></tr>
+          <tr><td style="padding:9px 0">Velvet Dining Chair</td><td style="text-align:right;font-weight:650">7</td></tr>
+        </table>
+        <div class="lbl" style="margin-top:auto;line-height:18px">Pieces people most want a second opinion on. Useful for merchandising and ads.</div>
+      </div>
+
+      <div class="card" style="flex:1.35;padding:18px 20px;display:flex;flex-direction:column;gap:12px">
+        <div style="display:flex;justify-content:space-between;align-items:baseline"><span style="font-size:14px;font-weight:650">What partners think</span>
+          <span style="display:flex;gap:12px;font-size:12px" class="muted">
+            <span style="display:flex;align-items:center;gap:5px"><i style="width:9px;height:9px;border-radius:3px;background:#485B59;display:inline-block"></i>Loved</span>
+            <span style="display:flex;align-items:center;gap:5px"><i style="width:9px;height:9px;border-radius:3px;background:#D9CFC5;display:inline-block"></i>Maybe</span>
+            <span style="display:flex;align-items:center;gap:5px"><i style="width:9px;height:9px;border-radius:3px;background:#F9D2D2;display:inline-block"></i>Not for us</span>
+          </span></div>
+        <div style="display:grid;grid-template-columns:170px 1fr 70px;row-gap:12px;column-gap:12px;align-items:center;font-size:13px">
+          <span>Cognac Swivel Club Chair</span><div style="display:flex;height:20px;border-radius:6px;overflow:hidden"><i style="flex:14;background:#485B59"></i><i style="flex:4;background:#D9CFC5"></i><i style="flex:2;background:#F9D2D2"></i></div><span class="muted" style="text-align:right">70% loved</span>
+          <span>Sage Oval Coffee Table</span><div style="display:flex;height:20px;border-radius:6px;overflow:hidden"><i style="flex:9;background:#485B59"></i><i style="flex:5;background:#D9CFC5"></i><i style="flex:2;background:#F9D2D2"></i></div><span class="muted" style="text-align:right">56% loved</span>
+          <span>Boucle Lounge Sofa</span><div style="display:flex;height:20px;border-radius:6px;overflow:hidden"><i style="flex:6;background:#485B59"></i><i style="flex:5;background:#D9CFC5"></i><i style="flex:4;background:#F9D2D2"></i></div><span class="muted" style="text-align:right">40% loved</span>
+          <span>Rattan Sideboard</span><div style="display:flex;height:20px;border-radius:6px;overflow:hidden"><i style="flex:3;background:#485B59"></i><i style="flex:2;background:#D9CFC5"></i><i style="flex:5;background:#F9D2D2"></i></div><span class="muted" style="text-align:right">30% loved</span>
+          <span>Ceramic Table Lamp</span><div style="display:flex;height:20px;border-radius:6px;overflow:hidden"><i style="flex:5;background:#485B59"></i><i style="flex:2;background:#D9CFC5"></i><i style="flex:1;background:#F9D2D2"></i></div><span class="muted" style="text-align:right">63% loved</span>
+        </div>
+        <div class="lbl" style="margin-top:auto;line-height:18px">A piece with many "Not for us" votes is a signal to check its photos, price or colours. Shown only when a piece has 5 or more votes.</div>
+      </div>
+
+      <div class="card" style="flex:1;padding:18px 20px;display:flex;flex-direction:column;gap:12px">
+        <div style="display:flex;justify-content:space-between;align-items:baseline"><span style="font-size:14px;font-weight:650">Shares by channel</span><span class="lbl">61 shares</span></div>
+        <div style="display:grid;grid-template-columns:110px 1fr 34px;row-gap:12px;column-gap:10px;align-items:center;font-size:13px">
+          <span>WhatsApp</span><div class="bar" style="height:20px"><i style="width:100%"></i></div><b style="text-align:right">34</b>
+          <span>Copy link</span><div class="bar" style="height:20px"><i style="width:50%"></i></div><b style="text-align:right">17</b>
+          <span>Email</span><div class="bar" style="height:20px"><i style="width:21%"></i></div><b style="text-align:right">7</b>
+          <span>Share sheet</span><div class="bar" style="height:20px"><i style="width:9%"></i></div><b style="text-align:right">3</b>
+        </div>
+        <div style="border-top:1px solid #F1F1F1;padding-top:10px;display:flex;flex-direction:column;gap:4px">
+          <span class="lbl">Partner vote rate by channel</span>
+          <span style="font-size:13px">WhatsApp 79% · Copy link 65% · Email 57%</span>
+        </div>
+        <div class="lbl" style="margin-top:auto;line-height:18px">Tells us where the link preview matters most.</div>
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1410,"height":1620}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

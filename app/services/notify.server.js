@@ -1,6 +1,7 @@
 /**
  * Klaviyo notification service for "voting done" emails.
  * Sends events to Klaviyo; the email is built in Klaviyo flows.
+ * Updated for group voting: notifications are per voter.
  */
 
 import db from "../db.server.js";
@@ -17,14 +18,6 @@ const NOTIFY_TIMEOUT_MS = 8000;
 const MAX_LOVED_ITEMS = 6;
 const MAX_ATTEMPTS = 3;
 const RETRY_WINDOW_HOURS = 24;
-
-/**
- * Prisma filter to exclude "skipped_old" but include NULL (normal pending boards).
- * Prisma's `{ not: "skipped_old" }` doesn't match NULL, so we need OR.
- */
-const NOT_SKIPPED_OLD = {
-  OR: [{ notifyErrorCode: null }, { notifyErrorCode: { not: "skipped_old" } }],
-};
 
 /**
  * Formats a price as "$1,234.00" for the given currency.
@@ -172,37 +165,47 @@ export async function sendTestEvent(shop, email) {
 }
 
 /**
- * Sends the "voting completed" event to Klaviyo for a board.
+ * Sends the "voting completed" event to Klaviyo for a voter.
+ * Called when a voter finishes voting on all items.
  * Skips silently if: notifications disabled, no key, no email, already notified.
+ *
+ * @param {string} voterId - The voter who completed
+ * @param {string} boardId - The board ID
+ * @param {string} shop - The shop domain
  */
-export async function sendVotingCompleted(boardId) {
-  // Load board with items and votes
-  const board = await db.board.findUnique({
-    where: { id: boardId },
+export async function sendVotingCompleted(voterId, boardId, shop) {
+  // Load voter with board, items, and this voter's votes
+  const voter = await db.voter.findUnique({
+    where: { id: voterId },
     include: {
-      items: {
-        include: { votes: true },
-        orderBy: { position: "asc" },
+      board: {
+        include: {
+          items: {
+            orderBy: { position: "asc" },
+          },
+          _count: { select: { voters: true } },
+        },
       },
+      votes: true,
     },
   });
 
-  if (!board) {
-    log.warn("notify.skipped", { boardId, reason: "not_found" });
-    return { ok: false, reason: "not_found" };
+  if (!voter) {
+    log.warn("notify.skipped", { voterId, reason: "voter_not_found" });
+    return { ok: false, reason: "voter_not_found" };
   }
 
-  const shop = board.shop;
+  const board = voter.board;
 
-  // Already notified?
-  if (board.notifiedAt) {
-    log.info("notify.skipped", { shop, boardId, reason: "already_notified" });
+  // Already notified this voter?
+  if (voter.notifiedAt) {
+    log.info("notify.skipped", { shop, voterId, reason: "already_notified" });
     return { ok: false, reason: "already_notified" };
   }
 
   // No email to send to?
   if (!board.ownerEmail) {
-    log.info("notify.skipped", { shop, boardId, reason: "no_email" });
+    log.info("notify.skipped", { shop, voterId, reason: "no_email" });
     return { ok: false, reason: "no_email" };
   }
 
@@ -211,35 +214,35 @@ export async function sendVotingCompleted(boardId) {
 
   // Notifications disabled?
   if (!settings?.notificationsEnabled) {
-    log.info("notify.skipped", { shop, boardId, reason: "disabled" });
+    log.info("notify.skipped", { shop, voterId, reason: "disabled" });
     return { ok: false, reason: "disabled" };
   }
 
   // No Klaviyo key?
   if (!settings.klaviyoKeyEncrypted) {
-    log.info("notify.skipped", { shop, boardId, reason: "no_key" });
+    log.info("notify.skipped", { shop, voterId, reason: "no_key" });
     return { ok: false, reason: "no_key" };
   }
 
-  // Board finished before Klaviyo was connected? Skip and mark so we don't recheck.
-  if (settings.klaviyoConnectedAt && board.votingCompletedAt < settings.klaviyoConnectedAt) {
-    if (board.notifyErrorCode !== "skipped_old") {
-      log.info("notify.skipped", { shop, boardId, reason: "before_connected" });
-      await db.board.update({
-        where: { id: boardId },
+  // Voter completed before Klaviyo was connected? Skip and mark.
+  if (settings.klaviyoConnectedAt && voter.completedAt < settings.klaviyoConnectedAt) {
+    if (voter.notifyErrorCode !== "skipped_old") {
+      log.info("notify.skipped", { shop, voterId, reason: "before_connected" });
+      await db.voter.update({
+        where: { id: voterId },
         data: { notifyErrorCode: "skipped_old" },
       });
     }
     return { ok: false, reason: "before_connected" };
   }
 
-  // Board too old (over 24 hours)? Skip and mark.
+  // Voter too old (over 24 hours)? Skip and mark.
   const retryCutoff = new Date(Date.now() - RETRY_WINDOW_HOURS * 60 * 60 * 1000);
-  if (board.votingCompletedAt < retryCutoff) {
-    if (board.notifyErrorCode !== "skipped_old") {
-      log.info("notify.skipped", { shop, boardId, reason: "too_old" });
-      await db.board.update({
-        where: { id: boardId },
+  if (voter.completedAt < retryCutoff) {
+    if (voter.notifyErrorCode !== "skipped_old") {
+      log.info("notify.skipped", { shop, voterId, reason: "too_old" });
+      await db.voter.update({
+        where: { id: voterId },
         data: { notifyErrorCode: "skipped_old" },
       });
     }
@@ -248,27 +251,33 @@ export async function sendVotingCompleted(boardId) {
 
   const apiKey = decrypt(settings.klaviyoKeyEncrypted);
   if (!apiKey) {
-    log.warn("notify.skipped", { shop, boardId, reason: "decrypt_failed" });
-    await db.board.update({
-      where: { id: boardId },
+    log.warn("notify.skipped", { shop, voterId, reason: "decrypt_failed" });
+    await db.voter.update({
+      where: { id: voterId },
       data: { notifyAttempts: { increment: 1 }, notifyErrorCode: "decrypt_failed" },
     });
     return { ok: false, reason: "decrypt_failed" };
   }
 
-  // Count votes by verdict
+  // Count votes by verdict for this voter
   const counts = { love: 0, maybe: 0, pass: 0 };
   const lovedItemIds = [];
+  const votesByItem = new Map();
 
-  for (const item of board.items) {
-    const vote = item.votes[0];
-    if (vote) {
-      counts[vote.verdict.toLowerCase()]++;
-      if (vote.verdict === "LOVE") {
-        lovedItemIds.push(item.variantId);
-      }
+  for (const vote of voter.votes) {
+    counts[vote.verdict.toLowerCase()]++;
+    votesByItem.set(vote.boardItemId, vote.verdict);
+    if (vote.verdict === "LOVE") {
+      // Find the item to get variantId
+      const item = board.items.find((i) => i.id === vote.boardItemId);
+      if (item) lovedItemIds.push(item.variantId);
     }
   }
+
+  // Get voter stats (how many have completed)
+  const votersCompleted = await db.voter.count({
+    where: { boardId, completedAt: { not: null } },
+  });
 
   // Fetch product details for loved items
   let lovedItems = [];
@@ -280,7 +289,6 @@ export async function sendVotingCompleted(boardId) {
       for (const variantId of lovedItemIds.slice(0, MAX_LOVED_ITEMS)) {
         const v = variantMap.get(variantId);
         if (v) {
-          // Skip "Default Title" for single-variant products
           const variantTitle = v.variantTitle === "Default Title" ? "" : (v.variantTitle || "");
           lovedItems.push({
             title: v.productTitle || "Product",
@@ -292,8 +300,7 @@ export async function sendVotingCompleted(boardId) {
         }
       }
     } catch (err) {
-      // Non-fatal: proceed without product details
-      log.warn("notify.variant_fetch_failed", { shop, boardId, code: err.code || "unknown" });
+      log.warn("notify.variant_fetch_failed", { shop, voterId, code: err.code || "unknown" });
     }
   }
 
@@ -314,14 +321,18 @@ export async function sendVotingCompleted(boardId) {
           },
         },
       },
-      unique_id: board.id, // Prevents duplicates on retry
+      unique_id: `${voterId}_${voter.completedAt.getTime()}`, // Prevents duplicates on retry
       properties: {
         owner_first_name: board.ownerFirstName || "Friend",
-        partner_first_name: board.partnerFirstName || "Your partner",
+        voter_first_name: voter.firstName,
+        // Keep partner_first_name for backward compatibility with existing flows
+        partner_first_name: voter.firstName,
         loved_count: counts.love,
         maybe_count: counts.maybe,
         pass_count: counts.pass,
         total: board.items.length,
+        voters_done: votersCompleted,
+        voters_invited: board._count.voters,
         results_url: resultsUrl,
         board_name: board.name,
         loved_items: lovedItems,
@@ -333,18 +344,18 @@ export async function sendVotingCompleted(boardId) {
   const result = await sendKlaviyoEvent(apiKey, event);
 
   if (result.ok) {
-    await db.board.update({
-      where: { id: boardId },
+    await db.voter.update({
+      where: { id: voterId },
       data: { notifiedAt: new Date(), notifyErrorCode: null },
     });
-    log.info("notify.sent", { shop, boardId });
+    log.info("notify.sent", { shop, voterId, boardId });
     await recordEvent(shop, "notify_sent", { boardId });
     return { ok: true };
   }
 
   // Failed: record attempt
-  await db.board.update({
-    where: { id: boardId },
+  await db.voter.update({
+    where: { id: voterId },
     data: {
       notifyAttempts: { increment: 1 },
       notifyErrorCode: result.code,
@@ -352,17 +363,17 @@ export async function sendVotingCompleted(boardId) {
   });
   log.warn("notify.failed", {
     shop,
-    boardId,
+    voterId,
     code: result.code,
-    attempt: board.notifyAttempts + 1,
+    attempt: voter.notifyAttempts + 1,
   });
   return { ok: false, code: result.code };
 }
 
 /**
- * Retries pending notifications for a shop (boards that completed but weren't notified).
+ * Retries pending notifications for a shop (voters that completed but weren't notified).
  * Called from admin Home loader for self-healing.
- * Only sends for boards finished after Klaviyo was connected and within 24 hours.
+ * Only sends for voters finished after Klaviyo was connected and within 24 hours.
  */
 export async function sendPendingNotifications(shop) {
   const settings = await db.shopSettings.findUnique({ where: { shop } });
@@ -376,22 +387,21 @@ export async function sendPendingNotifications(shop) {
     ? retryCutoff
     : settings.klaviyoConnectedAt;
 
-  const pending = await db.board.findMany({
+  const pending = await db.voter.findMany({
     where: {
-      shop,
-      status: "VOTED",
-      votingCompletedAt: { gte: effectiveCutoff },
+      board: { shop },
+      completedAt: { gte: effectiveCutoff },
       notifiedAt: null,
       notifyAttempts: { lt: MAX_ATTEMPTS },
-      ...NOT_SKIPPED_OLD,
+      OR: [{ notifyErrorCode: null }, { notifyErrorCode: { not: "skipped_old" } }],
     },
-    select: { id: true },
+    select: { id: true, boardId: true },
     take: 10, // Process max 10 per page load
   });
 
   let sent = 0;
-  for (const board of pending) {
-    const result = await sendVotingCompleted(board.id);
+  for (const voter of pending) {
+    const result = await sendVotingCompleted(voter.id, voter.boardId, shop);
     if (result.ok) sent++;
   }
 
@@ -412,14 +422,13 @@ export async function hasFailedNotifications(shop) {
     ? retryCutoff
     : settings.klaviyoConnectedAt;
 
-  const count = await db.board.count({
+  const count = await db.voter.count({
     where: {
-      shop,
-      status: "VOTED",
-      votingCompletedAt: { gte: effectiveCutoff },
+      board: { shop },
+      completedAt: { gte: effectiveCutoff },
       notifiedAt: null,
       notifyAttempts: { gte: MAX_ATTEMPTS },
-      ...NOT_SKIPPED_OLD,
+      OR: [{ notifyErrorCode: null }, { notifyErrorCode: { not: "skipped_old" } }],
     },
   });
 
@@ -434,15 +443,14 @@ export async function getNotificationStats(shop) {
   const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
 
   // Sent in last 30 days (no klaviyoConnectedAt filter - these already succeeded)
-  const sent = await db.board.count({
+  const sent = await db.voter.count({
     where: {
-      shop,
-      status: "VOTED",
+      board: { shop },
       notifiedAt: { gte: thirtyDaysAgo },
     },
   });
 
-  // For pending/failed, only count boards after Klaviyo was connected and within 24h
+  // For pending/failed, only count voters after Klaviyo was connected and within 24h
   if (!settings?.klaviyoConnectedAt) {
     return { sent, pending: 0, failed: 0 };
   }
@@ -454,25 +462,23 @@ export async function getNotificationStats(shop) {
 
   const [pending, failed] = await Promise.all([
     // Pending (can still retry)
-    db.board.count({
+    db.voter.count({
       where: {
-        shop,
-        status: "VOTED",
-        votingCompletedAt: { gte: effectiveCutoff },
+        board: { shop },
+        completedAt: { gte: effectiveCutoff },
         notifiedAt: null,
         notifyAttempts: { lt: MAX_ATTEMPTS },
-        ...NOT_SKIPPED_OLD,
+        OR: [{ notifyErrorCode: null }, { notifyErrorCode: { not: "skipped_old" } }],
       },
     }),
     // Failed (exhausted retries)
-    db.board.count({
+    db.voter.count({
       where: {
-        shop,
-        status: "VOTED",
-        votingCompletedAt: { gte: effectiveCutoff },
+        board: { shop },
+        completedAt: { gte: effectiveCutoff },
         notifiedAt: null,
         notifyAttempts: { gte: MAX_ATTEMPTS },
-        ...NOT_SKIPPED_OLD,
+        OR: [{ notifyErrorCode: null }, { notifyErrorCode: { not: "skipped_old" } }],
       },
     }),
   ]);
@@ -481,9 +487,9 @@ export async function getNotificationStats(shop) {
 }
 
 /**
- * Resets notifyAttempts for failed boards and retries them.
+ * Resets notifyAttempts for failed voters and retries them.
  * Called from the "Retry Failed Now" button on admin Home.
- * Only retries boards finished after Klaviyo was connected and within 24 hours.
+ * Only retries voters finished after Klaviyo was connected and within 24 hours.
  */
 export async function retryFailedNotifications(shop) {
   const settings = await db.shopSettings.findUnique({ where: { shop } });
@@ -496,15 +502,14 @@ export async function retryFailedNotifications(shop) {
     ? retryCutoff
     : settings.klaviyoConnectedAt;
 
-  // Reset attempts for failed boards
-  const resetResult = await db.board.updateMany({
+  // Reset attempts for failed voters
+  const resetResult = await db.voter.updateMany({
     where: {
-      shop,
-      status: "VOTED",
-      votingCompletedAt: { gte: effectiveCutoff },
+      board: { shop },
+      completedAt: { gte: effectiveCutoff },
       notifiedAt: null,
       notifyAttempts: { gte: MAX_ATTEMPTS },
-      ...NOT_SKIPPED_OLD,
+      OR: [{ notifyErrorCode: null }, { notifyErrorCode: { not: "skipped_old" } }],
     },
     data: {
       notifyAttempts: 0,
