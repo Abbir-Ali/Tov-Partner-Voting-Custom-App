@@ -112,6 +112,8 @@ NOT in Phase 1: SMS, "Start your own board", multiple voters, B2B.
 
 - Never commit .env, secrets, or database files.
 
+- Migration folder names use UTC timestamps (Prisma default); never rename them by hand except to fix order before commit.
+
 - After each task: show the diff summary, run `npm run lint`, and
 
   commit with a clear message. Don't push unless asked.
