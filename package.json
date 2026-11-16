@@ -19,6 +19,7 @@
     "events": "node scripts/show-events.js",
     "seed:dashboard": "node scripts/seed-dashboard.js",
     "seed:dashboard:clear": "node scripts/seed-dashboard.js --clear",
+    "time:boards": "node scripts/time-boards.js",
     "shopify": "shopify",
     "prisma": "prisma",
     "graphql-codegen": "graphql-codegen",

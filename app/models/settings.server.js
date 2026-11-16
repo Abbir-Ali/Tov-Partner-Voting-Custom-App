@@ -4,6 +4,18 @@ import { DEFAULT_PASS_CHIPS, DEFAULT_MAYBE_CHIPS } from "./reasons.shared.js";
 import { encrypt } from "../utils/crypto.server.js";
 import { addBuyerTag } from "../services/customer-tag.server.js";
 
+// Default setup guide state
+const DEFAULT_SETUP_GUIDE = {
+  dismissed: false,
+  steps: {
+    themeButton: false,    // auto: button_impression in last 7d
+    klaviyoConnected: false, // auto: key saved
+    reasonChipsReviewed: false, // manual: opened + saved chips
+    copyCustomized: false, // auto: copy differs from defaults
+    sidekickEnabled: false, // manual: "mark done"
+  },
+};
+
 // Re-export so server-only callers that already import from here keep working.
 export { DEFAULT_COPY, LIMITS };
 
@@ -65,6 +77,49 @@ export async function getSettings(shop) {
   }
 
   return { ...row, copy: mergedCopy, reasonChips };
+}
+
+/**
+ * Get setup guide state, merging saved with defaults.
+ */
+export async function getSetupGuide(shop) {
+  const row = await db.shopSettings.findUnique({
+    where: { shop },
+    select: { setupGuide: true },
+  });
+  const saved = row?.setupGuide || {};
+  return {
+    ...DEFAULT_SETUP_GUIDE,
+    ...saved,
+    steps: {
+      ...DEFAULT_SETUP_GUIDE.steps,
+      ...(saved.steps || {}),
+    },
+  };
+}
+
+/**
+ * Update a single setup guide step.
+ */
+export async function updateSetupGuideStep(shop, stepKey, value) {
+  const current = await getSetupGuide(shop);
+  current.steps[stepKey] = value;
+  return db.shopSettings.update({
+    where: { shop },
+    data: { setupGuide: current },
+  });
+}
+
+/**
+ * Dismiss the setup guide.
+ */
+export async function dismissSetupGuide(shop) {
+  const current = await getSetupGuide(shop);
+  current.dismissed = true;
+  return db.shopSettings.update({
+    where: { shop },
+    data: { setupGuide: current },
+  });
 }
 
 /**
@@ -133,6 +188,110 @@ export function validateSettings(input) {
     }
   }
   data.copy = copy;
+
+  return { data, errors };
+}
+
+/**
+ * Validate general settings (a subset of fields).
+ * @param {Record<string, unknown>} input
+ * @returns {{ data: object, errors: Record<string, string> }}
+ */
+export function validateGeneralSettings(input) {
+  const errors = {};
+  const data = {};
+
+  // Boolean
+  const parseBool = (v) => v === "on" || v === "true" || v === true;
+  data.enabled = parseBool(input.enabled);
+
+  // Integers within ranges.
+  const validateInt = (key, raw, [min, max]) => {
+    const trimmed = String(raw ?? "").trim();
+    const n = parseInt(trimmed, 10);
+    if (!Number.isInteger(n) || String(n) !== trimmed || n < min || n > max) {
+      errors[key] = `Must be a whole number between ${min} and ${max}.`;
+      return null;
+    }
+    return n;
+  };
+  data.boardExpiryDays = validateInt("boardExpiryDays", input.boardExpiryDays, LIMITS.boardExpiryDays);
+  data.maxItemsPerBoard = validateInt("maxItemsPerBoard", input.maxItemsPerBoard, LIMITS.maxItemsPerBoard);
+  data.maxSharesPerDay = validateInt("maxSharesPerDay", input.maxSharesPerDay, LIMITS.maxSharesPerDay);
+
+  // excludeTag
+  const tag = String(input.excludeTag ?? "").trim();
+  if (tag.length > LIMITS.excludeTagMaxLength) {
+    errors.excludeTag = `Must be ${LIMITS.excludeTagMaxLength} characters or fewer.`;
+  } else if (tag !== "" && !/^[a-zA-Z0-9_-]+$/.test(tag)) {
+    errors.excludeTag = "Only letters, numbers, hyphens, and underscores are allowed.";
+  } else {
+    data.excludeTag = tag;
+  }
+
+  return { data, errors };
+}
+
+/**
+ * Validate vote page copy settings.
+ * @param {Record<string, unknown>} input
+ * @returns {{ data: object, errors: Record<string, string> }}
+ */
+export function validateVotePageSettings(input) {
+  const errors = {};
+  const copy = {};
+
+  for (const key of Object.keys(DEFAULT_COPY)) {
+    const val = String(input[`copy.${key}`] ?? "").trim();
+    if (val.length > LIMITS.copyMaxLength) {
+      errors[`copy.${key}`] = `Must be ${LIMITS.copyMaxLength} characters or fewer.`;
+    } else {
+      copy[key] = val;
+    }
+  }
+
+  // askReasons toggle
+  const parseBool = (v) => v === "on" || v === "true" || v === true;
+  const data = {
+    copy,
+    askReasons: parseBool(input.askReasons),
+  };
+
+  return { data, errors };
+}
+
+/**
+ * Validate notification settings.
+ * @param {Record<string, unknown>} input
+ * @returns {{ data: object, errors: Record<string, string> }}
+ */
+export function validateNotificationSettings(input) {
+  const errors = {};
+  const data = {};
+
+  const parseBool = (v) => v === "on" || v === "true" || v === true;
+  data.notificationsEnabled = parseBool(input.notificationsEnabled);
+
+  return { data, errors };
+}
+
+/**
+ * Validate customer/tagging settings.
+ * @param {Record<string, unknown>} input
+ * @returns {{ data: object, errors: Record<string, string> }}
+ */
+export function validateCustomerSettings(input) {
+  const errors = {};
+  const data = {};
+
+  const buyerTagVal = String(input.buyerTag ?? "").trim();
+  if (buyerTagVal.length > LIMITS.excludeTagMaxLength) {
+    errors.buyerTag = `Must be ${LIMITS.excludeTagMaxLength} characters or fewer.`;
+  } else if (buyerTagVal !== "" && !/^[a-zA-Z0-9_-]+$/.test(buyerTagVal)) {
+    errors.buyerTag = "Only letters, numbers, hyphens, and underscores are allowed.";
+  } else {
+    data.buyerTag = buyerTagVal;
+  }
 
   return { data, errors };
 }

@@ -4,9 +4,11 @@
  * Seed realistic dashboard data for dev testing.
  * Creates analytics events with meta.seed = true.
  * Use --clear to delete only seed rows.
+ * Use --boards N to seed N boards (default 25).
  *
  * Usage:
- *   npm run seed:dashboard         # Insert seed data
+ *   npm run seed:dashboard         # Insert seed data (25 boards)
+ *   npm run seed:dashboard -- --boards 1000  # Insert 1000 boards
  *   npm run seed:dashboard:clear   # Remove seed data only
  */
 import { PrismaClient } from "@prisma/client";
@@ -23,6 +25,11 @@ const prisma = new PrismaClient();
 const CHANNELS = ["whatsapp", "email", "sms", "copy", "native"];
 const PASS_REASONS = ["color", "size", "price", "style", "material", "comfort"];
 const MAYBE_REASONS = ["another_color", "different_size", "lower_price", "in_person"];
+const FIRST_NAMES = [
+  "Alex", "Jordan", "Taylor", "Morgan", "Casey", "Riley", "Quinn", "Avery",
+  "Reese", "Skyler", "Jamie", "Drew", "Sage", "Blake", "Cameron", "Hayden",
+  "Hamza", "Tristine", "Sarah", "Michael", "Emma", "James", "Olivia", "William",
+];
 
 function randomId() {
   return crypto.randomBytes(12).toString("hex");
@@ -106,8 +113,9 @@ async function clearSeedData(shop) {
   console.log(`Deleted ${boardResult.count} seed boards.`);
 }
 
-async function seedData(shop, products) {
-  console.log(`Seeding dashboard data for shop: ${shop}`);
+async function seedData(shop, products, boardCount) {
+  console.log(`Seeding dashboard data for shop: ${shop} (${boardCount} boards)`);
+  const startTime = Date.now();
 
   // Track used order IDs to ensure uniqueness
   const usedOrderIds = new Set();
@@ -120,13 +128,23 @@ async function seedData(shop, products) {
     return id;
   }
 
-  // Create 25 boards spread over 60 days
+  // Create boards spread over 90 days
   const boards = [];
   let seedNum = 1;
-  for (let i = 0; i < 25; i++) {
-    const sharedAt = randomDate(60);
+  for (let i = 0; i < boardCount; i++) {
+    const sharedAt = randomDate(90);
     const hasVoted = Math.random() > 0.3; // 70% have votes
     const hasOrdered = hasVoted && Math.random() > 0.5; // 50% of voted boards ordered
+    const isExpiringSoon = !hasVoted && Math.random() > 0.9; // 10% of unvoted expiring soon
+
+    const ownerFirstName = randomChoice(FIRST_NAMES);
+    const partnerFirstName = randomChoice(FIRST_NAMES);
+
+    // Expiry: 30 days from share, or 2 days from now if expiring soon
+    let expiresAt = new Date(sharedAt.getTime() + 30 * 24 * 60 * 60 * 1000);
+    if (isExpiringSoon) {
+      expiresAt = new Date(Date.now() + 2 * 24 * 60 * 60 * 1000);
+    }
 
     const board = await prisma.board.create({
       data: {
@@ -136,18 +154,20 @@ async function seedData(shop, products) {
         ownerToken: `owner-${randomId()}`,
         creatorKey: `creator-${randomId()}`,
         name: `Seed Board ${i + 1}`,
+        ownerFirstName,
+        partnerFirstName,
         status: hasVoted ? "VOTED" : "SHARED",
         sharedAt,
         votingCompletedAt: hasVoted ? new Date(sharedAt.getTime() + 2 * 60 * 60 * 1000) : null,
         partnerOpenedAt: hasVoted ? new Date(sharedAt.getTime() + 30 * 60 * 1000) : null,
-        expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+        expiresAt,
       },
     });
 
     boards.push({ board, sharedAt, hasVoted, hasOrdered, seedNum: seedNum++ });
 
-    // Add 2-5 items per board
-    const itemCount = 2 + Math.floor(Math.random() * 4);
+    // Add 2-12 items per board
+    const itemCount = 2 + Math.floor(Math.random() * 11);
     const shuffled = [...products].sort(() => Math.random() - 0.5);
     for (let j = 0; j < itemCount && j < shuffled.length; j++) {
       const item = await prisma.boardItem.create({
@@ -177,45 +197,53 @@ async function seedData(shop, products) {
             boardItemId: item.id,
             verdict,
             reason,
-            voterName: "Partner",
+            voterName: partnerFirstName,
           },
         });
       }
+    }
+
+    // Progress logging for large seeds
+    if (boardCount >= 100 && (i + 1) % 100 === 0) {
+      console.log(`  Created ${i + 1}/${boardCount} boards...`);
     }
   }
 
   // Create analytics events
   const events = [];
 
-  // Button impressions (150)
-  for (let i = 0; i < 150; i++) {
+  // Button impressions (scale with board count)
+  const impressionCount = Math.min(boardCount * 6, 1000);
+  for (let i = 0; i < impressionCount; i++) {
     events.push({
       shop,
       type: "button_impression",
-      visitorHash: `visitor-${Math.floor(Math.random() * 80)}`,
-      createdAt: randomDate(60),
+      visitorHash: `visitor-${Math.floor(Math.random() * (boardCount * 3))}`,
+      createdAt: randomDate(90),
       meta: { seed: true },
     });
   }
 
-  // Button saves (60)
-  for (let i = 0; i < 60; i++) {
+  // Button saves (scale with board count)
+  const saveCount = Math.min(boardCount * 2.4, 400);
+  for (let i = 0; i < saveCount; i++) {
     events.push({
       shop,
       type: "button_save",
-      visitorHash: `visitor-${Math.floor(Math.random() * 60)}`,
-      createdAt: randomDate(60),
+      visitorHash: `visitor-${Math.floor(Math.random() * (boardCount * 2))}`,
+      createdAt: randomDate(90),
       meta: { seed: true },
     });
   }
 
-  // Share opens (35)
-  for (let i = 0; i < 35; i++) {
+  // Share opens (scale with board count)
+  const shareOpenCount = Math.min(boardCount * 1.4, 250);
+  for (let i = 0; i < shareOpenCount; i++) {
     events.push({
       shop,
       type: "share_open",
-      visitorHash: `visitor-${Math.floor(Math.random() * 35)}`,
-      createdAt: randomDate(60),
+      visitorHash: `visitor-${Math.floor(Math.random() * boardCount)}`,
+      createdAt: randomDate(90),
       meta: { seed: true },
     });
   }
@@ -300,15 +328,33 @@ async function seedData(shop, products) {
     }
   }
 
-  // Insert all events
-  await prisma.analyticsEvent.createMany({ data: events });
+  // Insert all events in batches to avoid memory issues
+  const BATCH_SIZE = 500;
+  for (let i = 0; i < events.length; i += BATCH_SIZE) {
+    const batch = events.slice(i, i + BATCH_SIZE);
+    await prisma.analyticsEvent.createMany({ data: batch });
+  }
+
+  const elapsed = Date.now() - startTime;
   console.log(`Created ${events.length} seed analytics events.`);
   console.log(`Created ${boards.length} seed boards with items and votes.`);
+  console.log(`Seeding completed in ${elapsed}ms.`);
 }
 
 async function main() {
   const args = process.argv.slice(2);
   const shouldClear = args.includes("--clear");
+
+  // Parse --boards N
+  const boardsIndex = args.indexOf("--boards");
+  let boardCount = 25;
+  if (boardsIndex !== -1 && args[boardsIndex + 1]) {
+    boardCount = parseInt(args[boardsIndex + 1], 10);
+    if (isNaN(boardCount) || boardCount < 1) {
+      console.error("Error: --boards must be a positive number.");
+      process.exit(1);
+    }
+  }
 
   try {
     const shop = await getShop();
@@ -318,7 +364,7 @@ async function main() {
       await clearSeedData(shop);
     } else {
       const products = await getProducts(shop);
-      await seedData(shop, products);
+      await seedData(shop, products, boardCount);
     }
   } finally {
     await prisma.$disconnect();

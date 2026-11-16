@@ -75,6 +75,8 @@ model Board {
   @@index([shop, customerId])
   @@index([expiresAt])
   @@index([shop, creatorKey, createdAt])
+  @@index([shop, sharedAt(sort: Desc)])
+  @@index([shop, status])
   @@map("boards")
 }
 
@@ -91,6 +93,7 @@ model BoardItem {
 
   @@unique([boardId, variantId])
   @@index([boardId])
+  @@index([productId])
   @@map("board_items")
 }
 
@@ -124,6 +127,7 @@ model ShopSettings {
   buyerTag                String    @default("pvb-board-buyer")
   copy                    Json      @default("{}")
   reasonChips             Json?
+  setupGuide              Json?
   storefrontSyncedVersion Int?
   storefrontSyncedAt      DateTime?
   klaviyoKeyEncrypted     String?

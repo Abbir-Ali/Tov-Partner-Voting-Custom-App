@@ -662,6 +662,80 @@ notify.failed        shop=... boardId=... code=401 attempt=1
 
 
 
+## Admin Pages Test (Task 13c)
+
+### Navigation
+
+After running `npx prisma migrate dev`, open the app. Verify navigation shows:
+- Home · Analytics · Boards · Customers · Settings · Help
+
+### Home page
+
+| Test | Expected |
+|------|----------|
+| Setup guide visible (first time) | Shows "Get started" card with 5 steps |
+| Step 1: Theme button | Done when button_impression event exists in last 7 days |
+| Step 2: Klaviyo | Done when key is saved |
+| Step 3: Reason chips | Done after opening and saving the chips page |
+| Step 4: Vote copy | Done when copy differs from defaults |
+| Step 5: Sidekick | Manual "Mark as Done" button |
+| Dismiss guide | Click Dismiss, guide hides |
+| KPI cards | Revenue, Boards shared, Vote rate (30 days) |
+| Needs attention | Shows up to 3 items (failed emails, expiring boards, price feedback) |
+| Latest boards | 5 most recent shared boards with status |
+| View Analytics button | Goes to /app/analytics |
+| Ask Sidekick button | Appears when Sidekick enabled, launches Sidekick |
+
+### Analytics page
+
+| Test | Expected |
+|------|----------|
+| Date range buttons | 7/14/30/60 days, updates all sections |
+| Revenue section | Chart, KPIs, funnel |
+| Orders section | Recent orders table |
+| Products section | Top shared, partner feedback |
+| Partner reasons | Why pass, why maybe with chip labels |
+| Sharing section | By channel, vote rate by channel |
+
+### Boards page
+
+| Test | Expected |
+|------|----------|
+| Search | Search by partner name, finds matching boards |
+| Filters | All, Waiting for Votes, Voted, With an Order, Repeat Buyers |
+| Expand row | Click row to see items and votes |
+| Pagination | "Load more" when more boards exist |
+
+### Customers page
+
+| Test | Expected |
+|------|----------|
+| Date range | 7/14/30/60 days |
+| Repeat filter | "Repeat Buyers" shows only 2+ orders |
+| Table | Customer name (links to Shopify), orders, revenue |
+| Guest count | Shows "+ N guest checkouts (not shown)" |
+
+### Settings pages
+
+| Test | Expected |
+|------|----------|
+| Index | Shows 6 sections with status badges |
+| General | Enable toggle, limits, exclude tag. Saves only general fields. |
+| Vote Page | Copy fields, ask reasons toggle. Saves only copy fields. |
+| Reason Chips | Chip editor (move/add/retire). Marks setup step done on save. |
+| Notifications | Email toggle, Klaviyo key, test event, health stats |
+| Customers | Buyer tag, "Tag Past Board Buyers" button |
+| Privacy | Read-only data list, retention placeholder |
+
+### Help page
+
+| Test | Expected |
+|------|----------|
+| How it works | 4 steps |
+| Testing tips | 5 tips |
+| Contact | "Abbir at TOV Furniture" |
+
+
 ## Sidekick (Admin AI) Test (Task 13)
 
 ### Prerequisites
