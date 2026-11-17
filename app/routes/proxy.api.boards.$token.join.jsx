@@ -124,7 +124,7 @@ export async function action({ request, params }) {
 
   log.info("join.created", { shop, boardId: board.id, voterId: voter.id });
 
-  return json({ voterToken: voter.token }, 201);
+  return json({ voterToken: voter.token, avatarKey: voter.avatarKey || "ava" }, 201);
 }
 
 // No loader - POST only

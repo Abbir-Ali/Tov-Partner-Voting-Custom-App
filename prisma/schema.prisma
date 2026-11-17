@@ -56,6 +56,7 @@ model Voter {
   token           String     @unique
   firstName       String     @db.VarChar(30)
   kind            VoterKind  @default(PERSONAL)
+  avatarKey       String?
   openedAt        DateTime?
   completedAt     DateTime?
   notifiedAt      DateTime?

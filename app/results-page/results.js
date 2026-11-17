@@ -27,7 +27,7 @@
 
   const {
     shopName, boardId, status, total, eventsUrl, lovedTotalFormatted, copy,
-    partnerFirstName, shareUrl,
+    partnerFirstName, shareUrl, avatarBg,
     isGroup, voters, votersDone, votersTotal, items
   } = DATA;
   const routes = window.__PVB_ROUTES || {
@@ -50,6 +50,24 @@
   const doneVoters = (voters || []).filter((v) => v.done);
   const pendingVoters = (voters || []).filter((v) => !v.done);
   const halfVoters = doneVoters.length / 2;
+
+  // Build avatar HTML for a voter
+  function avatarHtml(voter, size) {
+    const key = voter.avatarKey;
+    const bg = (key && avatarBg && avatarBg[key]) || "#82736C";
+    // Fallback: neutral Taupe circle with first initial if no key
+    if (!key || !avatarBg || !avatarBg[key]) {
+      const initial = (voter.firstName || "?").charAt(0).toUpperCase();
+      return `<span class="pvb-face-av" style="background:${bg};width:${size}px;height:${size}px;display:flex;align-items:center;justify-content:center;font-size:${Math.round(size * 0.5)}px;font-weight:600;color:#FEFBF6">` +
+        `${esc(initial)}` +
+        (voter.done ? `<span class="pvb-face-ok"><svg viewBox="0 0 12 12" width="10" height="10" fill="none" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M2.5 6.5l2.5 2.5 4.5-5"/></svg></span>` : "") +
+        `</span>`;
+    }
+    return `<span class="pvb-face-av" style="background:${bg};width:${size}px;height:${size}px">` +
+      `<svg viewBox="0 0 96 96" width="${size}" height="${size}" aria-hidden="true"><use href="#pvb-av-${key}"/></svg>` +
+      (voter.done ? `<span class="pvb-face-ok"><svg viewBox="0 0 12 12" width="10" height="10" fill="none" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M2.5 6.5l2.5 2.5 4.5-5"/></svg></span>` : "") +
+      `</span>`;
+  }
 
   // Classify items for group view
   function classifyItems() {
@@ -198,8 +216,8 @@
     const vid = doneVoters[0]?.id;
     const vote = vid ? v[vid] : null;
     const img = item.image
-      ? `<img class="pvb-item-img" src="${esc(item.image)}" alt="">`
-      : `<div class="pvb-item-img"></div>`;
+      ? `<div class="pvb-item-thumb"><img src="${esc(item.image)}" alt=""></div>`
+      : `<div class="pvb-item-thumb"></div>`;
     const unavailClass = !item.available && verdict === "LOVE" ? " unavailable" : "";
     const waitClass = !verdict ? " waiting" : "";
     let rightHtml = "";
@@ -209,19 +227,20 @@
       rightHtml = `<span class="pvb-tag ${tagClass}">${tagText}</span>`;
     }
     if (showAddBtn && item.available) {
-      rightHtml += `<button class="pvb-btn-sm pvb-add-single" data-variant="${item.variantId}">Add to Cart</button>`;
+      rightHtml += `<button class="pvb-btn-ghost pvb-add-single" data-variant="${item.variantId}">Add to Cart</button>`;
     }
     const reasonDisplay = vote ? getReasonDisplay(vote.reason, vote.reasonText, verdict) : null;
     const reasonHtml = reasonDisplay ? `<p class="pvb-item-reason">${esc(reasonDisplay)}</p>` : "";
     const meta = verdict ? item.price : "Waiting for a vote";
-    return `<div class="pvb-item${unavailClass}${waitClass}" data-id="${item.variantId}">
+    const passClass = verdict === "PASS" ? " pass-row" : "";
+    return `<div class="pvb-item${unavailClass}${waitClass}${passClass}" data-id="${item.variantId}">
       ${img}
       <div class="pvb-item-info">
         <p class="pvb-item-title">${esc(item.title)}</p>
         <p class="pvb-item-meta">${esc(meta)}</p>
         ${reasonHtml}
       </div>
-      <div class="pvb-item-right">${rightHtml}</div>
+      ${rightHtml}
     </div>`;
   }
 
@@ -229,9 +248,10 @@
   function itemRowGroup(item, section, showAddBtn) {
     const v = item.votes || {};
     const img = item.image
-      ? `<img class="pvb-item-img" src="${esc(item.image)}" alt="">`
-      : `<div class="pvb-item-img"></div>`;
+      ? `<div class="pvb-item-thumb"><img src="${esc(item.image)}" alt=""></div>`
+      : `<div class="pvb-item-thumb"></div>`;
     const unavailClass = !item.available && section === "lovedByMost" ? " unavailable" : "";
+    const passClass = section === "notForUs" ? " pass-row" : "";
 
     // Build voter line: "Loved by Alex, Zaid" or "Loved: Alex · Maybe: Zaid"
     const loves = [], maybes = [], passes = [];
@@ -271,17 +291,17 @@
       rightHtml = `<span class="pvb-tag pvb-tag-sold">Sold Out</span>`;
     }
     if (showAddBtn && item.available) {
-      rightHtml += `<button class="pvb-btn-sm pvb-add-single" data-variant="${item.variantId}">Add</button>`;
+      rightHtml += `<button class="pvb-btn-ghost pvb-add-single" data-variant="${item.variantId}">Add to Cart</button>`;
     }
 
-    return `<div class="pvb-item${unavailClass}" data-id="${item.variantId}">
+    return `<div class="pvb-item${unavailClass}${passClass}" data-id="${item.variantId}">
       ${img}
       <div class="pvb-item-info">
         <p class="pvb-item-title">${esc(item.title)}</p>
         <p class="pvb-item-meta">${esc(voterLine)} · ${esc(item.price)}</p>
         ${reasonsHtml}
       </div>
-      <div class="pvb-item-right">${rightHtml}</div>
+      ${rightHtml}
     </div>`;
   }
 
@@ -291,8 +311,8 @@
     const vote = v[voterId];
     if (!vote) return "";
     const img = item.image
-      ? `<img class="pvb-item-img" src="${esc(item.image)}" alt="">`
-      : `<div class="pvb-item-img"></div>`;
+      ? `<div class="pvb-item-thumb"><img src="${esc(item.image)}" alt=""></div>`
+      : `<div class="pvb-item-thumb"></div>`;
     const tagClass = vote.verdict === "LOVE" ? "pvb-tag-love"
       : vote.verdict === "MAYBE" ? "pvb-tag-maybe" : "pvb-tag-pass";
     const tagText = vote.verdict === "LOVE" ? "Loved"
@@ -300,31 +320,35 @@
     const reasonDisplay = getReasonDisplay(vote.reason, vote.reasonText, vote.verdict);
     const reasonHtml = reasonDisplay ? `<p class="pvb-item-reason">${esc(reasonDisplay)}</p>` : "";
     const unavailClass = !item.available && vote.verdict === "LOVE" ? " unavailable" : "";
+    const passClass = vote.verdict === "PASS" ? " pass-row" : "";
     let rightHtml = "";
     if (!item.available && vote.verdict === "LOVE") {
       rightHtml = `<span class="pvb-tag pvb-tag-sold">Sold Out</span>`;
     } else {
       rightHtml = `<span class="pvb-tag ${tagClass}">${tagText}</span>`;
     }
-    return `<div class="pvb-item${unavailClass}" data-id="${item.variantId}">
+    return `<div class="pvb-item${unavailClass}${passClass}" data-id="${item.variantId}">
       ${img}
       <div class="pvb-item-info">
         <p class="pvb-item-title">${esc(item.title)}</p>
         <p class="pvb-item-meta">${esc(item.price)}</p>
         ${reasonHtml}
       </div>
-      <div class="pvb-item-right">${rightHtml}</div>
+      ${rightHtml}
     </div>`;
   }
 
   // Section builder
-  function section(title, count, html, collapsed, tabKey) {
+  function section(title, count, html, collapsed, tabKey, priceTotal) {
     if (count === 0) return "";
     const prefix = tabKey ? `${tabKey}-` : "";
     const toggleId = `pvb-section-${prefix}${title.toLowerCase().replace(/\s/g, "-")}`;
     let out = `<div class="pvb-section">
       <div class="pvb-section-header">
-        <h2 class="pvb-section-title">${esc(title)} · ${count}</h2>`;
+        <span class="pvb-section-title">${esc(title)} · ${count}</span>`;
+    if (priceTotal) {
+      out += `<span class="pvb-section-price">${esc(priceTotal)}</span>`;
+    }
     if (collapsed) {
       out += `<button class="pvb-toggle" data-target="${toggleId}">Show</button>`;
     }
@@ -422,7 +446,17 @@
     const pass = items.filter((i) => getVerdict(i) === "PASS");
     const lovedAvailable = loved.filter((i) => i.available);
     const lovedUnavailable = loved.filter((i) => !i.available);
-    const initial = partnerFirstName ? partnerFirstName.charAt(0).toUpperCase() : "?";
+    const voter = voters && voters[0];
+    // Avatar for single voter (48px, same as group), or fallback to initial
+    let avatarEl;
+    if (voter && voter.avatarKey) {
+      const key = voter.avatarKey;
+      const bg = (avatarBg && avatarBg[key]) || "#F9D2D2";
+      avatarEl = `<span class="pvb-face-av" style="background:${bg};width:48px;height:48px"><svg viewBox="0 0 64 64" width="48" height="48" aria-hidden="true"><use href="#pvb-av-${key}"/></svg><span class="pvb-face-ok"><svg viewBox="0 0 12 12" width="10" height="10" fill="none" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M2.5 6.5l2.5 2.5 4.5-5"/></svg></span></span>`;
+    } else {
+      const initial = partnerFirstName ? partnerFirstName.charAt(0).toUpperCase() : "?";
+      avatarEl = `<div class="pvb-avatar">${initial}</div>`;
+    }
     const headline = loved.length > 0
       ? (copy.resultsHeadline || "{partner} loved {loved} of {total}.")
           .replace("{partner}", partnerFirstName).replace("{loved}", loved.length).replace("{total}", total)
@@ -435,27 +469,27 @@
     }
     let html = `<header class="pvb-top-bar"><p class="pvb-shop-name">${esc(shopName)}</p></header>
       <div class="pvb-hero">
-        <div class="pvb-avatar">${initial}</div>
+        ${avatarEl}
         <h1 class="pvb-headline">${esc(headline)}</h1>
       </div>`;
     html += noticeHtml;
     let lovedHtml = "";
     for (const it of loved) lovedHtml += itemRowSingle(it, true, "pvb-tag-love", "Loved", false);
-    html += section("Loved", loved.length, lovedHtml, false);
+    html += section("Loved", loved.length, lovedHtml, false, null, lovedTotalFormatted);
     let maybeHtml = "";
     for (const it of maybe) maybeHtml += itemRowSingle(it, true, "pvb-tag-maybe", "Maybe", true);
     html += section("Maybe", maybe.length, maybeHtml, false);
     let passHtml = "";
     for (const it of pass) passHtml += itemRowSingle(it, true, "pvb-tag-pass", "Not For Us", false);
     html += section("Not For Us", pass.length, passHtml, true);
+    html += `<div class="pvb-spacer"></div>`;
 
+    const noteCount = lovedAvailable.length === 1 ? "1 piece" : `${lovedAvailable.length} pieces`;
     if (lovedAvailable.length > 0) {
-      const ctaText = lovedUnavailable.length > 0
-        ? `Add ${lovedAvailable.length} Loved ${lovedAvailable.length === 1 ? "Piece" : "Pieces"} to Cart · ${lovedTotalFormatted}`
-        : (copy.resultsCta || "Add Loved to Cart") + ` · ${lovedTotalFormatted}`;
+      const ctaText = `Add Loved to Cart · ${lovedTotalFormatted}`;
       html += `<div class="pvb-sticky">
         <button class="pvb-btn-primary pvb-add-loved">${esc(ctaText)}</button>
-        <p class="pvb-sticky-note">Opens your cart. Nothing is charged yet.</p>
+        <p class="pvb-sticky-note">Opens your cart with ${noteCount}. Nothing is charged yet.</p>
       </div>`;
     } else {
       html += `<div class="pvb-sticky"><a href="${esc(routes.root)}" class="pvb-btn-primary">Keep Shopping</a></div>`;
@@ -470,23 +504,35 @@
     const lovedByMostAvail = classified.lovedByMost.filter((i) => i.available);
     const lovedByMostUnavail = classified.lovedByMost.filter((i) => !i.available);
 
-    // Voter avatars header
-    let avatarsHtml = `<div class="pvb-avatars">`;
+    // Face buttons header (48px avatars)
+    let facesHtml = `<div class="pvb-faces">`;
     for (const v of voters) {
-      const cls = v.done ? "pvb-avatar-sm pvb-avatar-done" : "pvb-avatar-sm pvb-avatar-pending";
-      avatarsHtml += `<div class="${cls}">${v.firstName.charAt(0).toUpperCase()}</div>`;
+      const waitCls = v.done ? "" : " wait";
+      facesHtml += `<button class="pvb-face${waitCls}" data-voter-id="${v.id}" data-url="${esc(v.shareUrl)}" data-done="${v.done ? "1" : ""}">${avatarHtml(v, 48)}<span>${esc(v.firstName)}</span></button>`;
     }
-    avatarsHtml += `</div>`;
+    facesHtml += `</div>`;
 
-    // Headline
-    const headline = `${votersDone} of ${votersTotal} have voted.`;
-
-    // Pending voters line
-    let pendingLine = "";
-    if (pendingVoters.length > 0) {
+    // Headline and hint
+    let headline, hint = "";
+    if (pendingVoters.length === votersTotal) {
+      // All waiting
       const names = pendingVoters.map((v) => v.firstName);
-      const nameStr = names.length === 1 ? names[0] : names.slice(0, -1).join(", ") + " and " + names[names.length - 1];
-      pendingLine = `${nameStr} ${names.length === 1 ? "hasn't" : "haven't"} voted yet.`;
+      const nameStr = names.length === 1 ? names[0]
+        : names.length === 2 ? `${names[0]} and ${names[1]}`
+        : names.slice(0, -1).join(", ") + " and " + names[names.length - 1];
+      headline = `Waiting for ${nameStr}.`;
+      hint = "Tap a face to copy their link.";
+    } else if (pendingVoters.length === 0) {
+      // Everyone voted
+      headline = "Everyone has voted.";
+    } else {
+      // Some done, some pending
+      headline = `${votersDone} of ${votersTotal} have voted.`;
+      const pendingNames = pendingVoters.map((v) => v.firstName);
+      const pendingStr = pendingNames.length === 1 ? pendingNames[0]
+        : pendingNames.length === 2 ? `${pendingNames[0]} and ${pendingNames[1]}`
+        : pendingNames.slice(0, -1).join(", ") + " and " + pendingNames[pendingNames.length - 1];
+      hint = `Waiting for ${pendingStr}. Tap a face to copy a link.`;
     }
 
     // Tabs
@@ -501,7 +547,7 @@
     let everyoneHtml = `<div class="pvb-tab-content pvb-tab-everyone">`;
     let lbmHtml = "";
     for (const it of classified.lovedByMost) lbmHtml += itemRowGroup(it, "lovedByMost", false);
-    everyoneHtml += section("Loved by Most", classified.lovedByMost.length, lbmHtml, false, "everyone");
+    everyoneHtml += section("Loved by Most", classified.lovedByMost.length, lbmHtml, false, "everyone", lovedTotalFormatted);
     let splitHtml = "";
     for (const it of classified.split) splitHtml += itemRowGroup(it, "split", true);
     everyoneHtml += section("Split", classified.split.length, splitHtml, false, "everyone");
@@ -541,34 +587,25 @@
       noticeHtml = `<div class="pvb-notice">${lovedByMostUnavail.length} loved pieces are sold out.</div>`;
     }
 
-    // Copy links for pending voters
-    let copyLinksHtml = "";
-    if (pendingVoters.length > 0) {
-      copyLinksHtml = `<div class="pvb-pending-links">`;
-      for (const v of pendingVoters) {
-        copyLinksHtml += `<button class="pvb-copy-voter-link" data-url="${esc(v.shareUrl)}">Copy ${esc(v.firstName)}'s Link</button>`;
-      }
-      copyLinksHtml += `</div>`;
-    }
-
     let html = `<header class="pvb-top-bar"><p class="pvb-shop-name">${esc(shopName)}</p></header>
       <div class="pvb-hero">
-        ${avatarsHtml}
+        ${facesHtml}
         <h1 class="pvb-headline">${esc(headline)}</h1>
-        ${pendingLine ? `<p class="pvb-subline">${esc(pendingLine)}</p>` : ""}
-        ${copyLinksHtml}
+        ${hint ? `<p class="pvb-subline">${esc(hint)}</p>` : ""}
       </div>`;
-    html += tabsHtml;
+    html += doneVoters.length > 0 ? tabsHtml : "";
     html += noticeHtml;
     html += everyoneHtml;
     html += voterTabsHtml;
+    html += `<div class="pvb-spacer"></div>`;
 
     // Sticky CTA
+    const noteCount = lovedByMostAvail.length === 1 ? "1 piece" : `both pieces`;
     if (lovedByMostAvail.length > 0) {
       const ctaText = `Add Loved by Most to Cart · ${lovedTotalFormatted}`;
       html += `<div class="pvb-sticky">
         <button class="pvb-btn-primary pvb-add-loved">${esc(ctaText)}</button>
-        <p class="pvb-sticky-note">Opens your cart. Nothing is charged yet.</p>
+        <p class="pvb-sticky-note">Opens your cart with ${noteCount}. Nothing is charged yet.</p>
       </div>`;
     } else {
       html += `<div class="pvb-sticky"><a href="${esc(routes.root)}" class="pvb-btn-primary">Keep Shopping</a></div>`;
@@ -577,7 +614,7 @@
     page.innerHTML = html;
     bindEvents(lovedByMostAvail);
     bindTabs();
-    bindCopyVoterLinks();
+    bindFaceButtons();
   }
 
   // Render still-voting state (single or group)
@@ -591,6 +628,7 @@
 
   function renderVotingSingle() {
     const voted = items.filter((i) => getVerdict(i)).length;
+    const voter = voters && voters[0];
     const headline = voted > 0
       ? (copy.resultsWaitingHeadline || "{partner} is voting.").replace("{partner}", partnerFirstName)
       : `${partnerFirstName} hasn't started yet.`;
@@ -610,9 +648,18 @@
       itemsHtml += itemRowSingle(it, !!verdict, tagClass, tagText, false);
     }
     itemsHtml += `</div></div>`;
+    // Avatar with opacity for waiting single voter, or fallback to clock icon
+    let avatarEl;
+    if (voter && voter.avatarKey) {
+      const key = voter.avatarKey;
+      const bg = (avatarBg && avatarBg[key]) || "#F9D2D2";
+      avatarEl = `<span class="pvb-face-av" style="background:${bg};width:48px;height:48px;opacity:0.4"><svg viewBox="0 0 64 64" width="48" height="48" aria-hidden="true"><use href="#pvb-av-${key}"/></svg></span>`;
+    } else {
+      avatarEl = `<div class="pvb-avatar"><svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/><path d="M12 6v6l4 2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></div>`;
+    }
     let html = `<header class="pvb-top-bar"><p class="pvb-shop-name">${esc(shopName)}</p></header>
       <div class="pvb-hero">
-        <div class="pvb-avatar"><svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/><path d="M12 6v6l4 2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></div>
+        ${avatarEl}
         <h1 class="pvb-headline">${esc(headline)}</h1>
         <p class="pvb-subline">${esc(subline)}</p>
       </div>`;
@@ -626,56 +673,60 @@
   }
 
   function renderVotingGroup() {
-    // Voter avatars header
-    let avatarsHtml = `<div class="pvb-avatars">`;
+    // Face buttons header (48px avatars)
+    let facesHtml = `<div class="pvb-faces">`;
     for (const v of voters) {
-      const cls = v.done ? "pvb-avatar-sm pvb-avatar-done" : "pvb-avatar-sm pvb-avatar-pending";
-      avatarsHtml += `<div class="${cls}">${v.firstName.charAt(0).toUpperCase()}</div>`;
+      const waitCls = v.done ? "" : " wait";
+      facesHtml += `<button class="pvb-face${waitCls}" data-voter-id="${v.id}" data-url="${esc(v.shareUrl)}" data-done="${v.done ? "1" : ""}">${avatarHtml(v, 48)}<span>${esc(v.firstName)}</span></button>`;
     }
-    avatarsHtml += `</div>`;
+    facesHtml += `</div>`;
 
-    // Names for waiting
-    const names = pendingVoters.map((v) => v.firstName);
-    const nameStr = names.length === 1 ? names[0]
-      : names.length === 2 ? `${names[0]} and ${names[1]}`
-      : names.slice(0, -1).join(", ") + " and " + names[names.length - 1];
-    const headline = `Waiting for ${nameStr}.`;
-    const subline = votersDone > 0 ? `${votersDone} of ${votersTotal} have voted.` : "No one has started yet.";
-
-    // Copy links for pending voters
-    let copyLinksHtml = `<div class="pvb-pending-links">`;
-    for (const v of pendingVoters) {
-      copyLinksHtml += `<button class="pvb-copy-voter-link" data-url="${esc(v.shareUrl)}">Copy ${esc(v.firstName)}'s Link</button>`;
+    // Headline and hint
+    let headline, hint;
+    if (pendingVoters.length === votersTotal) {
+      // All waiting
+      const names = pendingVoters.map((v) => v.firstName);
+      const nameStr = names.length === 1 ? names[0]
+        : names.length === 2 ? `${names[0]} and ${names[1]}`
+        : names.slice(0, -1).join(", ") + " and " + names[names.length - 1];
+      headline = `Waiting for ${nameStr}.`;
+      hint = "Tap a face to copy their link.";
+    } else {
+      // Some done, some pending
+      headline = `${votersDone} of ${votersTotal} have voted.`;
+      const pendingNames = pendingVoters.map((v) => v.firstName);
+      const pendingStr = pendingNames.length === 1 ? pendingNames[0]
+        : pendingNames.length === 2 ? `${pendingNames[0]} and ${pendingNames[1]}`
+        : pendingNames.slice(0, -1).join(", ") + " and " + pendingNames[pendingNames.length - 1];
+      hint = `Waiting for ${pendingStr}. Tap a face to copy a link.`;
     }
-    copyLinksHtml += `</div>`;
 
     // Piece list (waiting for votes)
     let itemsHtml = `<div class="pvb-section"><h2 class="pvb-section-title">On The Board</h2><div class="pvb-items">`;
     for (const it of items) {
       const img = it.image
-        ? `<img class="pvb-item-img" src="${esc(it.image)}" alt="">`
-        : `<div class="pvb-item-img"></div>`;
+        ? `<div class="pvb-item-thumb"><img src="${esc(it.image)}" alt=""></div>`
+        : `<div class="pvb-item-thumb"></div>`;
       itemsHtml += `<div class="pvb-item waiting" data-id="${it.variantId}">
         ${img}
         <div class="pvb-item-info">
           <p class="pvb-item-title">${esc(it.title)}</p>
           <p class="pvb-item-meta">${esc(it.price)}</p>
         </div>
-        <div class="pvb-item-right"><span class="pvb-tag pvb-tag-maybe">Waiting</span></div>
+        <span class="pvb-tag pvb-tag-wait">Waiting</span>
       </div>`;
     }
     itemsHtml += `</div></div>`;
 
     let html = `<header class="pvb-top-bar"><p class="pvb-shop-name">${esc(shopName)}</p></header>
       <div class="pvb-hero">
-        ${avatarsHtml}
+        ${facesHtml}
         <h1 class="pvb-headline">${esc(headline)}</h1>
-        <p class="pvb-subline">${esc(subline)}</p>
-        ${copyLinksHtml}
+        <p class="pvb-subline">${esc(hint)}</p>
       </div>`;
     html += itemsHtml;
     page.innerHTML = html;
-    bindCopyVoterLinks();
+    bindFaceButtons();
   }
 
   // Bind event handlers
@@ -731,17 +782,33 @@
     }
   }
 
-  function bindCopyVoterLinks() {
-    page.querySelectorAll(".pvb-copy-voter-link").forEach((btn) => {
+  function bindFaceButtons() {
+    page.querySelectorAll(".pvb-face").forEach((btn) => {
       btn.addEventListener("click", async () => {
-        const url = btn.dataset.url;
-        const ok = await copyToClipboard(url);
-        if (ok) {
-          const orig = btn.textContent;
-          btn.textContent = "Copied";
-          setTimeout(() => { btn.textContent = orig; }, 2000);
+        const isDone = btn.dataset.done === "1";
+        const voterId = btn.dataset.voterId;
+        if (isDone) {
+          // Switch to voter's tab
+          const tabs = page.querySelectorAll(".pvb-tab");
+          tabs.forEach((t) => t.classList.remove("pvb-tab-active"));
+          const targetTab = page.querySelector(`.pvb-tab[data-tab="${voterId}"]`);
+          if (targetTab) {
+            targetTab.classList.add("pvb-tab-active");
+            page.querySelector(".pvb-tab-everyone")?.classList.add("pvb-hidden");
+            page.querySelectorAll(".pvb-tab-voter").forEach((el) => {
+              el.classList.toggle("pvb-hidden", el.dataset.voter !== voterId);
+            });
+          }
         } else {
-          showToast("Couldn't copy link.");
+          // Copy voter's link
+          const url = btn.dataset.url;
+          const name = btn.querySelector("span:last-child")?.textContent || "";
+          const ok = await copyToClipboard(url);
+          if (ok) {
+            showToast(`${name}'s link copied`, 2000);
+          } else {
+            showToast("Couldn't copy link.");
+          }
         }
       });
     });

@@ -8,7 +8,7 @@
  *   These are loaded on the page and referenced in block schemas.
  *   Shopify theme check enforces a 10KB limit on such assets.
  *
- * - pvb-panel.js: 15,000 bytes (lazy, drawer panel)
+ * - pvb-panel.js: 25,000 bytes (lazy, drawer panel - includes avatar sprite)
  * - pvb-share.js: 15,000 bytes (lazy, share sheet)
  *   These are lazy-loaded on first use (pill click, share button).
  *   Not referenced in any block schema, so theme check doesn't apply.
@@ -28,7 +28,7 @@ const out = join(root, 'extensions', 'pvb-theme', 'assets');
 const bundles = [
   { entry: 'entry-button.js', output: 'pvb-button.js', limit: 10000 },
   { entry: 'entry-pill.js', output: 'pvb-drawer.js', limit: 10000 },
-  { entry: 'entry-panel.js', output: 'pvb-panel.js', limit: 15000 },
+  { entry: 'entry-panel.js', output: 'pvb-panel.js', limit: 25000 },
   { entry: 'entry-share.js', output: 'pvb-share.js', limit: 25000, warn: 22000 }
 ];
 

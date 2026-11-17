@@ -148,10 +148,11 @@ export const action = async ({ request }) => {
   await recordEvent(shop, "board_shared", { boardId: board.id });
 
   // Build links array for response
-  const links = voterTokens.map(({ name, token }) => ({
+  const links = voterTokens.map(({ name, token, avatarKey }) => ({
     name,
     url: `https://${shop}${pathPrefix}/${token}`,
     kind: "personal",
+    avatarKey: avatarKey || "ava",
   }));
 
   if (groupToken) {

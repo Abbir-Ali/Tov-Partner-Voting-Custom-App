@@ -70,6 +70,7 @@
       var history = getShareHistory();
       history.unshift({
         voterNames: data.voterNames || [data.partnerFirstName],
+        voterAvatars: data.voterAvatars || [],
         hasGroupLink: data.hasGroupLink || false,
         resultsUrl: data.resultsUrl,
         count: data.count,
@@ -672,9 +673,16 @@
     // Save owner name (never email)
     saveOwnerName(payload.ownerFirstName);
 
+    // Extract avatar keys from personal links
+    var voterAvatars = (responseData.links || [])
+      .filter(function(l) { return l.kind === 'personal'; })
+      .map(function(l) { return l.avatarKey; })
+      .filter(Boolean);
+
     // Save to share history
     saveShareToHistory({
       voterNames: payload.voterNames,
+      voterAvatars: voterAvatars,
       hasGroupLink: payload.groupVoting,
       resultsUrl: responseData.resultsUrl,
       count: pvb.getCount()

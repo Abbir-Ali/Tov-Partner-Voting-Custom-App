@@ -1,8 +1,14 @@
 import db from "../db.server.js";
 import { newToken } from "../utils/tokens.server.js";
 import { BOARD_LIMITS } from "./board.shared.js";
+import { pickAvatar } from "./avatars.shared.js";
 
 export { BOARD_LIMITS };
+
+// Helper to pick avatar for voter creation
+function pickAvatarForVoter(seed, usedAvatars) {
+  return pickAvatar(seed, usedAvatars);
+}
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -253,27 +259,33 @@ export async function createBoard({ shop, data, customerId, settings }) {
       },
     });
 
-    // Create personal voter for each name
+    // Create personal voter for each name with unique avatars
+    const usedAvatars = [];
+    const voterData = [];
     for (const { name, token } of voterTokens) {
+      const avatarKey = pickAvatarForVoter(`${newBoard.id}-${name}`, usedAvatars);
+      usedAvatars.push(avatarKey);
       await tx.voter.create({
         data: {
           boardId: newBoard.id,
           token,
           firstName: name,
           kind: "PERSONAL",
+          avatarKey,
         },
       });
+      voterData.push({ name, token, avatarKey });
     }
 
-    return newBoard;
+    return { board: newBoard, voterData };
   });
 
   return {
-    board: result,
+    board: result.board,
     shareToken: voterTokens[0].token,
     ownerToken,
     groupToken,
-    voterTokens,
+    voterTokens: result.voterData,
   };
 }
 
@@ -324,6 +336,7 @@ export async function getBoardByOwnerToken(shop, token) {
           id: true,
           token: true,
           firstName: true,
+          avatarKey: true,
           completedAt: true,
         },
         orderBy: { createdAt: "asc" },

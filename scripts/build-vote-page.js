@@ -23,7 +23,7 @@ const VOTE_SIZE_WARN = 36000; // 36 KB
 
 const RESULTS_PAGE_DIR = join(ROOT, "app", "results-page");
 const RESULTS_DIST_DIR = join(RESULTS_PAGE_DIR, "dist");
-const RESULTS_SIZE_LIMIT = 25000; // 25 KB (Abbir 2026-11-16 for group results)
+const RESULTS_SIZE_LIMIT = 32000; // 32 KB (step 9 needs room; warn at 29 KB)
 
 // Escape for JS template string
 const escapeForTemplate = (str) =>

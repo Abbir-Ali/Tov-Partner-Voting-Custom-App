@@ -3,9 +3,56 @@
  */
 import db from "../db.server.js";
 import { newToken } from "../utils/tokens.server.js";
+import { pickAvatar } from "./avatars.shared.js";
 
 const NAME_RE = /^[\p{L} '-]+$/u;
 const MAX_NAME_LENGTH = 30;
+
+/**
+ * Get used avatar keys for a board.
+ */
+async function getUsedAvatars(boardId) {
+  const voters = await db.voter.findMany({
+    where: { boardId, avatarKey: { not: null } },
+    select: { avatarKey: true },
+  });
+  return voters.map((v) => v.avatarKey);
+}
+
+/**
+ * Backfill avatars for voters on a board that have null avatarKey or removed keys.
+ * Called once on first page load for legacy boards.
+ * @param {string} boardId
+ */
+export async function backfillBoardAvatars(boardId) {
+  // Find voters without avatar or with removed avatar key (e.g., "nia")
+  const REMOVED_KEYS = ["nia"];
+  const votersNeedingAvatar = await db.voter.findMany({
+    where: {
+      boardId,
+      OR: [
+        { avatarKey: null },
+        { avatarKey: { in: REMOVED_KEYS } },
+      ],
+    },
+    select: { id: true },
+    orderBy: { createdAt: "asc" },
+  });
+  if (votersNeedingAvatar.length === 0) return;
+
+  const usedKeys = await getUsedAvatars(boardId);
+  // Filter out removed keys from used list
+  const validUsedKeys = usedKeys.filter((k) => !REMOVED_KEYS.includes(k));
+
+  for (const voter of votersNeedingAvatar) {
+    const key = pickAvatar(voter.id, validUsedKeys);
+    await db.voter.update({
+      where: { id: voter.id },
+      data: { avatarKey: key },
+    });
+    validUsedKeys.push(key);
+  }
+}
 
 /**
  * Validate a voter first name.
@@ -34,17 +81,22 @@ export function validateVoterName(name) {
  * Create a PERSONAL voter for a board (used when sharing).
  * @param {string} boardId
  * @param {string} firstName
- * @returns {Promise<{ id: string, token: string }>}
+ * @param {string[]} usedAvatars - Avatar keys already assigned on this board
+ * @returns {Promise<{ id: string, token: string, avatarKey: string }>}
  */
-export async function createPersonalVoter(boardId, firstName) {
+export async function createPersonalVoter(boardId, firstName, usedAvatars = []) {
+  const tempId = `temp-${Date.now()}-${Math.random()}`;
+  const avatarKey = pickAvatar(tempId, usedAvatars);
+
   const voter = await db.voter.create({
     data: {
       boardId,
       token: newToken(),
       firstName,
       kind: "PERSONAL",
+      avatarKey,
     },
-    select: { id: true, token: true },
+    select: { id: true, token: true, avatarKey: true },
   });
   return voter;
 }
@@ -54,7 +106,7 @@ export async function createPersonalVoter(boardId, firstName) {
  * @param {string} boardId
  * @param {string} firstName
  * @param {number} maxVoters
- * @returns {Promise<{ voter?: { id: string, token: string }, error?: string }>}
+ * @returns {Promise<{ voter?: { id: string, token: string, avatarKey: string }, error?: string }>}
  */
 export async function joinGroupBoard(boardId, firstName, maxVoters = 5) {
   // Count existing voters
@@ -63,14 +115,20 @@ export async function joinGroupBoard(boardId, firstName, maxVoters = 5) {
     return { error: "This board already has the maximum number of voters." };
   }
 
+  // Get used avatars for this board
+  const usedAvatars = await getUsedAvatars(boardId);
+  const tempId = `group-${Date.now()}-${Math.random()}`;
+  const avatarKey = pickAvatar(tempId, usedAvatars);
+
   const voter = await db.voter.create({
     data: {
       boardId,
       token: newToken(),
       firstName,
       kind: "GROUP",
+      avatarKey,
     },
-    select: { id: true, token: true },
+    select: { id: true, token: true, avatarKey: true },
   });
   return { voter };
 }
@@ -90,9 +148,13 @@ export async function getVoterByToken(token) {
           id: true,
           shop: true,
           ownerFirstName: true,
+          name: true,
+          note: true,
           status: true,
           hidePrices: true,
           expiresAt: true,
+          shareToken: true,
+          _count: { select: { voters: true } },
           items: {
             orderBy: { position: "asc" },
             select: {

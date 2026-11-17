@@ -25,10 +25,12 @@ import {
   getBoardByGroupToken,
   setVoterOpenedAt,
   buildGroupSummary,
+  backfillBoardAvatars,
 } from "../models/voter.server.js";
 import { fetchVariants } from "../services/products.server.js";
 import { VOTE_JS, VOTE_CSS } from "../vote-page/dist/vote-assets.server.js";
 import { RESULTS_JS, RESULTS_CSS } from "../results-page/dist/results-assets.server.js";
+import { AVATAR_SPRITE, AVATAR_BG } from "../models/avatars.shared.js";
 import { checkEligibility } from "../services/products.server.js";
 import { recordEvent } from "../models/events.server.js";
 import { createHash } from "crypto";
@@ -114,10 +116,12 @@ function buildVotePage({
   storageKey,
   voterToken,
   voterFirstName,
+  voterAvatarKey,
   groupMode,
   groupToken,
   hidePrices,
   groupSummary,
+  voterCount,
 }) {
   const placeholders = {
     shopper: board.ownerFirstName,
@@ -142,12 +146,16 @@ function buildVotePage({
       note: board.note,
       status: board.status,
     },
+    // Multi-voter board (show privacy line)
+    voterCount: voterCount || 1,
     // Group mode: needs name form first
     groupMode: groupMode || false,
     groupToken: groupToken || null,
     // Voter info (null in group mode until joined)
     voterToken: voterToken || null,
     voterFirstName: voterFirstName || null,
+    voterAvatarKey: voterAvatarKey || null,
+    avatarBg: AVATAR_BG,
     // Hide prices: items have no price field when true
     hidePrices: hidePrices || false,
     items: items.map((item) => {
@@ -209,6 +217,7 @@ ${VOTE_CSS}
 {% endraw %}
 </head>
 <body>
+  ${AVATAR_SPRITE}
   <div class="pvb-vote-page"></div>
   <script type="application/json" id="pvb-data" data-encoding="base64">${dataBase64}</script>
 {% raw %}
@@ -277,10 +286,11 @@ function buildResultsPage({
   // Build absolute events URL
   const eventsUrl = `${proxyPath}/api/e`;
 
-  // Build voters array for client (id, firstName, done, shareUrl)
+  // Build voters array for client (id, firstName, avatarKey, done, shareUrl)
   const votersData = voters.map((v) => ({
     id: v.id,
     firstName: v.firstName,
+    avatarKey: v.avatarKey,
     done: !!v.completedAt,
     shareUrl: `${shopUrl}${proxyPath}/${v.token}`,
   }));
@@ -320,6 +330,7 @@ function buildResultsPage({
     total: items.length,
     eventsUrl,
     lovedTotalFormatted,
+    avatarBg: AVATAR_BG,
     // Single-voter compat: partnerFirstName from first voter
     partnerFirstName: voters[0]?.firstName || board.partnerFirstName,
     shareUrl: voters[0] ? `${shopUrl}${proxyPath}/${voters[0].token}` : "",
@@ -355,6 +366,7 @@ ${RESULTS_CSS}
 {% endraw %}
 </head>
 <body>
+  ${AVATAR_SPRITE}
   <div class="pvb-results-page" data-root="{{ routes.root_url }}" data-cart="{{ routes.cart_url }}"></div>
   <script type="application/json" id="pvb-data" data-encoding="base64">${dataBase64}</script>
 {% raw %}
@@ -469,6 +481,9 @@ export const loader = async ({ request, params }) => {
       log.info("proxy.results_page", { shop, status: "expired" });
       return errorPage(expiredHeadline, expiredBody);
     }
+
+    // Backfill avatars for legacy voters
+    await backfillBoardAvatars(board.id);
 
     // Get votes for the board
     const votes = await getVotesForBoard(board.id);
@@ -594,6 +609,12 @@ export const loader = async ({ request, params }) => {
       await recordEvent(shop, "partner_opened", { boardId: board.id });
     }
 
+    // Backfill avatars for legacy voters (once per board)
+    await backfillBoardAvatars(board.id);
+
+    // Re-fetch voter to get assigned avatarKey
+    const freshVoter = await getVoterByToken(token);
+
     // Get existing votes for this voter
     const votes = await getVotesForVoter(voter.id);
 
@@ -658,11 +679,13 @@ export const loader = async ({ request, params }) => {
       proxyPath: pathPrefix,
       storageKey,
       voterToken: token,
-      voterFirstName: voter.firstName,
+      voterFirstName: freshVoter.firstName,
+      voterAvatarKey: freshVoter.avatarKey,
       groupMode: false,
       groupToken: null,
       hidePrices: board.hidePrices,
       groupSummary,
+      voterCount: board._count?.voters || 1,
     });
 
     log.info("proxy.vote_page", { shop, status: board.status, mode: "voter" });
@@ -762,10 +785,12 @@ export const loader = async ({ request, params }) => {
       storageKey,
       voterToken: null,
       voterFirstName: null,
+      voterAvatarKey: null,
       groupMode: true,
       groupToken: token,
       hidePrices: board.hidePrices,
       groupSummary: null,
+      voterCount: board._count?.voters || 1,
     });
 
     log.info("proxy.vote_page", { shop, status: board.status, mode: "group" });
@@ -799,14 +824,20 @@ export const loader = async ({ request, params }) => {
     return errorPage("This link doesn't work", "Check the URL and try again.");
   }
 
+  // Backfill avatars for legacy voters
+  await backfillBoardAvatars(board.id);
+
+  // Re-fetch voter to get assigned avatarKey
+  const freshLegacyVoter = await getVoterByToken(token);
+
   // Set voter openedAt if null (first visit)
-  if (!legacyVoter.openedAt) {
-    await setVoterOpenedAt(legacyVoter.id);
+  if (!freshLegacyVoter.openedAt) {
+    await setVoterOpenedAt(freshLegacyVoter.id);
     await recordEvent(shop, "partner_opened", { boardId: board.id });
   }
 
   // Get existing votes for this voter
-  const votes = await getVotesForVoter(legacyVoter.id);
+  const votes = await getVotesForVoter(freshLegacyVoter.id);
 
   // Fetch live product data
   const variantGids = board.items.map((item) => item.variantId);
@@ -869,11 +900,13 @@ export const loader = async ({ request, params }) => {
     proxyPath: pathPrefix,
     storageKey,
     voterToken: token,
-    voterFirstName: legacyVoter.firstName,
+    voterFirstName: freshLegacyVoter.firstName,
+    voterAvatarKey: freshLegacyVoter.avatarKey,
     groupMode: false,
     groupToken: null,
     hidePrices: board.hidePrices,
     groupSummary,
+    voterCount: board._count?.voters || 1,
   });
 
   log.info("proxy.vote_page", { shop, status: board.status, mode: "legacy" });
