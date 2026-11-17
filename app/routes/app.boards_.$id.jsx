@@ -7,8 +7,8 @@ import {
   fetchVariantData,
 } from "../services/audit.server.js";
 import { getSettings } from "../models/settings.server.js";
-import { DEFAULT_COPY } from "../models/settings.shared.js";
 import { getReasonLabel } from "../models/reasons.shared.js";
+import { AVATAR_SPRITE, AVATAR_BG } from "../models/avatars.shared.js";
 
 export const loader = async ({ request, params }) => {
   const { admin, session } = await authenticate.admin(request);
@@ -24,13 +24,6 @@ export const loader = async ({ request, params }) => {
   if (!board) {
     throw new Response("Board not found", { status: 404 });
   }
-
-  // Custom verdict labels from settings or defaults
-  const verdictLabels = {
-    LOVE: settings.copy?.loveLabel || DEFAULT_COPY.loveLabel,
-    MAYBE: settings.copy?.maybeLabel || DEFAULT_COPY.maybeLabel,
-    PASS: settings.copy?.passLabel || DEFAULT_COPY.passLabel,
-  };
 
   // Collect IDs for live lookups
   const customerIds = new Set();
@@ -74,7 +67,7 @@ export const loader = async ({ request, params }) => {
   const backParam = url.searchParams.get("back") || "";
   const backUrl = backParam.startsWith("?") ? `/app/boards${backParam}` : "/app/boards";
 
-  return { board, verdictLabels, reasonChips: settings.reasonChips, backUrl };
+  return { board, reasonChips: settings.reasonChips, backUrl };
 };
 
 // Format currency
@@ -116,13 +109,6 @@ function numericId(gid) {
   return match ? match[1] : null;
 }
 
-// Verdict badge colors
-const VERDICT_STYLES = {
-  LOVE: { background: "#485B59", color: "#FFFFFF" },
-  MAYBE: { background: "#D9CFC5", color: "#3F3D3E" },
-  PASS: { background: "#F9D2D2", color: "#3F3D3E" },
-};
-
 /* eslint-disable react/prop-types */
 // Status badge component
 function StatusBadge({ status, tone }) {
@@ -153,7 +139,7 @@ function StatusBadge({ status, tone }) {
 /* eslint-enable react/prop-types */
 
 export default function BoardDetailPage() {
-  const { board, verdictLabels, reasonChips, backUrl } = useLoaderData();
+  const { board, reasonChips, backUrl } = useLoaderData();
 
   const channelLabels = {
     whatsapp: "WhatsApp",
@@ -179,6 +165,13 @@ export default function BoardDetailPage() {
         .pvb-summary-value { font-size: 14px; color: #202223; }
         .pvb-summary-value a { color: #485B59; text-decoration: none; }
         .pvb-summary-value a:hover { text-decoration: underline; }
+        .pvb-detail-voters { display: flex; flex-direction: column; gap: 4px; }
+        .pvb-detail-voter-faces { display: flex; }
+        .pvb-detail-voter-face { width: 24px; height: 24px; border-radius: 50%; border: 2px solid #fff; margin-left: -6px; overflow: hidden; }
+        .pvb-detail-voter-face:first-child { margin-left: 0; }
+        .pvb-detail-voter-face[data-done="true"] { box-shadow: 0 0 0 2px #485B59; }
+        .pvb-detail-voter-face[data-done="false"] { opacity: 0.5; }
+        .pvb-detail-voter-names { font-size: 12px; color: #6d7175; }
         .pvb-guest { color: #6d7175; font-style: italic; }
         .pvb-pieces-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
         .pvb-pieces-counts { display: flex; gap: 16px; font-size: 13px; }
@@ -191,6 +184,15 @@ export default function BoardDetailPage() {
         .pvb-piece-title { font-size: 13px; font-weight: 500; color: #202223; margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .pvb-piece-variant { font-size: 12px; color: #6d7175; margin-bottom: 6px; }
         .pvb-piece-verdict { display: inline-block; padding: 2px 6px; border-radius: 4px; font-size: 11px; }
+        .pvb-piece-votes { display: flex; flex-direction: column; gap: 4px; margin-top: 4px; }
+        .pvb-piece-vote-row { display: flex; align-items: center; gap: 4px; }
+        .pvb-piece-vote-face { width: 16px; height: 16px; border-radius: 50%; overflow: hidden; flex-shrink: 0; }
+        .pvb-piece-vote-badge { display: inline-block; padding: 1px 6px; border-radius: 4px; font-size: 10px; font-weight: 500; }
+        .pvb-piece-vote-badge--success { background: #E3F5E1; color: #1F6B2C; }
+        .pvb-piece-vote-badge--info { background: #E0F1FF; color: #0B6CBF; }
+        .pvb-piece-vote-badge--critical { background: #FFF0F0; color: #A40713; }
+        .pvb-piece-vote-badge--neutral { background: #F1F1F1; color: #6D7175; }
+        .pvb-piece-vote-reason { font-size: 10px; color: #6d7175; }
         .pvb-piece-reason { font-size: 11px; color: #6d7175; margin-top: 4px; font-style: italic; }
         .pvb-timeline { }
         .pvb-timeline-item { display: flex; gap: 12px; padding: 12px 0; border-bottom: 1px solid #f1f1f1; }
@@ -201,6 +203,9 @@ export default function BoardDetailPage() {
         .pvb-timeline-detail { font-size: 12px; color: #6d7175; }
         .pvb-timeline-time { font-size: 12px; color: #6d7175; white-space: nowrap; }
       `}</style>
+
+      {/* Avatar sprite (hidden) */}
+      <div dangerouslySetInnerHTML={{ __html: AVATAR_SPRITE }} />
 
       {/* Header with status */}
       <div className="pvb-detail-header">
@@ -224,8 +229,47 @@ export default function BoardDetailPage() {
             </div>
           </div>
           <div className="pvb-summary-item">
-            <div className="pvb-summary-label">Partner</div>
-            <div className="pvb-summary-value">{board.partnerFirstName}</div>
+            <div className="pvb-summary-label">Voters</div>
+            <div className="pvb-summary-value">
+              <div className="pvb-detail-voters">
+                {board.voters && board.voters.length > 0 ? (
+                  <>
+                    <div className="pvb-detail-voter-faces">
+                      {board.voters.map((v, i) => {
+                        const bg = AVATAR_BG[v.avatarKey] || "#DCE3E1";
+                        return (
+                          <span
+                            key={i}
+                            className="pvb-detail-voter-face"
+                            data-done={v.done}
+                            style={{ backgroundColor: bg }}
+                          >
+                            <svg viewBox="0 0 96 96" style={{ width: "100%", height: "100%" }}>
+                              <use href={`#pvb-av-${v.avatarKey || "sam"}`} />
+                            </svg>
+                          </span>
+                        );
+                      })}
+                    </div>
+                    <span className="pvb-detail-voter-names">
+                      {board.voters.map((v) =>
+                        `${v.firstName} (${v.done ? "voted" : "waiting"})`
+                      ).join(" · ")}
+                    </span>
+                  </>
+                ) : (
+                  <span>—</span>
+                )}
+              </div>
+            </div>
+          </div>
+          <div className="pvb-summary-item">
+            <div className="pvb-summary-label">Group link</div>
+            <div className="pvb-summary-value">{board.groupToken ? "On" : "Off"}</div>
+          </div>
+          <div className="pvb-summary-item">
+            <div className="pvb-summary-label">Prices hidden</div>
+            <div className="pvb-summary-value">{board.hidePrices ? "Yes" : "No"}</div>
           </div>
           <div className="pvb-summary-item">
             <div className="pvb-summary-label">Shared via</div>
@@ -263,7 +307,6 @@ export default function BoardDetailPage() {
             <div className="pvb-summary-label">Expires</div>
             <div className="pvb-summary-value">{formatDate(board.expiresAt)}</div>
           </div>
-          {/* TODO: Prices hidden (later) */}
         </div>
       </div>
 
@@ -288,14 +331,6 @@ export default function BoardDetailPage() {
         </div>
         <div className="pvb-pieces-grid">
           {board.items.map((item) => {
-            const style = VERDICT_STYLES[item.verdict] || { background: "#f1f1f1", color: "#6d7175" };
-            const reasonLabel = item.reason
-              ? getReasonLabel(item.verdict, item.reason, reasonChips)
-              : null;
-            const reasonTextDisplay = item.reason === "other" && item.reasonText
-              ? item.reasonText
-              : null;
-
             return (
               <div key={item.id} className="pvb-piece-card">
                 {item.imageUrl ? (
@@ -310,22 +345,51 @@ export default function BoardDetailPage() {
                   {item.variantTitle && (
                     <div className="pvb-piece-variant">{item.variantTitle}</div>
                   )}
-                  {item.verdict ? (
-                    <span
-                      className="pvb-piece-verdict"
-                      style={{ background: style.background, color: style.color }}
-                    >
-                      {verdictLabels[item.verdict]}
-                    </span>
+                  {/* Per-voter verdict chips */}
+                  {item.votes && item.votes.length > 0 ? (
+                    <div className="pvb-piece-votes">
+                      {item.votes.map((vote, vi) => {
+                        const bg = AVATAR_BG[vote.voterAvatarKey] || "#DCE3E1";
+                        const verdictLabel = vote.verdict === "LOVE" ? "Loved"
+                          : vote.verdict === "MAYBE" ? "Maybe"
+                          : vote.verdict === "PASS" ? "Not For Us"
+                          : "—";
+                        const badgeTone = vote.verdict === "LOVE" ? "success"
+                          : vote.verdict === "MAYBE" ? "info"
+                          : vote.verdict === "PASS" ? "critical"
+                          : "neutral";
+                        const reasonLabel = vote.reason
+                          ? getReasonLabel(vote.verdict, vote.reason, reasonChips)
+                          : null;
+                        const reasonTextDisplay = vote.reason === "other" && vote.reasonText
+                          ? vote.reasonText
+                          : null;
+                        return (
+                          <div key={vi} className="pvb-piece-vote-row">
+                            <span
+                              className="pvb-piece-vote-face"
+                              style={{ backgroundColor: bg }}
+                            >
+                              <svg viewBox="0 0 96 96" style={{ width: "100%", height: "100%" }}>
+                                <use href={`#pvb-av-${vote.voterAvatarKey || "sam"}`} />
+                              </svg>
+                            </span>
+                            <span className={`pvb-piece-vote-badge pvb-piece-vote-badge--${badgeTone}`}>
+                              {verdictLabel}
+                            </span>
+                            {reasonLabel && (
+                              <span className="pvb-piece-vote-reason">
+                                {reasonLabel}{reasonTextDisplay ? `: ${reasonTextDisplay}` : ""}
+                              </span>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
                   ) : (
                     <span className="pvb-piece-verdict" style={{ background: "#f1f1f1", color: "#6d7175" }}>
-                      No vote
+                      No votes
                     </span>
-                  )}
-                  {reasonLabel && (
-                    <div className="pvb-piece-reason">
-                      {reasonLabel}{reasonTextDisplay ? `: ${reasonTextDisplay}` : ""}
-                    </div>
                   )}
                 </div>
               </div>

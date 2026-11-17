@@ -9,6 +9,9 @@
     class="pvb-drawer"
     data-pvb-drawer
     data-max-items="{{ config_raw.maxItemsPerBoard }}"
+    data-allow-hide-prices="{% if config_raw.allowHidePrices == false %}false{% else %}true{% endif %}"
+    data-hide-prices-default="{% if config_raw.hidePricesDefault == true %}true{% else %}false{% endif %}"
+    data-allow-group-links="{% if config_raw.allowGroupLinks == false %}false{% else %}true{% endif %}"
     data-money-format="{{ shop.money_format | escape }}"
     data-pill-label="{{ block.settings.pill_label | escape }}"
     data-drawer-title="{{ block.settings.drawer_title | escape }}"

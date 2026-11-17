@@ -37,4 +37,4 @@ include_config_on_deploy = true
 automatically_update_urls_on_dev = true
 
 [sidekick]
-extensions_summary = "Analyze partner voting boards: board revenue and orders, partner votes per product, most shared products, share channels and notification health"
+extensions_summary = "Analyze partner voting boards: board revenue and orders, partner votes per product, most shared products, share channels, notification health, and group voting statistics"

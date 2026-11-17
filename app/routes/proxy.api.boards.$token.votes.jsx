@@ -2,6 +2,7 @@
  * POST /apps/board/api/boards/:token/votes
  *
  * Vote API endpoint served via App Proxy.
+ * :token is now the VOTER token (not board shareToken).
  * Body: { itemId: string, verdict: "LOVE"|"MAYBE"|"PASS" }
  * Max body size: 1 KB
  */
@@ -9,7 +10,6 @@
 import { authenticate } from "../shopify.server.js";
 import { getSettings } from "../models/settings.server.js";
 import { submitVote, VOTE_ERRORS } from "../models/vote.server.js";
-import { recordEvent } from "../models/events.server.js";
 import { log } from "../utils/log.server.js";
 
 const MAX_BODY_SIZE = 1024; // 1 KB
@@ -73,18 +73,19 @@ export async function action({ request, params }) {
     return json({ error: { code: VOTE_ERRORS.INVALID } }, 400);
   }
 
-  const token = params.token;
-  if (!token) {
+  // Token is now the voter token
+  const voterToken = params.token;
+  if (!voterToken) {
     return json({ error: { code: VOTE_ERRORS.NOT_FOUND } }, 404);
   }
 
   // Get settings
   const settings = await getSettings(shop);
 
-  // Submit vote: pass undefined (not null) when fields are absent to preserve existing
+  // Submit vote: voterToken identifies the voter, not the board
   const result = await submitVote({
     shop,
-    token,
+    voterToken,
     itemId: itemId.trim(),
     verdict: verdict.toUpperCase(),
     reason,
@@ -106,7 +107,6 @@ export async function action({ request, params }) {
 
   if (result.data.complete) {
     log.info("vote.completed", { shop, total: result.data.total });
-    await recordEvent(shop, "vote_completed", { boardId: result.data.boardId });
   }
 
   return json(result.data, 200);

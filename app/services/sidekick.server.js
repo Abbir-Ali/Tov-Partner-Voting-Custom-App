@@ -77,15 +77,8 @@ export async function boardPerformance(shop, params) {
   });
   const currency = latestOrder?.currencyCode || "USD";
 
-  // Vote rate: boards shared vs voted
-  const baseWhere = { shop, status: { in: ["SHARED", "VOTED"] }, sharedAt: { gte: since } };
-  const [shared, voted] = await Promise.all([
-    prisma.board.count({ where: baseWhere }),
-    prisma.board.count({ where: { ...baseWhere, votingCompletedAt: { not: null } } }),
-  ]);
-  const voteRate = shared > 0 ? Math.round((voted / shared) * 100) : 0;
-
   // Funnel counts
+  const baseWhere = { shop, status: { in: ["SHARED", "VOTED"] }, sharedAt: { gte: since } };
   const impressionVisitors = await prisma.analyticsEvent.findMany({
     where: { shop, type: "button_impression", createdAt: { gte: since }, visitorHash: { not: null } },
     distinct: ["visitorHash"],
@@ -100,10 +93,25 @@ export async function boardPerformance(shop, params) {
   const countMap = {};
   for (const row of eventCounts) countMap[row.type] = row._count;
 
-  const [partnerOpened, votingDone] = await Promise.all([
-    prisma.board.count({ where: { ...baseWhere, partnerOpenedAt: { not: null } } }),
-    prisma.board.count({ where: { ...baseWhere, votingCompletedAt: { not: null } } }),
-  ]);
+  // Vote rate: voters done / voters invited across boards shared in range
+  const boardsWithVoters = await prisma.board.findMany({
+    where: baseWhere,
+    select: {
+      voters: { select: { completedAt: true, openedAt: true } },
+    },
+  });
+
+  let votersInvited = 0;
+  let votersDone = 0;
+  let boardsOpened = 0;
+  let boardsVoted = 0;
+  for (const b of boardsWithVoters) {
+    votersInvited += b.voters.length;
+    votersDone += b.voters.filter((v) => v.completedAt).length;
+    if (b.voters.some((v) => v.openedAt)) boardsOpened++;
+    if (b.voters.some((v) => v.completedAt)) boardsVoted++;
+  }
+  const voteRate = votersInvited > 0 ? Math.round((votersDone / votersInvited) * 100) : 0;
 
   // Get earliest tracking event date for funnel note
   const firstTrackingEvent = await prisma.analyticsEvent.findFirst({
@@ -120,21 +128,22 @@ export async function boardPerformance(shop, params) {
     orders,
     aovCents: aov,
     voteRatePct: voteRate,
-    votedBoards: voted,
-    sharedBoards: shared,
+    votersDone,
+    votersInvited,
+    sharedBoards: boardsWithVoters.length,
     funnel: {
       buttonSeen: impressionVisitors.length,
       saved: countMap["button_save"] || 0,
-      shared,
-      partnerOpened,
-      votingDone,
+      shared: boardsWithVoters.length,
+      opened: boardsOpened,
+      voted: boardsVoted,
       addedToCart: countMap["results_add_loved"] || 0,
       ordered: orders,
     },
     funnelNote: trackingSince
-      ? `Button seen and Saved to board come from storefront tracking: only visitors who accepted analytics cookies, and only since ${trackingSince}. Shared, opened and voted come from every board.`
-      : "Button seen and Saved to board come from storefront tracking (visitors who accepted analytics cookies). Shared, opened and voted come from every board.",
-    note: "An order counts only when its cart was filled from a board's results page.",
+      ? `Button seen and Saved come from storefront tracking (analytics cookies) since ${trackingSince}. Opened = boards with at least one voter who opened; Voted = boards with at least one voter done.`
+      : "Button seen and Saved come from storefront tracking (analytics cookies). Opened = boards with at least one voter who opened; Voted = boards with at least one voter done.",
+    note: "Vote rate = people who finished voting / people invited. An order counts only when its cart was filled from the results page.",
   };
 
   setCache(key, data);
@@ -322,7 +331,7 @@ export async function productPartnerFeedback(shop, admin, params) {
     }
   }
 
-  // Get votes for this product
+  // Get votes for this product - count ALL voters' votes
   const items = await prisma.boardItem.findMany({
     where: { productId, board: { shop } },
     select: { votes: { select: { verdict: true } } },
@@ -330,10 +339,12 @@ export async function productPartnerFeedback(shop, admin, params) {
 
   let love = 0, maybe = 0, pass = 0;
   for (const item of items) {
-    const v = item.votes[0]?.verdict;
-    if (v === "LOVE") love++;
-    else if (v === "MAYBE") maybe++;
-    else if (v === "PASS") pass++;
+    // Count every vote from every voter
+    for (const vote of item.votes) {
+      if (vote.verdict === "LOVE") love++;
+      else if (vote.verdict === "MAYBE") maybe++;
+      else if (vote.verdict === "PASS") pass++;
+    }
   }
 
   const total = love + maybe + pass;
@@ -437,12 +448,17 @@ export async function sharesByChannel(shop, params) {
     }
   }
 
-  // Get voted boards
+  // Get boards with at least one voter done (voter-based completion)
   const votedBoards = await prisma.board.findMany({
-    where: { id: { in: Array.from(boardChannel.keys()) }, votingCompletedAt: { not: null } },
-    select: { id: true },
+    where: { id: { in: Array.from(boardChannel.keys()) } },
+    select: {
+      id: true,
+      voters: { select: { completedAt: true } },
+    },
   });
-  const votedIds = new Set(votedBoards.map((b) => b.id));
+  const votedIds = new Set(
+    votedBoards.filter((b) => b.voters.some((v) => v.completedAt)).map((b) => b.id)
+  );
 
   // Aggregate by channel
   const channelStats = {};
@@ -653,6 +669,102 @@ export async function partnerReasons(shop, params) {
 }
 
 /**
+ * group_voting_stats: boards by voter count, avg voters, vote rate by group size,
+ * % prices hidden, group links used.
+ * PRIVACY: Numbers only - no voter names, notes, emails, phones.
+ */
+export async function groupVotingStats(shop, params) {
+  const days = parseDays(params.days);
+  const key = cacheKey(shop, "group_voting_stats", { days });
+  const cached = getCached(key);
+  if (cached) return cached;
+
+  const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+
+  const boards = await prisma.board.findMany({
+    where: {
+      shop,
+      status: { in: ["SHARED", "VOTED"] },
+      sharedAt: { gte: since },
+    },
+    select: {
+      hidePrices: true,
+      groupToken: true,
+      _count: { select: { voters: true } },
+      voters: { select: { completedAt: true } },
+    },
+  });
+
+  if (boards.length === 0) {
+    const data = {
+      days,
+      totalBoards: 0,
+      byVoterCount: { solo: 0, small: 0, large: 0 },
+      pctGroupBoards: 0,
+      avgVotersPerBoard: 0,
+      voteRateByGroupSize: { solo: null, small: null, large: null },
+      pctHidePrices: 0,
+      pctGroupLink: 0,
+    };
+    setCache(key, data);
+    return data;
+  }
+
+  // Count boards by voter count: 1 (solo), 2-3 (small), 4-5 (large)
+  let solo = 0, small = 0, large = 0;
+  let soloVoted = 0, smallVoted = 0, largeVoted = 0;
+  let soloInvited = 0, smallInvited = 0, largeInvited = 0;
+  let totalVoters = 0;
+  let hidePricesCount = 0;
+  let groupLinkCount = 0;
+
+  for (const b of boards) {
+    const vc = b._count.voters;
+    const done = b.voters.filter((v) => v.completedAt).length;
+    totalVoters += vc;
+
+    if (vc === 1) {
+      solo++;
+      soloInvited += vc;
+      soloVoted += done;
+    } else if (vc <= 3) {
+      small++;
+      smallInvited += vc;
+      smallVoted += done;
+    } else {
+      large++;
+      largeInvited += vc;
+      largeVoted += done;
+    }
+
+    if (b.hidePrices) hidePricesCount++;
+    if (b.groupToken) groupLinkCount++;
+  }
+
+  const totalBoards = boards.length;
+  const groupBoards = small + large;
+
+  const data = {
+    days,
+    totalBoards,
+    byVoterCount: { solo, small, large },
+    pctGroupBoards: Math.round((groupBoards / totalBoards) * 100),
+    avgVotersPerBoard: Math.round((totalVoters / totalBoards) * 10) / 10,
+    voteRateByGroupSize: {
+      solo: soloInvited >= 5 ? Math.round((soloVoted / soloInvited) * 100) : null,
+      small: smallInvited >= 5 ? Math.round((smallVoted / smallInvited) * 100) : null,
+      large: largeInvited >= 5 ? Math.round((largeVoted / largeInvited) * 100) : null,
+    },
+    pctHidePrices: Math.round((hidePricesCount / totalBoards) * 100),
+    pctGroupLink: Math.round((groupLinkCount / totalBoards) * 100),
+    note: "Vote rate by group size: solo=1 voter, small=2-3 voters, large=4-5 voters. Null if <5 people in that group.",
+  };
+
+  setCache(key, data);
+  return data;
+}
+
+/**
  * Execute a tool by name
  */
 export async function executeTool(shop, admin, tool, params) {
@@ -683,6 +795,9 @@ export async function executeTool(shop, admin, tool, params) {
       break;
     case "partner_reasons":
       data = await partnerReasons(shop, params);
+      break;
+    case "group_voting_stats":
+      data = await groupVotingStats(shop, params);
       break;
     default:
       return null;

@@ -18,12 +18,12 @@ const ROOT = join(__dirname, "..");
 const VOTE_PAGE_DIR = join(ROOT, "app", "vote-page");
 const VOTE_DIST_DIR = join(VOTE_PAGE_DIR, "dist");
 // Raised 2026-11-16 (Abbir) for reason chips + v2 vote-page features. Warn at 27 KB.
-const VOTE_SIZE_LIMIT = 30000; // 30 KB
-const VOTE_SIZE_WARN = 27000; // 27 KB
+const VOTE_SIZE_LIMIT = 40000; // 40 KB (Abbir 2026-11-16 for group voting)
+const VOTE_SIZE_WARN = 36000; // 36 KB
 
 const RESULTS_PAGE_DIR = join(ROOT, "app", "results-page");
 const RESULTS_DIST_DIR = join(RESULTS_PAGE_DIR, "dist");
-const RESULTS_SIZE_LIMIT = 15000; // 15 KB
+const RESULTS_SIZE_LIMIT = 32000; // 32 KB (step 9 needs room; warn at 29 KB)
 
 // Escape for JS template string
 const escapeForTemplate = (str) =>

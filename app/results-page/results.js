@@ -1,12 +1,12 @@
 /**
  * Results page client-side logic.
+ * Supports single-voter (legacy) and multi-voter (group) boards.
  * State A: voting done (VOTED) - shows loved/maybe/pass with cart handoff.
  * State B: still voting (SHARED) - shows progress with copy link.
  */
 (function () {
   "use strict";
 
-  // Parse embedded data
   const dataEl = document.getElementById("pvb-data");
   if (!dataEl) return;
 
@@ -25,69 +25,93 @@
     return;
   }
 
-  const { shopName, partnerFirstName, status, voted, total, shareUrl, boardId, items, copy, lovedTotalFormatted, eventsUrl } = DATA;
+  const {
+    shopName, boardId, status, total, eventsUrl, lovedTotalFormatted, copy,
+    partnerFirstName, shareUrl, avatarBg,
+    isGroup, voters, votersDone, votersTotal, items
+  } = DATA;
   const routes = window.__PVB_ROUTES || {
-    root: "/",
-    cart: "/cart.js",
-    cartAdd: "/cart/add.js",
-    cartUpdate: "/cart/update.js",
-    cartPage: "/cart",
+    root: "/", cart: "/cart.js", cartAdd: "/cart/add.js",
+    cartUpdate: "/cart/update.js", cartPage: "/cart"
   };
 
-  // Events endpoint - use absolute URL from server data
-  const eventsEndpoint = eventsUrl || "/apps/board/api/e";
-
   if (!items) return;
-
   const page = document.querySelector(".pvb-results-page");
   if (!page) return;
 
-  // Escape HTML special chars
+  // Escape HTML
   function esc(s) {
     if (!s) return "";
-    return s
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;")
-      .replace(/"/g, "&quot;");
+    return s.replace(/&/g, "&amp;").replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;").replace(/"/g, "&quot;");
   }
 
-  // Group items by verdict
-  const loved = [];
-  const maybe = [];
-  const pass = [];
-  const unvoted = [];
+  // Completed voters
+  const doneVoters = (voters || []).filter((v) => v.done);
+  const pendingVoters = (voters || []).filter((v) => !v.done);
+  const halfVoters = doneVoters.length / 2;
 
-  for (const it of items) {
-    if (it.verdict === "LOVE") loved.push(it);
-    else if (it.verdict === "MAYBE") maybe.push(it);
-    else if (it.verdict === "PASS") pass.push(it);
-    else unvoted.push(it);
+  // Build avatar HTML for a voter
+  function avatarHtml(voter, size) {
+    const key = voter.avatarKey;
+    const bg = (key && avatarBg && avatarBg[key]) || "#82736C";
+    // Fallback: neutral Taupe circle with first initial if no key
+    if (!key || !avatarBg || !avatarBg[key]) {
+      const initial = (voter.firstName || "?").charAt(0).toUpperCase();
+      return `<span class="pvb-face-av" style="background:${bg};width:${size}px;height:${size}px;display:flex;align-items:center;justify-content:center;font-size:${Math.round(size * 0.5)}px;font-weight:600;color:#FEFBF6">` +
+        `${esc(initial)}` +
+        (voter.done ? `<span class="pvb-face-ok"><svg viewBox="0 0 12 12" width="10" height="10" fill="none" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M2.5 6.5l2.5 2.5 4.5-5"/></svg></span>` : "") +
+        `</span>`;
+    }
+    return `<span class="pvb-face-av" style="background:${bg};width:${size}px;height:${size}px">` +
+      `<svg viewBox="0 0 96 96" width="${size}" height="${size}" aria-hidden="true"><use href="#pvb-av-${key}"/></svg>` +
+      (voter.done ? `<span class="pvb-face-ok"><svg viewBox="0 0 12 12" width="10" height="10" fill="none" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M2.5 6.5l2.5 2.5 4.5-5"/></svg></span>` : "") +
+      `</span>`;
   }
 
-  // Available loved items for cart
-  const lovedAvailable = loved.filter((i) => i.available);
-  const lovedUnavailable = loved.filter((i) => !i.available);
+  // Classify items for group view
+  function classifyItems() {
+    const lovedByMost = [], split = [], maybe = [], notForUs = [];
+    for (const item of items) {
+      const v = item.votes || {};
+      const completedIds = doneVoters.map((x) => x.id);
+      let loves = 0, maybes = 0, passes = 0;
+      for (const vid of completedIds) {
+        if (v[vid]?.verdict === "LOVE") loves++;
+        else if (v[vid]?.verdict === "MAYBE") maybes++;
+        else if (v[vid]?.verdict === "PASS") passes++;
+      }
+      const totalVoted = loves + maybes + passes;
+      if (totalVoted === 0) continue;
+      if (loves > halfVoters) lovedByMost.push(item);
+      else if (loves > 0) split.push(item);
+      else if (passes === totalVoted) notForUs.push(item);
+      else maybe.push(item);
+    }
+    return { lovedByMost, split, maybe, notForUs };
+  }
+
+  // Get single-voter verdict (for legacy mode)
+  function getVerdict(item) {
+    const v = item.votes || {};
+    const vid = doneVoters[0]?.id;
+    return vid ? v[vid]?.verdict : null;
+  }
 
   // Cart state
   let adding = false;
   const addedItems = new Set();
+  let toastEl = null, toastTimer = null;
 
-  // Toast notification
-  let toastEl = null;
-  let toastTimer = null;
-
-  // Send analytics event via beacon (no-preflight, fire-and-forget)
+  // Analytics event
   function sendEvent(type, meta) {
     try {
-      const body = JSON.stringify({
-        type,
-        boardId: String(boardId),
+      navigator.sendBeacon(eventsUrl || "/apps/board/api/e", JSON.stringify({
+        type, boardId: String(boardId),
         valueCents: meta?.valueCents,
-        meta: meta?.added !== undefined ? { added: meta.added, failed: meta.failed || 0 } : undefined,
-      });
-      navigator.sendBeacon(eventsEndpoint, body);
-    } catch (e) {
+        meta: meta?.added !== undefined ? { added: meta.added, failed: meta.failed || 0 } : undefined
+      }));
+    } catch {
       // Silent fail for analytics
     }
   }
@@ -104,13 +128,11 @@
     toastTimer = setTimeout(() => toastEl.classList.remove("show"), dur);
   }
 
-  // Copy to clipboard with fallback
   async function copyToClipboard(text) {
     try {
       await navigator.clipboard.writeText(text);
       return true;
     } catch {
-      // Fallback for older browsers
       try {
         const ta = document.createElement("textarea");
         ta.value = text;
@@ -120,153 +142,256 @@
         document.execCommand("copy");
         document.body.removeChild(ta);
         return true;
-      } catch {
-        return false;
-      }
+      } catch { return false; }
     }
   }
 
-  // ---- Cart API helpers ----
-
+  // Cart API helpers
   async function getCart() {
     const r = await fetch(routes.cart, { credentials: "same-origin" });
     if (!r.ok) throw new Error("cart_fetch");
     return r.json();
   }
 
-  // Add a single variant to cart. Returns true if added, false if 422.
   async function addOneToCart(variantId) {
     const r = await fetch(routes.cartAdd, {
-      method: "POST",
-      credentials: "same-origin",
+      method: "POST", credentials: "same-origin",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ items: [{ id: variantId, quantity: 1 }] }),
+      body: JSON.stringify({ items: [{ id: variantId, quantity: 1 }] })
     });
-    if (r.status === 422) return false;
-    if (!r.ok) throw new Error("cart_add");
-    return true;
+    return r.status !== 422 && r.ok;
   }
 
-  // Add multiple variants. Returns { added: [...], failed: [...] }
   async function addManyToCart(variantIds) {
     const validIds = variantIds.filter((id) => id && id > 0);
     if (validIds.length === 0) return { added: [], failed: [] };
-
-    // Try batch add first
-    const payload = { items: validIds.map((id) => ({ id, quantity: 1 })) };
     const r = await fetch(routes.cartAdd, {
-      method: "POST",
-      credentials: "same-origin",
+      method: "POST", credentials: "same-origin",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
+      body: JSON.stringify({ items: validIds.map((id) => ({ id, quantity: 1 })) })
     });
-
-    // Batch succeeded
-    if (r.ok) {
-      return { added: validIds, failed: [] };
-    }
-
-    // Batch failed with 422: add one at a time
+    if (r.ok) return { added: validIds, failed: [] };
     if (r.status === 422) {
-      const added = [];
-      const failed = [];
-
+      const added = [], failed = [];
       for (const id of validIds) {
-        const ok = await addOneToCart(id);
-        if (ok) {
-          added.push(id);
-        } else {
-          failed.push(id);
-        }
+        if (await addOneToCart(id)) added.push(id);
+        else failed.push(id);
       }
-
       return { added, failed };
     }
-
-    // Other error
     throw new Error("cart_add");
   }
 
   async function setCartAttributes(attrs) {
     const r = await fetch(routes.cartUpdate, {
-      method: "POST",
-      credentials: "same-origin",
+      method: "POST", credentials: "same-origin",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ attributes: attrs }),
+      body: JSON.stringify({ attributes: attrs })
     });
     if (!r.ok) throw new Error("cart_attrs");
     return r.json();
   }
 
-  // ---- Add loved to cart flow ----
+  // Reason labels
+  const REASON_LABELS = {
+    color: "Color", size: "Size", price: "Price", style: "Style",
+    material: "Material", comfort: "Comfort", another_color: "Another Color",
+    different_size: "Different Size", lower_price: "Lower Price",
+    in_person: "See It in Person", other: "Other"
+  };
 
-  async function addLovedToCart(btn) {
-    if (adding || lovedAvailable.length === 0) return;
+  function getReasonDisplay(reason, reasonText, verdict) {
+    if (!reason) return null;
+    const label = reason === "other" && reasonText ? reasonText : REASON_LABELS[reason];
+    if (!label) return null;
+    if (verdict === "PASS") return `Not right: ${label}`;
+    if (verdict === "MAYBE") return `Would be a yes with: ${label}`;
+    return null;
+  }
+
+  // Build item row for single voter (legacy)
+  function itemRowSingle(item, showTag, tagClass, tagText, showAddBtn) {
+    const verdict = getVerdict(item);
+    const v = item.votes || {};
+    const vid = doneVoters[0]?.id;
+    const vote = vid ? v[vid] : null;
+    const img = item.image
+      ? `<div class="pvb-item-thumb"><img src="${esc(item.image)}" alt=""></div>`
+      : `<div class="pvb-item-thumb"></div>`;
+    const unavailClass = !item.available && verdict === "LOVE" ? " unavailable" : "";
+    const waitClass = !verdict ? " waiting" : "";
+    let rightHtml = "";
+    if (!item.available && verdict === "LOVE") {
+      rightHtml = `<span class="pvb-tag pvb-tag-sold">Sold Out</span>`;
+    } else if (showTag) {
+      rightHtml = `<span class="pvb-tag ${tagClass}">${tagText}</span>`;
+    }
+    if (showAddBtn && item.available) {
+      rightHtml += `<button class="pvb-btn-ghost pvb-add-single" data-variant="${item.variantId}">Add to Cart</button>`;
+    }
+    const reasonDisplay = vote ? getReasonDisplay(vote.reason, vote.reasonText, verdict) : null;
+    const reasonHtml = reasonDisplay ? `<p class="pvb-item-reason">${esc(reasonDisplay)}</p>` : "";
+    const meta = verdict ? item.price : "Waiting for a vote";
+    const passClass = verdict === "PASS" ? " pass-row" : "";
+    return `<div class="pvb-item${unavailClass}${waitClass}${passClass}" data-id="${item.variantId}">
+      ${img}
+      <div class="pvb-item-info">
+        <p class="pvb-item-title">${esc(item.title)}</p>
+        <p class="pvb-item-meta">${esc(meta)}</p>
+        ${reasonHtml}
+      </div>
+      ${rightHtml}
+    </div>`;
+  }
+
+  // Build item row for group (Everyone tab)
+  function itemRowGroup(item, section, showAddBtn) {
+    const v = item.votes || {};
+    const img = item.image
+      ? `<div class="pvb-item-thumb"><img src="${esc(item.image)}" alt=""></div>`
+      : `<div class="pvb-item-thumb"></div>`;
+    const unavailClass = !item.available && section === "lovedByMost" ? " unavailable" : "";
+    const passClass = section === "notForUs" ? " pass-row" : "";
+
+    // Build voter line: "Loved by Alex, Zaid" or "Loved: Alex · Maybe: Zaid"
+    const loves = [], maybes = [], passes = [];
+    for (const voter of doneVoters) {
+      const vote = v[voter.id];
+      if (vote?.verdict === "LOVE") loves.push(voter.firstName);
+      else if (vote?.verdict === "MAYBE") maybes.push(voter.firstName);
+      else if (vote?.verdict === "PASS") passes.push(voter.firstName);
+    }
+
+    let voterLine = "";
+    if (section === "lovedByMost") {
+      voterLine = `Loved by ${loves.join(", ")}`;
+    } else if (section === "split") {
+      const parts = [];
+      if (loves.length) parts.push(`Loved: ${loves.join(", ")}`);
+      if (maybes.length) parts.push(`Maybe: ${maybes.join(", ")}`);
+      voterLine = parts.join(" · ");
+    } else if (section === "maybe") {
+      voterLine = maybes.length ? `Maybe: ${maybes.join(", ")}` : "";
+    } else {
+      voterLine = "Not For Us";
+    }
+
+    // Build reasons per voter
+    let reasonsHtml = "";
+    for (const voter of doneVoters) {
+      const vote = v[voter.id];
+      if (vote?.reason) {
+        const rd = getReasonDisplay(vote.reason, vote.reasonText, vote.verdict);
+        if (rd) reasonsHtml += `<p class="pvb-item-reason">${esc(voter.firstName)}: ${esc(rd)}</p>`;
+      }
+    }
+
+    let rightHtml = "";
+    if (!item.available && section === "lovedByMost") {
+      rightHtml = `<span class="pvb-tag pvb-tag-sold">Sold Out</span>`;
+    }
+    if (showAddBtn && item.available) {
+      rightHtml += `<button class="pvb-btn-ghost pvb-add-single" data-variant="${item.variantId}">Add to Cart</button>`;
+    }
+
+    return `<div class="pvb-item${unavailClass}${passClass}" data-id="${item.variantId}">
+      ${img}
+      <div class="pvb-item-info">
+        <p class="pvb-item-title">${esc(item.title)}</p>
+        <p class="pvb-item-meta">${esc(voterLine)} · ${esc(item.price)}</p>
+        ${reasonsHtml}
+      </div>
+      ${rightHtml}
+    </div>`;
+  }
+
+  // Build item row for per-voter tab
+  function itemRowVoter(item, voterId) {
+    const v = item.votes || {};
+    const vote = v[voterId];
+    if (!vote) return "";
+    const img = item.image
+      ? `<div class="pvb-item-thumb"><img src="${esc(item.image)}" alt=""></div>`
+      : `<div class="pvb-item-thumb"></div>`;
+    const tagClass = vote.verdict === "LOVE" ? "pvb-tag-love"
+      : vote.verdict === "MAYBE" ? "pvb-tag-maybe" : "pvb-tag-pass";
+    const tagText = vote.verdict === "LOVE" ? "Loved"
+      : vote.verdict === "MAYBE" ? "Maybe" : "Not For Us";
+    const reasonDisplay = getReasonDisplay(vote.reason, vote.reasonText, vote.verdict);
+    const reasonHtml = reasonDisplay ? `<p class="pvb-item-reason">${esc(reasonDisplay)}</p>` : "";
+    const unavailClass = !item.available && vote.verdict === "LOVE" ? " unavailable" : "";
+    const passClass = vote.verdict === "PASS" ? " pass-row" : "";
+    let rightHtml = "";
+    if (!item.available && vote.verdict === "LOVE") {
+      rightHtml = `<span class="pvb-tag pvb-tag-sold">Sold Out</span>`;
+    } else {
+      rightHtml = `<span class="pvb-tag ${tagClass}">${tagText}</span>`;
+    }
+    return `<div class="pvb-item${unavailClass}${passClass}" data-id="${item.variantId}">
+      ${img}
+      <div class="pvb-item-info">
+        <p class="pvb-item-title">${esc(item.title)}</p>
+        <p class="pvb-item-meta">${esc(item.price)}</p>
+        ${reasonHtml}
+      </div>
+      ${rightHtml}
+    </div>`;
+  }
+
+  // Section builder
+  function section(title, count, html, collapsed, tabKey, priceTotal) {
+    if (count === 0) return "";
+    const prefix = tabKey ? `${tabKey}-` : "";
+    const toggleId = `pvb-section-${prefix}${title.toLowerCase().replace(/\s/g, "-")}`;
+    let out = `<div class="pvb-section">
+      <div class="pvb-section-header">
+        <span class="pvb-section-title">${esc(title)} · ${count}</span>`;
+    if (priceTotal) {
+      out += `<span class="pvb-section-price">${esc(priceTotal)}</span>`;
+    }
+    if (collapsed) {
+      out += `<button class="pvb-toggle" data-target="${toggleId}">Show</button>`;
+    }
+    out += `</div><div class="pvb-items${collapsed ? " pvb-hidden" : ""}" id="${toggleId}">${html}</div></div>`;
+    return out;
+  }
+
+  // Add loved items to cart
+  async function addLovedToCart(btn, itemsToAdd) {
+    if (adding || itemsToAdd.length === 0) return;
     adding = true;
-
     const origText = btn.textContent;
     btn.disabled = true;
     btn.textContent = "Adding...";
-
     try {
-      // Check what's already in cart
       const cart = await getCart();
       const inCart = new Set(cart.items.map((i) => String(i.variant_id)));
-      const toAdd = lovedAvailable
-        .filter((i) => !inCart.has(String(i.variantId)))
+      const toAdd = itemsToAdd.filter((i) => i.available && !inCart.has(String(i.variantId)))
         .map((i) => i.variantId);
-
       if (toAdd.length === 0) {
-        // All already in cart
         await setCartAttributes({ _pvb_board: String(boardId), _pvb_source: "results" });
         window.location.href = routes.cartPage;
         return;
       }
-
       const { added, failed } = await addManyToCart(toAdd);
-
       if (added.length === 0) {
-        // Nothing was added
         btn.disabled = false;
         btn.textContent = origText;
         showToast("Couldn't add to your cart. Please try again.");
         adding = false;
         return;
       }
-
-      // Set cart attributes
       await setCartAttributes({ _pvb_board: String(boardId), _pvb_source: "results" });
-
-      // Calculate total value of added items in cents
-      const addedValue = lovedAvailable
-        .filter((i) => added.includes(i.variantId))
+      const addedValue = itemsToAdd.filter((i) => added.includes(i.variantId))
         .reduce((sum, i) => sum + (i.priceCents || 0), 0);
-      sendEvent("results_add_loved", {
-        valueCents: addedValue,
-        added: added.length,
-        failed: failed.length,
-      });
-
+      sendEvent("results_add_loved", { valueCents: addedValue, added: added.length, failed: failed.length });
       if (failed.length > 0) {
-        // Some failed: show notice, change button to View Cart
-        const failedItems = lovedAvailable.filter((i) => failed.includes(i.variantId));
-        let notice;
-        if (failedItems.length === 1) {
-          notice = `${failedItems[0].title} couldn't be added, it may have just sold out.`;
-        } else {
-          notice = `${failedItems.length} pieces couldn't be added, they may have just sold out.`;
-        }
-        showToast(notice, 5000);
-
-        // Change button to View Cart link
+        showToast(`${failed.length} ${failed.length === 1 ? "piece" : "pieces"} couldn't be added.`, 5000);
         btn.textContent = "View Cart";
         btn.disabled = false;
-        btn.onclick = () => {
-          window.location.href = routes.cartPage;
-        };
+        btn.onclick = () => { window.location.href = routes.cartPage; };
         adding = false;
       } else {
-        // All added: redirect to cart
         window.location.href = routes.cartPage;
       }
     } catch (e) {
@@ -278,19 +403,15 @@
     }
   }
 
-  // ---- Add single item to cart (Maybe section) ----
-
+  // Add single item
   async function addSingleToCart(item, btn) {
     if (addedItems.has(item.variantId)) return;
-
     const origText = btn.textContent;
     btn.disabled = true;
     btn.textContent = "Adding...";
-
     try {
       const cart = await getCart();
       const inCart = cart.items.some((i) => String(i.variant_id) === String(item.variantId));
-
       if (!inCart) {
         const ok = await addOneToCart(item.variantId);
         if (!ok) {
@@ -300,16 +421,11 @@
           return;
         }
       }
-
       await setCartAttributes({ _pvb_board: String(boardId), _pvb_source: "results" });
       addedItems.add(item.variantId);
-
       sendEvent("results_add_maybe", { valueCents: item.priceCents || 0 });
-
       btn.textContent = "Added";
       btn.classList.add("added");
-
-      // Add View Cart link
       const link = document.createElement("a");
       link.href = routes.cartPage;
       link.className = "pvb-btn-sm";
@@ -323,163 +439,307 @@
     }
   }
 
-  // ---- Build item row HTML ----
-
-  // Reason labels (inline to avoid server import)
-  // Fixed labels per Abbir's approval
-  const REASON_LABELS = {
-    color: "Color", size: "Size", price: "Price", style: "Style", material: "Material", comfort: "Comfort",
-    another_color: "Another Color", different_size: "Different Size", lower_price: "Lower Price", in_person: "See It in Person",
-    other: "Other",
-  };
-
-  // Build reason display text: "Not right: X" for Pass, "Would be a yes with: X" for Maybe
-  function getReasonDisplay(item) {
-    if (!item.reason) return null;
-    const label = REASON_LABELS[item.reason] || null;
-    // For "other" chip, use reasonText if available
-    const displayText = item.reason === "other" && item.reasonText ? item.reasonText : label;
-    if (!displayText) return null;
-    if (item.verdict === "PASS") return `Not right: ${displayText}`;
-    if (item.verdict === "MAYBE") return `Would be a yes with: ${displayText}`;
-    return null;
-  }
-
-  function itemRow(item, showTag, tagClass, tagText, showAddBtn) {
-    const img = item.image
-      ? `<img class="pvb-item-img" src="${esc(item.image)}" alt="">`
-      : `<div class="pvb-item-img"></div>`;
-
-    const unavailClass = !item.available && item.verdict === "LOVE" ? " unavailable" : "";
-    const waitClass = !item.verdict ? " waiting" : "";
-
-    let rightHtml = "";
-    if (!item.available && item.verdict === "LOVE") {
-      rightHtml = `<span class="pvb-tag pvb-tag-sold">Sold Out</span>`;
-    } else if (showTag) {
-      rightHtml = `<span class="pvb-tag ${tagClass}">${tagText}</span>`;
+  // Render single-voter voted state (legacy)
+  function renderVotedSingle() {
+    const loved = items.filter((i) => getVerdict(i) === "LOVE");
+    const maybe = items.filter((i) => getVerdict(i) === "MAYBE");
+    const pass = items.filter((i) => getVerdict(i) === "PASS");
+    const lovedAvailable = loved.filter((i) => i.available);
+    const lovedUnavailable = loved.filter((i) => !i.available);
+    const voter = voters && voters[0];
+    // Avatar for single voter (48px, same as group), or fallback to initial
+    let avatarEl;
+    if (voter && voter.avatarKey) {
+      const key = voter.avatarKey;
+      const bg = (avatarBg && avatarBg[key]) || "#F9D2D2";
+      avatarEl = `<span class="pvb-face-av" style="background:${bg};width:48px;height:48px"><svg viewBox="0 0 64 64" width="48" height="48" aria-hidden="true"><use href="#pvb-av-${key}"/></svg><span class="pvb-face-ok"><svg viewBox="0 0 12 12" width="10" height="10" fill="none" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M2.5 6.5l2.5 2.5 4.5-5"/></svg></span></span>`;
+    } else {
+      const initial = partnerFirstName ? partnerFirstName.charAt(0).toUpperCase() : "?";
+      avatarEl = `<div class="pvb-avatar">${initial}</div>`;
     }
-    if (showAddBtn && item.available) {
-      rightHtml += `<button class="pvb-btn-sm pvb-add-single" data-variant="${item.variantId}">Add to Cart</button>`;
-    }
-
-    // Show reason text if present (for PASS/MAYBE items)
-    const reasonDisplay = getReasonDisplay(item);
-    const reasonHtml = reasonDisplay ? `<p class="pvb-item-reason">${esc(reasonDisplay)}</p>` : "";
-
-    const meta = item.verdict ? item.price : "Waiting for a vote";
-
-    return `<div class="pvb-item${unavailClass}${waitClass}" data-id="${item.variantId}">
-      ${img}
-      <div class="pvb-item-info">
-        <p class="pvb-item-title">${esc(item.title)}</p>
-        <p class="pvb-item-meta">${esc(meta)}</p>
-        ${reasonHtml}
-      </div>
-      <div class="pvb-item-right">${rightHtml}</div>
-    </div>`;
-  }
-
-  // ---- Build section HTML ----
-
-  function section(title, count, itemsArr, tagClass, tagText, showAddBtn, collapsed) {
-    if (itemsArr.length === 0) return "";
-
-    const toggleId = `pvb-section-${title.toLowerCase().replace(/\s/g, "-")}`;
-    let html = `<div class="pvb-section">
-      <div class="pvb-section-header">
-        <h2 class="pvb-section-title">${esc(title)} · ${count}</h2>`;
-
-    if (collapsed) {
-      html += `<button class="pvb-toggle" data-target="${toggleId}">Show</button>`;
-    }
-
-    html += `</div>
-      <div class="pvb-items${collapsed ? " pvb-hidden" : ""}" id="${toggleId}">`;
-
-    for (const it of itemsArr) {
-      html += itemRow(it, true, tagClass, tagText, showAddBtn);
-    }
-
-    html += `</div></div>`;
-    return html;
-  }
-
-  // ---- Render State A: voting done ----
-
-  function renderVoted() {
-    const initial = partnerFirstName ? partnerFirstName.charAt(0).toUpperCase() : "?";
-
-    const headline =
-      loved.length > 0
-        ? (copy.resultsHeadline || "{partner} loved {loved} of {total}.")
-            .replace("{partner}", partnerFirstName)
-            .replace("{loved}", loved.length)
-            .replace("{total}", total)
-        : (copy.resultsNoneLoved || "{partner} didn't love any of these.").replace(
-            "{partner}",
-            partnerFirstName
-          );
-
-    // Notice for unavailable loved items
+    const headline = loved.length > 0
+      ? (copy.resultsHeadline || "{partner} loved {loved} of {total}.")
+          .replace("{partner}", partnerFirstName).replace("{loved}", loved.length).replace("{total}", total)
+      : (copy.resultsNoneLoved || "{partner} didn't love any of these.").replace("{partner}", partnerFirstName);
     let noticeHtml = "";
     if (lovedUnavailable.length === 1) {
-      noticeHtml = `<div class="pvb-notice">${esc(lovedUnavailable[0].title)} is sold out, so it won't be added to your cart. It stays on your board.</div>`;
+      noticeHtml = `<div class="pvb-notice">${esc(lovedUnavailable[0].title)} is sold out, so it won't be added to your cart.</div>`;
     } else if (lovedUnavailable.length > 1) {
-      noticeHtml = `<div class="pvb-notice">${lovedUnavailable.length} loved pieces are sold out, so they won't be added to your cart.</div>`;
+      noticeHtml = `<div class="pvb-notice">${lovedUnavailable.length} loved pieces are sold out.</div>`;
     }
-
-    let html = `
-      <header class="pvb-top-bar">
-        <p class="pvb-shop-name">${esc(shopName)}</p>
-      </header>
+    let html = `<header class="pvb-top-bar"><p class="pvb-shop-name">${esc(shopName)}</p></header>
       <div class="pvb-hero">
-        <div class="pvb-avatar">${initial}</div>
+        ${avatarEl}
         <h1 class="pvb-headline">${esc(headline)}</h1>
       </div>`;
-
     html += noticeHtml;
-    html += section("Loved", loved.length, loved, "pvb-tag-love", "Loved", false, false);
-    html += section("Maybe", maybe.length, maybe, "pvb-tag-maybe", "Maybe", true, false);
-    html += section("Not For Us", pass.length, pass, "pvb-tag-pass", "Not For Us", false, true);
+    let lovedHtml = "";
+    for (const it of loved) lovedHtml += itemRowSingle(it, true, "pvb-tag-love", "Loved", false);
+    html += section("Loved", loved.length, lovedHtml, false, null, lovedTotalFormatted);
+    let maybeHtml = "";
+    for (const it of maybe) maybeHtml += itemRowSingle(it, true, "pvb-tag-maybe", "Maybe", true);
+    html += section("Maybe", maybe.length, maybeHtml, false);
+    let passHtml = "";
+    for (const it of pass) passHtml += itemRowSingle(it, true, "pvb-tag-pass", "Not For Us", false);
+    html += section("Not For Us", pass.length, passHtml, true);
+    html += `<div class="pvb-spacer"></div>`;
 
-    // Sticky bar with CTA
-    let stickyHtml = "";
+    const noteCount = lovedAvailable.length === 1 ? "1 piece" : `${lovedAvailable.length} pieces`;
     if (lovedAvailable.length > 0) {
-      const ctaText =
-        lovedUnavailable.length > 0
-          ? `Add ${lovedAvailable.length} Loved ${lovedAvailable.length === 1 ? "Piece" : "Pieces"} to Cart · ${lovedTotalFormatted}`
-          : (copy.resultsCta || "Add Loved to Cart") + ` · ${lovedTotalFormatted}`;
-
-      stickyHtml = `
-        <div class="pvb-sticky">
-          <button class="pvb-btn-primary pvb-add-loved">${esc(ctaText)}</button>
-          <p class="pvb-sticky-note">Opens your cart. Nothing is charged yet.</p>
-        </div>`;
+      const ctaText = `Add Loved to Cart · ${lovedTotalFormatted}`;
+      html += `<div class="pvb-sticky">
+        <button class="pvb-btn-primary pvb-add-loved">${esc(ctaText)}</button>
+        <p class="pvb-sticky-note">Opens your cart with ${noteCount}. Nothing is charged yet.</p>
+      </div>`;
     } else {
-      stickyHtml = `
-        <div class="pvb-sticky">
-          <a href="${esc(routes.root)}" class="pvb-btn-primary">Keep Shopping</a>
-        </div>`;
+      html += `<div class="pvb-sticky"><a href="${esc(routes.root)}" class="pvb-btn-primary">Keep Shopping</a></div>`;
+    }
+    page.innerHTML = html;
+    bindEvents(lovedAvailable);
+  }
+
+  // Render group voted state
+  function renderVotedGroup() {
+    const classified = classifyItems();
+    const lovedByMostAvail = classified.lovedByMost.filter((i) => i.available);
+    const lovedByMostUnavail = classified.lovedByMost.filter((i) => !i.available);
+
+    // Face buttons header (48px avatars)
+    let facesHtml = `<div class="pvb-faces">`;
+    for (const v of voters) {
+      const waitCls = v.done ? "" : " wait";
+      facesHtml += `<button class="pvb-face${waitCls}" data-voter-id="${v.id}" data-url="${esc(v.shareUrl)}" data-done="${v.done ? "1" : ""}">${avatarHtml(v, 48)}<span>${esc(v.firstName)}</span></button>`;
+    }
+    facesHtml += `</div>`;
+
+    // Headline and hint
+    let headline, hint = "";
+    if (pendingVoters.length === votersTotal) {
+      // All waiting
+      const names = pendingVoters.map((v) => v.firstName);
+      const nameStr = names.length === 1 ? names[0]
+        : names.length === 2 ? `${names[0]} and ${names[1]}`
+        : names.slice(0, -1).join(", ") + " and " + names[names.length - 1];
+      headline = `Waiting for ${nameStr}.`;
+      hint = "Tap a face to copy their link.";
+    } else if (pendingVoters.length === 0) {
+      // Everyone voted
+      headline = "Everyone has voted.";
+    } else {
+      // Some done, some pending
+      headline = `${votersDone} of ${votersTotal} have voted.`;
+      const pendingNames = pendingVoters.map((v) => v.firstName);
+      const pendingStr = pendingNames.length === 1 ? pendingNames[0]
+        : pendingNames.length === 2 ? `${pendingNames[0]} and ${pendingNames[1]}`
+        : pendingNames.slice(0, -1).join(", ") + " and " + pendingNames[pendingNames.length - 1];
+      hint = `Waiting for ${pendingStr}. Tap a face to copy a link.`;
     }
 
-    html += stickyHtml;
-    page.innerHTML = html;
+    // Tabs
+    let tabsHtml = `<div class="pvb-tabs">
+      <button class="pvb-tab pvb-tab-active" data-tab="everyone">Everyone</button>`;
+    for (const v of doneVoters) {
+      tabsHtml += `<button class="pvb-tab" data-tab="${v.id}">${esc(v.firstName)}</button>`;
+    }
+    tabsHtml += `</div>`;
 
-    // Bind event handlers
+    // Everyone content
+    let everyoneHtml = `<div class="pvb-tab-content pvb-tab-everyone">`;
+    let lbmHtml = "";
+    for (const it of classified.lovedByMost) lbmHtml += itemRowGroup(it, "lovedByMost", false);
+    everyoneHtml += section("Loved by Most", classified.lovedByMost.length, lbmHtml, false, "everyone", lovedTotalFormatted);
+    let splitHtml = "";
+    for (const it of classified.split) splitHtml += itemRowGroup(it, "split", true);
+    everyoneHtml += section("Split", classified.split.length, splitHtml, false, "everyone");
+    let maybeHtml = "";
+    for (const it of classified.maybe) maybeHtml += itemRowGroup(it, "maybe", true);
+    everyoneHtml += section("Maybe", classified.maybe.length, maybeHtml, false, "everyone");
+    let nfuHtml = "";
+    for (const it of classified.notForUs) nfuHtml += itemRowGroup(it, "notForUs", false);
+    everyoneHtml += section("Not For Us", classified.notForUs.length, nfuHtml, true, "everyone");
+    everyoneHtml += `</div>`;
+
+    // Per-voter content (hidden by default)
+    let voterTabsHtml = "";
+    for (const voter of doneVoters) {
+      const voterLoved = items.filter((i) => i.votes?.[voter.id]?.verdict === "LOVE");
+      const voterMaybe = items.filter((i) => i.votes?.[voter.id]?.verdict === "MAYBE");
+      const voterPass = items.filter((i) => i.votes?.[voter.id]?.verdict === "PASS");
+      let vHtml = `<div class="pvb-tab-content pvb-tab-voter pvb-hidden" data-voter="${voter.id}">`;
+      let vlHtml = "";
+      for (const it of voterLoved) vlHtml += itemRowVoter(it, voter.id);
+      vHtml += section("Loved", voterLoved.length, vlHtml, false, voter.id);
+      let vmHtml = "";
+      for (const it of voterMaybe) vmHtml += itemRowVoter(it, voter.id);
+      vHtml += section("Maybe", voterMaybe.length, vmHtml, false, voter.id);
+      let vpHtml = "";
+      for (const it of voterPass) vpHtml += itemRowVoter(it, voter.id);
+      vHtml += section("Not For Us", voterPass.length, vpHtml, true, voter.id);
+      vHtml += `</div>`;
+      voterTabsHtml += vHtml;
+    }
+
+    // Notice for unavailable
+    let noticeHtml = "";
+    if (lovedByMostUnavail.length === 1) {
+      noticeHtml = `<div class="pvb-notice">${esc(lovedByMostUnavail[0].title)} is sold out.</div>`;
+    } else if (lovedByMostUnavail.length > 1) {
+      noticeHtml = `<div class="pvb-notice">${lovedByMostUnavail.length} loved pieces are sold out.</div>`;
+    }
+
+    let html = `<header class="pvb-top-bar"><p class="pvb-shop-name">${esc(shopName)}</p></header>
+      <div class="pvb-hero">
+        ${facesHtml}
+        <h1 class="pvb-headline">${esc(headline)}</h1>
+        ${hint ? `<p class="pvb-subline">${esc(hint)}</p>` : ""}
+      </div>`;
+    html += doneVoters.length > 0 ? tabsHtml : "";
+    html += noticeHtml;
+    html += everyoneHtml;
+    html += voterTabsHtml;
+    html += `<div class="pvb-spacer"></div>`;
+
+    // Sticky CTA
+    const noteCount = lovedByMostAvail.length === 1 ? "1 piece" : `both pieces`;
+    if (lovedByMostAvail.length > 0) {
+      const ctaText = `Add Loved by Most to Cart · ${lovedTotalFormatted}`;
+      html += `<div class="pvb-sticky">
+        <button class="pvb-btn-primary pvb-add-loved">${esc(ctaText)}</button>
+        <p class="pvb-sticky-note">Opens your cart with ${noteCount}. Nothing is charged yet.</p>
+      </div>`;
+    } else {
+      html += `<div class="pvb-sticky"><a href="${esc(routes.root)}" class="pvb-btn-primary">Keep Shopping</a></div>`;
+    }
+
+    page.innerHTML = html;
+    bindEvents(lovedByMostAvail);
+    bindTabs();
+    bindFaceButtons();
+  }
+
+  // Render still-voting state (single or group)
+  function renderVoting() {
+    if (isGroup && votersTotal > 1) {
+      renderVotingGroup();
+    } else {
+      renderVotingSingle();
+    }
+  }
+
+  function renderVotingSingle() {
+    const voted = items.filter((i) => getVerdict(i)).length;
+    const voter = voters && voters[0];
+    const headline = voted > 0
+      ? (copy.resultsWaitingHeadline || "{partner} is voting.").replace("{partner}", partnerFirstName)
+      : `${partnerFirstName} hasn't started yet.`;
+    const subline = `${voted} of ${total} pieces so far. This page updates when you open it again.`;
+    let progressHtml = `<div class="pvb-progress-bar">`;
+    for (let i = 0; i < total; i++) {
+      progressHtml += `<div class="pvb-progress-seg${i < voted ? " done" : ""}"></div>`;
+    }
+    progressHtml += `</div>`;
+    let itemsHtml = `<div class="pvb-section"><h2 class="pvb-section-title">So Far</h2><div class="pvb-items">`;
+    for (const it of items) {
+      const verdict = getVerdict(it);
+      let tagClass = "", tagText = "";
+      if (verdict === "LOVE") { tagClass = "pvb-tag-love"; tagText = "Loved"; }
+      else if (verdict === "MAYBE") { tagClass = "pvb-tag-maybe"; tagText = "Maybe"; }
+      else if (verdict === "PASS") { tagClass = "pvb-tag-pass"; tagText = "Not For Us"; }
+      itemsHtml += itemRowSingle(it, !!verdict, tagClass, tagText, false);
+    }
+    itemsHtml += `</div></div>`;
+    // Avatar with opacity for waiting single voter, or fallback to clock icon
+    let avatarEl;
+    if (voter && voter.avatarKey) {
+      const key = voter.avatarKey;
+      const bg = (avatarBg && avatarBg[key]) || "#F9D2D2";
+      avatarEl = `<span class="pvb-face-av" style="background:${bg};width:48px;height:48px;opacity:0.4"><svg viewBox="0 0 64 64" width="48" height="48" aria-hidden="true"><use href="#pvb-av-${key}"/></svg></span>`;
+    } else {
+      avatarEl = `<div class="pvb-avatar"><svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/><path d="M12 6v6l4 2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></div>`;
+    }
+    let html = `<header class="pvb-top-bar"><p class="pvb-shop-name">${esc(shopName)}</p></header>
+      <div class="pvb-hero">
+        ${avatarEl}
+        <h1 class="pvb-headline">${esc(headline)}</h1>
+        <p class="pvb-subline">${esc(subline)}</p>
+      </div>`;
+    html += progressHtml + itemsHtml;
+    html += `<div class="pvb-copy-row">
+      <button class="pvb-btn-outline pvb-copy-link">Copy ${esc(partnerFirstName)}'s Link</button>
+      <p class="pvb-copy-note">Send it again if ${esc(partnerFirstName)} lost it.</p>
+    </div>`;
+    page.innerHTML = html;
+    bindCopyLink();
+  }
+
+  function renderVotingGroup() {
+    // Face buttons header (48px avatars)
+    let facesHtml = `<div class="pvb-faces">`;
+    for (const v of voters) {
+      const waitCls = v.done ? "" : " wait";
+      facesHtml += `<button class="pvb-face${waitCls}" data-voter-id="${v.id}" data-url="${esc(v.shareUrl)}" data-done="${v.done ? "1" : ""}">${avatarHtml(v, 48)}<span>${esc(v.firstName)}</span></button>`;
+    }
+    facesHtml += `</div>`;
+
+    // Headline and hint
+    let headline, hint;
+    if (pendingVoters.length === votersTotal) {
+      // All waiting
+      const names = pendingVoters.map((v) => v.firstName);
+      const nameStr = names.length === 1 ? names[0]
+        : names.length === 2 ? `${names[0]} and ${names[1]}`
+        : names.slice(0, -1).join(", ") + " and " + names[names.length - 1];
+      headline = `Waiting for ${nameStr}.`;
+      hint = "Tap a face to copy their link.";
+    } else {
+      // Some done, some pending
+      headline = `${votersDone} of ${votersTotal} have voted.`;
+      const pendingNames = pendingVoters.map((v) => v.firstName);
+      const pendingStr = pendingNames.length === 1 ? pendingNames[0]
+        : pendingNames.length === 2 ? `${pendingNames[0]} and ${pendingNames[1]}`
+        : pendingNames.slice(0, -1).join(", ") + " and " + pendingNames[pendingNames.length - 1];
+      hint = `Waiting for ${pendingStr}. Tap a face to copy a link.`;
+    }
+
+    // Piece list (waiting for votes)
+    let itemsHtml = `<div class="pvb-section"><h2 class="pvb-section-title">On The Board</h2><div class="pvb-items">`;
+    for (const it of items) {
+      const img = it.image
+        ? `<div class="pvb-item-thumb"><img src="${esc(it.image)}" alt=""></div>`
+        : `<div class="pvb-item-thumb"></div>`;
+      itemsHtml += `<div class="pvb-item waiting" data-id="${it.variantId}">
+        ${img}
+        <div class="pvb-item-info">
+          <p class="pvb-item-title">${esc(it.title)}</p>
+          <p class="pvb-item-meta">${esc(it.price)}</p>
+        </div>
+        <span class="pvb-tag pvb-tag-wait">Waiting</span>
+      </div>`;
+    }
+    itemsHtml += `</div></div>`;
+
+    let html = `<header class="pvb-top-bar"><p class="pvb-shop-name">${esc(shopName)}</p></header>
+      <div class="pvb-hero">
+        ${facesHtml}
+        <h1 class="pvb-headline">${esc(headline)}</h1>
+        <p class="pvb-subline">${esc(hint)}</p>
+      </div>`;
+    html += itemsHtml;
+    page.innerHTML = html;
+    bindFaceButtons();
+  }
+
+  // Bind event handlers
+  function bindEvents(lovedItems) {
     const addLovedBtn = page.querySelector(".pvb-add-loved");
     if (addLovedBtn) {
-      addLovedBtn.addEventListener("click", () => addLovedToCart(addLovedBtn));
+      addLovedBtn.addEventListener("click", () => addLovedToCart(addLovedBtn, lovedItems));
     }
-
     page.querySelectorAll(".pvb-add-single").forEach((btn) => {
       const vid = parseInt(btn.dataset.variant, 10);
       const item = items.find((i) => i.variantId === vid);
-      if (item) {
-        btn.addEventListener("click", () => addSingleToCart(item, btn));
-      }
+      if (item) btn.addEventListener("click", () => addSingleToCart(item, btn));
     });
-
     page.querySelectorAll(".pvb-toggle").forEach((btn) => {
       btn.addEventListener("click", () => {
         const target = document.getElementById(btn.dataset.target);
@@ -491,76 +751,22 @@
     });
   }
 
-  // ---- Render State B: still voting ----
+  function bindTabs() {
+    const tabs = page.querySelectorAll(".pvb-tab");
+    tabs.forEach((tab) => {
+      tab.addEventListener("click", () => {
+        tabs.forEach((t) => t.classList.remove("pvb-tab-active"));
+        tab.classList.add("pvb-tab-active");
+        const tabId = tab.dataset.tab;
+        page.querySelector(".pvb-tab-everyone")?.classList.toggle("pvb-hidden", tabId !== "everyone");
+        page.querySelectorAll(".pvb-tab-voter").forEach((el) => {
+          el.classList.toggle("pvb-hidden", el.dataset.voter !== tabId);
+        });
+      });
+    });
+  }
 
-  function renderVoting() {
-    const headline =
-      voted > 0
-        ? (copy.resultsWaitingHeadline || "{partner} is voting.").replace(
-            "{partner}",
-            partnerFirstName
-          )
-        : `${partnerFirstName} hasn't started yet.`;
-
-    const subline = `${voted} of ${total} pieces so far. This page updates when you open it again.`;
-
-    // Progress bar
-    let progressHtml = `<div class="pvb-progress-bar">`;
-    for (let i = 0; i < total; i++) {
-      progressHtml += `<div class="pvb-progress-seg${i < voted ? " done" : ""}"></div>`;
-    }
-    progressHtml += `</div>`;
-
-    // All items sorted: voted first, then unvoted
-    const allSorted = [...loved, ...maybe, ...pass, ...unvoted];
-    let itemsHtml = `<div class="pvb-section">
-      <h2 class="pvb-section-title">So Far</h2>
-      <div class="pvb-items">`;
-
-    for (const it of allSorted) {
-      let tagClass = "";
-      let tagText = "";
-      if (it.verdict === "LOVE") {
-        tagClass = "pvb-tag-love";
-        tagText = "Loved";
-      } else if (it.verdict === "MAYBE") {
-        tagClass = "pvb-tag-maybe";
-        tagText = "Maybe";
-      } else if (it.verdict === "PASS") {
-        tagClass = "pvb-tag-pass";
-        tagText = "Not For Us";
-      }
-      itemsHtml += itemRow(it, !!it.verdict, tagClass, tagText, false);
-    }
-    itemsHtml += `</div></div>`;
-
-    let html = `
-      <header class="pvb-top-bar">
-        <p class="pvb-shop-name">${esc(shopName)}</p>
-      </header>
-      <div class="pvb-hero">
-        <div class="pvb-avatar">
-          <svg viewBox="0 0 24 24" fill="none">
-            <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/>
-            <path d="M12 6v6l4 2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-          </svg>
-        </div>
-        <h1 class="pvb-headline">${esc(headline)}</h1>
-        <p class="pvb-subline">${esc(subline)}</p>
-      </div>`;
-
-    html += progressHtml;
-    html += itemsHtml;
-
-    html += `
-      <div class="pvb-copy-row">
-        <button class="pvb-btn-outline pvb-copy-link">Copy ${esc(partnerFirstName)}'s Link</button>
-        <p class="pvb-copy-note">Send it again if ${esc(partnerFirstName)} lost it.</p>
-      </div>`;
-
-    page.innerHTML = html;
-
-    // Bind copy button
+  function bindCopyLink() {
     const copyBtn = page.querySelector(".pvb-copy-link");
     if (copyBtn) {
       copyBtn.addEventListener("click", async () => {
@@ -568,9 +774,7 @@
         if (ok) {
           const orig = copyBtn.textContent;
           copyBtn.textContent = "Copied";
-          setTimeout(() => {
-            copyBtn.textContent = orig;
-          }, 2000);
+          setTimeout(() => { copyBtn.textContent = orig; }, 2000);
         } else {
           showToast("Couldn't copy link.");
         }
@@ -578,9 +782,45 @@
     }
   }
 
-  // ---- Entry point ----
-  if (status === "VOTED") {
-    renderVoted();
+  function bindFaceButtons() {
+    page.querySelectorAll(".pvb-face").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const isDone = btn.dataset.done === "1";
+        const voterId = btn.dataset.voterId;
+        if (isDone) {
+          // Switch to voter's tab
+          const tabs = page.querySelectorAll(".pvb-tab");
+          tabs.forEach((t) => t.classList.remove("pvb-tab-active"));
+          const targetTab = page.querySelector(`.pvb-tab[data-tab="${voterId}"]`);
+          if (targetTab) {
+            targetTab.classList.add("pvb-tab-active");
+            page.querySelector(".pvb-tab-everyone")?.classList.add("pvb-hidden");
+            page.querySelectorAll(".pvb-tab-voter").forEach((el) => {
+              el.classList.toggle("pvb-hidden", el.dataset.voter !== voterId);
+            });
+          }
+        } else {
+          // Copy voter's link
+          const url = btn.dataset.url;
+          const name = btn.querySelector("span:last-child")?.textContent || "";
+          const ok = await copyToClipboard(url);
+          if (ok) {
+            showToast(`${name}'s link copied`, 2000);
+          } else {
+            showToast("Couldn't copy link.");
+          }
+        }
+      });
+    });
+  }
+
+  // Entry point
+  if (status === "VOTED" || votersDone > 0) {
+    if (isGroup && votersTotal > 1) {
+      renderVotedGroup();
+    } else {
+      renderVotedSingle();
+    }
   } else {
     renderVoting();
   }

@@ -3,6 +3,7 @@
 /**
  * Seed realistic dashboard data for dev testing.
  * Creates analytics events with meta.seed = true.
+ * Creates boards with 1-4 voters (weighted: 50% solo, 30% 2, 15% 3, 5% 4).
  * Use --clear to delete only seed rows.
  * Use --boards N to seed N boards (default 25).
  *
@@ -13,6 +14,7 @@
  */
 import { PrismaClient } from "@prisma/client";
 import crypto from "crypto";
+import { pickAvatar } from "../app/models/avatars.shared.js";
 
 // Refuse to run in production
 if (process.env.NODE_ENV === "production") {
@@ -43,6 +45,17 @@ function randomDate(daysAgo) {
 
 function randomChoice(arr) {
   return arr[Math.floor(Math.random() * arr.length)];
+}
+
+/**
+ * Pick voter count: weighted distribution (50% solo, 30% 2, 15% 3, 5% 4).
+ */
+function pickVoterCount() {
+  const r = Math.random();
+  if (r < 0.5) return 1;   // 50%
+  if (r < 0.8) return 2;   // 30%
+  if (r < 0.95) return 3;  // 15%
+  return 4;                // 5%
 }
 
 /**
@@ -133,18 +146,23 @@ async function seedData(shop, products, boardCount) {
   let seedNum = 1;
   for (let i = 0; i < boardCount; i++) {
     const sharedAt = randomDate(90);
-    const hasVoted = Math.random() > 0.3; // 70% have votes
-    const hasOrdered = hasVoted && Math.random() > 0.5; // 50% of voted boards ordered
-    const isExpiringSoon = !hasVoted && Math.random() > 0.9; // 10% of unvoted expiring soon
+    const isExpiringSoon = Math.random() > 0.9; // 10% expiring soon
+    const voterCount = pickVoterCount();
+    const hidePrices = Math.random() < 0.15; // ~15% hide prices
+    const hasGroupLink = Math.random() < 0.20; // ~20% group link
 
     const ownerFirstName = randomChoice(FIRST_NAMES);
-    const partnerFirstName = randomChoice(FIRST_NAMES);
 
     // Expiry: 30 days from share, or 2 days from now if expiring soon
     let expiresAt = new Date(sharedAt.getTime() + 30 * 24 * 60 * 60 * 1000);
     if (isExpiringSoon) {
       expiresAt = new Date(Date.now() + 2 * 24 * 60 * 60 * 1000);
     }
+
+    // Decide board status based on voters
+    // 70% of boards have at least one voter done
+    const hasAnyVoterDone = Math.random() > 0.3;
+    const hasOrdered = hasAnyVoterDone && Math.random() > 0.5;
 
     const board = await prisma.board.create({
       data: {
@@ -155,16 +173,44 @@ async function seedData(shop, products, boardCount) {
         creatorKey: `creator-${randomId()}`,
         name: `Seed Board ${i + 1}`,
         ownerFirstName,
-        partnerFirstName,
-        status: hasVoted ? "VOTED" : "SHARED",
+        status: hasAnyVoterDone ? "VOTED" : "SHARED",
         sharedAt,
-        votingCompletedAt: hasVoted ? new Date(sharedAt.getTime() + 2 * 60 * 60 * 1000) : null,
-        partnerOpenedAt: hasVoted ? new Date(sharedAt.getTime() + 30 * 60 * 1000) : null,
+        hidePrices,
+        groupToken: hasGroupLink ? `group-${randomId()}` : null,
         expiresAt,
       },
     });
 
-    boards.push({ board, sharedAt, hasVoted, hasOrdered, seedNum: seedNum++ });
+    // Create voters with avatars
+    const usedAvatarKeys = [];
+    const createdVoters = [];
+    for (let v = 0; v < voterCount; v++) {
+      const voterFirstName = randomChoice(FIRST_NAMES);
+      const voterId = `seed-voter-${randomId()}`;
+      const avatarKey = pickAvatar(voterId, usedAvatarKeys);
+      usedAvatarKeys.push(avatarKey);
+
+      // Decide if this voter is done
+      // For hasAnyVoterDone boards: 80% of voters done; some partly voted
+      const isVoterDone = hasAnyVoterDone && Math.random() < 0.8;
+      const hasOpened = isVoterDone || Math.random() < 0.7;
+
+      const voter = await prisma.voter.create({
+        data: {
+          id: voterId,
+          boardId: board.id,
+          token: `token-${randomId()}`,
+          firstName: voterFirstName,
+          avatarKey,
+          kind: "PERSONAL",
+          openedAt: hasOpened ? new Date(sharedAt.getTime() + 30 * 60 * 1000) : null,
+          completedAt: isVoterDone ? new Date(sharedAt.getTime() + 2 * 60 * 60 * 1000) : null,
+        },
+      });
+      createdVoters.push({ voter, isVoterDone });
+    }
+
+    boards.push({ board, sharedAt, hasAnyVoterDone, hasOrdered, seedNum: seedNum++, createdVoters });
 
     // Add 2-12 items per board
     const itemCount = 2 + Math.floor(Math.random() * 11);
@@ -180,8 +226,9 @@ async function seedData(shop, products, boardCount) {
         },
       });
 
-      // Add vote if board was voted
-      if (hasVoted) {
+      // Add votes for done voters
+      for (const { voter, isVoterDone } of createdVoters) {
+        if (!isVoterDone) continue;
         // Weight toward LOVE for realism
         const verdict = Math.random() > 0.4 ? "LOVE" : randomChoice(["MAYBE", "PASS"]);
         // 60% of MAYBE/PASS votes get a reason
@@ -195,9 +242,10 @@ async function seedData(shop, products, boardCount) {
           data: {
             id: `seed-vote-${randomId()}`,
             boardItemId: item.id,
+            voterId: voter.id,
             verdict,
             reason,
-            voterName: partnerFirstName,
+            voterName: voter.firstName,
           },
         });
       }
@@ -249,7 +297,7 @@ async function seedData(shop, products, boardCount) {
   }
 
   // Board and funnel events for each board
-  for (const { board, sharedAt, hasVoted, hasOrdered, seedNum: sn } of boards) {
+  for (const { board, sharedAt, hasAnyVoterDone, hasOrdered, seedNum: sn } of boards) {
     // board_shared
     events.push({
       shop,
@@ -280,7 +328,7 @@ async function seedData(shop, products, boardCount) {
     }
 
     // vote_completed
-    if (hasVoted) {
+    if (hasAnyVoterDone) {
       events.push({
         shop,
         type: "vote_completed",

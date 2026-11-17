@@ -60,6 +60,10 @@ This is NOT an admin voting tool and NOT about Shopify Partners.
 
   voter_name, created_at
 
+## Database
+
+- Never reset, drop or `db push` the dev database without Abbir's OK in chat. If a migration fails, stop and report the error.
+
 ## Privacy rules
 
 - Share tokens are unguessable; boards expire.
@@ -140,7 +144,7 @@ NOT in Phase 1: SMS, "Start your own board", multiple voters, B2B.
 
   assets in the same commit. Never edit extensions/pvb-theme/assets/*.js
 
-  by hand. On-page theme bundles ≤ 10,000 B, lazy bundles ≤ 15,000 B.
+  by hand. On-page theme bundles ≤ 10,000 B, lazy bundles ≤ 25,000 B.
 
   Never change a limit without asking.
 

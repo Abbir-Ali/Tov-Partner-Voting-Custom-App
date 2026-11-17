@@ -9,6 +9,7 @@ import {
 } from "../services/audit.server.js";
 import { SAVED_VIEWS, SORT_OPTIONS } from "../models/boards-list.shared.js";
 import { getSettings } from "../models/settings.server.js";
+import { AVATAR_SPRITE } from "../models/avatars.shared.js";
 
 export const loader = async ({ request }) => {
   const { admin, session } = await authenticate.admin(request);
@@ -29,6 +30,8 @@ export const loader = async ({ request }) => {
     productId: url.searchParams.get("product") || undefined,
     reason: url.searchParams.get("reason") || undefined,
     pieces: url.searchParams.get("pieces") || undefined,
+    voterCount: url.searchParams.get("voters") || undefined,
+    hidePrices: url.searchParams.get("hidePrices") || undefined,
     sort: url.searchParams.get("sort") || "newest",
     page: parseInt(url.searchParams.get("page") || "1", 10),
   };
@@ -182,6 +185,7 @@ const DATE_RANGE_OPTIONS = [
 // Status options
 const STATUS_OPTIONS = [
   { value: "waiting", label: "Waiting for votes" },
+  { value: "partly", label: "Partly voted" },
   { value: "voted", label: "Voted" },
   { value: "expired", label: "Expired" },
 ];
@@ -212,6 +216,19 @@ const PIECES_OPTIONS = [
   { value: "1-2", label: "1–2 pieces" },
   { value: "3-5", label: "3–5 pieces" },
   { value: "6+", label: "6+ pieces" },
+];
+
+// Voter count options
+const VOTER_COUNT_OPTIONS = [
+  { value: "1", label: "1 voter" },
+  { value: "2-3", label: "2–3 voters" },
+  { value: "4-5", label: "4–5 voters" },
+];
+
+// Hide prices options
+const HIDE_PRICES_OPTIONS = [
+  { value: "yes", label: "Yes" },
+  { value: "no", label: "No" },
 ];
 
 // Build reason options from per-verdict chips
@@ -263,6 +280,9 @@ function StatusBadge({ status, tone }) {
     </span>
   );
 }
+
+// Voter faces: now uses shared component
+import { VoterFaces } from "../components/VoterFaces.jsx";
 /* eslint-enable react/prop-types */
 
 export default function BoardsPage() {
@@ -358,6 +378,21 @@ export default function BoardsPage() {
       clear: () => navigate(buildUrl(params, { pieces: undefined, page: 1 })),
     });
   }
+  if (params.voterCount) {
+    const label = VOTER_COUNT_OPTIONS.find((o) => o.value === params.voterCount)?.label || params.voterCount;
+    activeFilters.push({
+      key: "voters",
+      label,
+      clear: () => navigate(buildUrl(params, { voterCount: undefined, page: 1 })),
+    });
+  }
+  if (params.hidePrices) {
+    activeFilters.push({
+      key: "hidePrices",
+      label: `Prices hidden: ${params.hidePrices}`,
+      clear: () => navigate(buildUrl(params, { hidePrices: undefined, page: 1 })),
+    });
+  }
   if (params.reason) {
     activeFilters.push({
       key: "reason",
@@ -390,7 +425,7 @@ export default function BoardsPage() {
       </s-button>
 
       <style>{`
-        .pvb-summary-strip { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 16px; }
+        .pvb-summary-strip { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin-bottom: 16px; }
         .pvb-summary-card { background: #fff; border: 1px solid #e1e3e5; border-radius: 8px; padding: 12px 16px; text-align: center; }
         .pvb-summary-value { font-size: 24px; font-weight: 600; color: #202223; }
         .pvb-summary-label { font-size: 12px; color: #6d7175; margin-top: 2px; }
@@ -424,19 +459,33 @@ export default function BoardsPage() {
         .pvb-votes-other { color: #6d7175; font-size: 12px; }
         .pvb-expiry-urgent { color: #A40713; font-weight: 500; }
         .pvb-guest { color: #6d7175; font-style: italic; }
+        .pvb-voters { display: flex; align-items: center; gap: 8px; }
+        .pvb-voter-faces { display: flex; }
+        .pvb-voter-face { width: 20px; height: 20px; border-radius: 50%; border: 2px solid #fff; margin-left: -6px; overflow: hidden; }
+        .pvb-voter-face:first-child { margin-left: 0; }
+        .pvb-voter-face[data-done="true"] { box-shadow: 0 0 0 2px #485B59; }
+        .pvb-voter-face[data-done="false"] { opacity: 0.5; }
+        .pvb-voter-summary { font-size: 11px; color: #6d7175; white-space: nowrap; }
+        .pvb-badge-prices-hidden { display: inline-block; margin-left: 6px; padding: 2px 6px; border-radius: 4px; font-size: 11px; background: #F1F1F1; color: #6D7175; }
         .pvb-pagination { display: flex; justify-content: space-between; align-items: center; padding: 16px 0; }
         .pvb-pagination-info { font-size: 13px; color: #6d7175; }
         .pvb-pagination-btns { display: flex; gap: 8px; }
         .pvb-empty { text-align: center; padding: 48px 24px; color: #6d7175; }
         .pvb-empty-title { font-size: 15px; font-weight: 500; color: #202223; margin-bottom: 8px; }
-        @media (max-width: 768px) {
+        @media (max-width: 900px) {
+          .pvb-summary-strip { grid-template-columns: repeat(3, 1fr); }
+        }
+        @media (max-width: 600px) {
           .pvb-summary-strip { grid-template-columns: repeat(2, 1fr); }
           .pvb-table { font-size: 12px; }
           .pvb-table th, .pvb-table td { padding: 8px 4px; }
         }
       `}</style>
 
-      {/* Summary strip */}
+      {/* Avatar sprite (hidden) */}
+      <div dangerouslySetInnerHTML={{ __html: AVATAR_SPRITE }} />
+
+      {/* Summary strip - 5 cards */}
       <div className="pvb-summary-strip">
         <div className="pvb-summary-card">
           <div className="pvb-summary-value">{counts.shared}</div>
@@ -445,7 +494,11 @@ export default function BoardsPage() {
         </div>
         <div className="pvb-summary-card">
           <div className="pvb-summary-value">{counts.waiting}</div>
-          <div className="pvb-summary-label">Waiting for votes</div>
+          <div className="pvb-summary-label">Waiting</div>
+        </div>
+        <div className="pvb-summary-card">
+          <div className="pvb-summary-value">{counts.partlyVoted}</div>
+          <div className="pvb-summary-label">Partly voted</div>
         </div>
         <div className="pvb-summary-card">
           <div className="pvb-summary-value">{counts.voted}</div>
@@ -478,7 +531,7 @@ export default function BoardsPage() {
             type="text"
             name="q"
             className="pvb-search-input"
-            placeholder="Search partner, shopper, order #, product..."
+            placeholder="Search voter, shopper, order #, product…"
             defaultValue={params.q}
           />
         </form>
@@ -563,6 +616,28 @@ export default function BoardsPage() {
           ))}
         </select>
 
+        <select
+          className="pvb-filter-select"
+          value={params.voterCount || ""}
+          onChange={(e) => handleFilterChange("voterCount", e.target.value)}
+        >
+          <option value="">Voters</option>
+          {VOTER_COUNT_OPTIONS.map((opt) => (
+            <option key={opt.value} value={opt.value}>{opt.label}</option>
+          ))}
+        </select>
+
+        <select
+          className="pvb-filter-select"
+          value={params.hidePrices || ""}
+          onChange={(e) => handleFilterChange("hidePrices", e.target.value)}
+        >
+          <option value="">Prices hidden</option>
+          {HIDE_PRICES_OPTIONS.map((opt) => (
+            <option key={opt.value} value={opt.value}>{opt.label}</option>
+          ))}
+        </select>
+
         {/* Reason filter with optgroups */}
         <select
           className="pvb-filter-select"
@@ -632,7 +707,7 @@ export default function BoardsPage() {
               <tr>
                 <th>Board</th>
                 <th>Shopper</th>
-                <th>Partner</th>
+                <th>Voters</th>
                 <th>Pieces</th>
                 <th>Votes</th>
                 <th>Status</th>
@@ -663,7 +738,9 @@ export default function BoardsPage() {
                         <span className="pvb-guest">{b.shopperName}</span>
                       )}
                     </td>
-                    <td>{b.partnerFirstName}</td>
+                    <td>
+                      <VoterFaces voters={b.voters} summary={b.voterSummary} />
+                    </td>
                     <td>
                       <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
                         {b.thumbnails.length > 0 && (
@@ -702,6 +779,9 @@ export default function BoardsPage() {
                     </td>
                     <td>
                       <StatusBadge status={b.status} tone={b.statusTone} />
+                      {b.hidePrices && (
+                        <span className="pvb-badge-prices-hidden">Prices hidden</span>
+                      )}
                     </td>
                     <td>
                       {b.order ? (

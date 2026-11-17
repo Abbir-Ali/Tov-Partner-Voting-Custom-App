@@ -3,7 +3,7 @@ import { getSettings } from "../models/settings.server.js";
 import { log } from "../utils/log.server.js";
 
 // Bump this when the storefront config shape changes.
-export const CONFIG_VERSION = 2;
+export const CONFIG_VERSION = 3;
 
 /**
  * Syncs storefront config to the app metafield (theme extensions read this).
@@ -34,6 +34,9 @@ export async function syncStorefrontConfig(admin, shop) {
       enabled: settings.enabled,
       maxItemsPerBoard: settings.maxItemsPerBoard,
       excludeTag: settings.excludeTag,
+      allowHidePrices: settings.allowHidePrices,
+      hidePricesDefault: settings.hidePricesDefault,
+      allowGroupLinks: settings.allowGroupLinks,
     });
 
     // Write to app metafield

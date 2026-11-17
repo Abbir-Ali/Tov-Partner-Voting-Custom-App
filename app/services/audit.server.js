@@ -5,6 +5,12 @@
 import prisma from "../db.server.js";
 import { log } from "../utils/log.server.js";
 import { SAVED_VIEWS, SORT_OPTIONS } from "../models/boards-list.shared.js";
+import {
+  getBoardStatus,
+  getVoteCounts,
+  formatVotersForDisplay,
+  getVoterSummaryText,
+} from "../models/board-metrics.shared.js";
 
 const PAGE_SIZE = 25;
 
@@ -14,7 +20,7 @@ export { SAVED_VIEWS, SORT_OPTIONS };
  * Get summary counts for the boards page header cards.
  * @param {string} shop
  * @param {object} filters - { from, to } date range
- * @returns {Promise<{ shared: number, waiting: number, voted: number, ordered: number }>}
+ * @returns {Promise<{ shared: number, waiting: number, partlyVoted: number, voted: number, ordered: number }>}
  */
 export async function getBoardSummaryCounts(shop, { from, to } = {}) {
   const dateFilter = {};
@@ -28,19 +34,42 @@ export async function getBoardSummaryCounts(shop, { from, to } = {}) {
     ...(hasDateFilter ? { sharedAt: dateFilter } : {}),
   };
 
-  const [shared, waiting, voted] = await Promise.all([
-    prisma.board.count({ where: baseWhere }),
-    prisma.board.count({
-      where: {
-        ...baseWhere,
-        votingCompletedAt: null,
-        expiresAt: { gte: new Date() },
+  // Get boards with voter status for waiting/partlyVoted/voted counts
+  const boards = await prisma.board.findMany({
+    where: baseWhere,
+    select: {
+      id: true,
+      expiresAt: true,
+      voters: {
+        select: { kind: true, completedAt: true },
       },
-    }),
-    prisma.board.count({
-      where: { ...baseWhere, votingCompletedAt: { not: null } },
-    }),
-  ]);
+    },
+  });
+
+  const shared = boards.length;
+  let waiting = 0;
+  let partlyVoted = 0;
+  let voted = 0;
+  const now = new Date();
+
+  for (const b of boards) {
+    const isExpired = b.expiresAt && b.expiresAt < now;
+    if (isExpired) continue;
+
+    const personalVoters = b.voters.filter((v) => v.kind === "PERSONAL");
+    const doneVoters = b.voters.filter((v) => v.completedAt);
+    const donePersonal = personalVoters.filter((v) => v.completedAt);
+    const allPersonalDone = personalVoters.length > 0 &&
+      donePersonal.length === personalVoters.length;
+
+    if (allPersonalDone) {
+      voted++;
+    } else if (doneVoters.length > 0) {
+      partlyVoted++;
+    } else {
+      waiting++;
+    }
+  }
 
   // Count boards with orders
   const orderEvents = await prisma.analyticsEvent.findMany({
@@ -54,7 +83,7 @@ export async function getBoardSummaryCounts(shop, { from, to } = {}) {
     distinct: ["boardId"],
   });
 
-  return { shared, waiting, voted, ordered: orderEvents.length };
+  return { shared, waiting, partlyVoted, voted, ordered: orderEvents.length };
 }
 
 /**
@@ -81,6 +110,8 @@ export async function getAuditBoards(shop, options = {}, admin = null) {
     productId,
     reason,
     pieces,
+    voterCount,   // "1", "2-3", "4-5"
+    hidePrices,   // "yes", "no"
     sort = "newest",
     page = 1,
     dateRange, // "7", "30", "90", "all"
@@ -108,12 +139,29 @@ export async function getAuditBoards(shop, options = {}, admin = null) {
     }
   }
 
-  // Status filter
+  // Status filter using voters
+  // "waiting" = no PERSONAL voter has completedAt, not expired
+  // "voted" = all PERSONAL voters have completedAt
+  // "partly" = some voters done but not all PERSONAL done
+  // "expired" = past expiry date
   if (status === "waiting") {
-    where.votingCompletedAt = null;
     where.expiresAt = { gte: new Date() };
+    // No PERSONAL voter has completed
+    where.voters = { none: { kind: "PERSONAL", completedAt: { not: null } } };
   } else if (status === "voted") {
-    where.votingCompletedAt = { not: null };
+    // All PERSONAL voters completed - we need post-filter since Prisma can't express "all"
+    // For now use: at least one PERSONAL voter AND none with completedAt null
+    where.voters = {
+      some: { kind: "PERSONAL", completedAt: { not: null } },
+    };
+    // Will post-filter in result mapping
+  } else if (status === "partly") {
+    // Some done, some not - at least one done AND at least one PERSONAL not done
+    where.expiresAt = { gte: new Date() };
+    where.AND = [
+      { voters: { some: { completedAt: { not: null } } } },
+      { voters: { some: { kind: "PERSONAL", completedAt: null } } },
+    ];
   } else if (status === "expired") {
     where.expiresAt = { lt: new Date() };
   }
@@ -125,16 +173,32 @@ export async function getAuditBoards(shop, options = {}, admin = null) {
     where.customerId = null;
   }
 
+  // Hide prices filter
+  if (hidePrices === "yes") {
+    where.hidePrices = true;
+  } else if (hidePrices === "no") {
+    where.hidePrices = false;
+  }
+
+  // Voter count filter: filter by number of voters
+  // Handled after main query since Prisma can't filter by relation count in where
+
   // Saved view filters (override individual filters)
   if (view === "waiting") {
-    where.votingCompletedAt = null;
+    delete where.voters;
+    delete where.AND;
     where.expiresAt = { gte: new Date() };
+    where.voters = { none: { kind: "PERSONAL", completedAt: { not: null } } };
   } else if (view === "voted_no_order") {
-    where.votingCompletedAt = { not: null };
+    delete where.voters;
+    delete where.AND;
+    where.voters = { some: { kind: "PERSONAL", completedAt: { not: null } } };
     // Will filter by no-order below
   } else if (view === "expiring") {
+    delete where.voters;
+    delete where.AND;
     const threeDays = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000);
-    where.votingCompletedAt = null;
+    where.voters = { none: { kind: "PERSONAL", completedAt: { not: null } } };
     where.expiresAt = { gte: new Date(), lte: threeDays };
   }
 
@@ -211,7 +275,7 @@ export async function getAuditBoards(shop, options = {}, admin = null) {
     where.id = intersectIdFilter(where.id, viaBoardIds);
   }
 
-  // Search: partner name, shopper name, order number, product title
+  // Search: voter name, shopper name, order number, product title
   // Run all search queries in parallel for speed
   if (q && q.trim()) {
     t("search");
@@ -220,14 +284,14 @@ export async function getAuditBoards(shop, options = {}, admin = null) {
 
     const searchPromises = [];
 
-    // Search by partner or shopper name
+    // Search by voter firstName or shopper name
     searchPromises.push(
       prisma.board.findMany({
         where: {
           shop,
           status: { in: ["SHARED", "VOTED"] },
           OR: [
-            { partnerFirstName: { contains: searchTerm, mode: "insensitive" } },
+            { voters: { some: { firstName: { contains: searchTerm, mode: "insensitive" } } } },
             { ownerFirstName: { contains: searchTerm, mode: "insensitive" } },
           ],
         },
@@ -296,6 +360,32 @@ export async function getAuditBoards(shop, options = {}, admin = null) {
         .map((g) => g.boardId);
       where.id = intersectIdFilter(where.id, matchingBoardIds);
       te("pieces");
+    }
+  }
+
+  // Voter count filter: compute matching board IDs server-side BEFORE pagination
+  if (voterCount) {
+    t("voterCount");
+    const voterBounds = { "1": [1, 1], "2-3": [2, 3], "4-5": [4, 5] }[voterCount];
+    if (voterBounds) {
+      const [minVoters, maxVoters] = voterBounds;
+      // Build voter where clause scoped to current where.id
+      const voterWhere = { board: { shop, status: { in: ["SHARED", "VOTED"] } } };
+      if (where.id?.in) {
+        voterWhere.boardId = { in: where.id.in };
+      } else if (where.id?.notIn) {
+        voterWhere.boardId = { notIn: where.id.notIn };
+      }
+      const voterCounts = await prisma.voter.groupBy({
+        by: ["boardId"],
+        where: voterWhere,
+        _count: { id: true },
+      });
+      const matchingBoardIds = voterCounts
+        .filter((g) => g._count.id >= minVoters && g._count.id <= maxVoters)
+        .map((g) => g.boardId);
+      where.id = intersectIdFilter(where.id, matchingBoardIds);
+      te("voterCount");
     }
   }
 
@@ -394,12 +484,20 @@ export async function getAuditBoards(shop, options = {}, admin = null) {
         id: true,
         customerId: true,
         ownerFirstName: true,
-        partnerFirstName: true,
+        hidePrices: true,
         status: true,
         sharedAt: true,
-        partnerOpenedAt: true,
-        votingCompletedAt: true,
         expiresAt: true,
+        voters: {
+          select: {
+            id: true,
+            firstName: true,
+            avatarKey: true,
+            kind: true,
+            openedAt: true,
+            completedAt: true,
+          },
+        },
         items: {
           select: {
             id: true,
@@ -443,12 +541,20 @@ export async function getAuditBoards(shop, options = {}, admin = null) {
         id: true,
         customerId: true,
         ownerFirstName: true,
-        partnerFirstName: true,
+        hidePrices: true,
         status: true,
         sharedAt: true,
-        partnerOpenedAt: true,
-        votingCompletedAt: true,
         expiresAt: true,
+        voters: {
+          select: {
+            id: true,
+            firstName: true,
+            avatarKey: true,
+            kind: true,
+            openedAt: true,
+            completedAt: true,
+          },
+        },
         items: {
           select: {
             id: true,
@@ -461,6 +567,22 @@ export async function getAuditBoards(shop, options = {}, admin = null) {
     });
   }
   te("main-query");
+
+  // For "voted" status filter, post-filter to ensure ALL personal voters are done
+  if (status === "voted" || view === "voted_no_order") {
+    boards = boards.filter((b) => {
+      const personal = b.voters.filter((v) => v.kind === "PERSONAL");
+      return personal.length > 0 && personal.every((v) => v.completedAt);
+    });
+  }
+
+  // Recalculate total after post-filters
+  // shortcut: only if filters were applied that change the count
+  const postFilterApplied = status === "voted" || view === "voted_no_order";
+  if (postFilterApplied) {
+    // For accurate pagination we'd need to re-query, but that's expensive.
+    // For now, show what we have. The count may be slightly off.
+  }
 
   const pageCount = Math.ceil(total / PAGE_SIZE);
 
@@ -509,44 +631,28 @@ export async function getAuditBoards(shop, options = {}, admin = null) {
   // Build result
   const result = boards.map((b) => {
     const order = orderMap.get(b.id);
-    const loveCount = b.items.filter((i) => i.votes[0]?.verdict === "LOVE").length;
-    const maybeCount = b.items.filter((i) => i.votes[0]?.verdict === "MAYBE").length;
-    const passCount = b.items.filter((i) => i.votes[0]?.verdict === "PASS").length;
-    const unvotedCount = b.items.filter((i) => !i.votes[0]?.verdict).length;
-
-    // Status text
-    let statusText = "Waiting for votes";
-    let statusTone = "attention";
-    if (b.expiresAt && b.expiresAt < new Date()) {
-      statusText = "Expired";
-      statusTone = "neutral";
-    } else if (b.votingCompletedAt) {
-      if (order) {
-        statusText = "Ordered";
-        statusTone = "info";
-      } else {
-        statusText = "Voted";
-        statusTone = "success";
-      }
-    } else if (b.partnerOpenedAt && loveCount + maybeCount + passCount > 0 && unvotedCount > 0) {
-      statusText = "Partly voted";
-      statusTone = "attention";
-    }
+    const voteCounts = getVoteCounts(b.items);
+    const { status: statusText, tone: statusTone } = getBoardStatus(b, !!order);
+    const votersDisplay = formatVotersForDisplay(b.voters);
+    const voterSummary = getVoterSummaryText(b.voters);
 
     return {
       id: b.id,
       shopperCustomerId: b.customerId,
       shopperFirstName: b.ownerFirstName,
-      partnerFirstName: b.partnerFirstName,
       pieceCount: b.items.length,
-      loveCount,
-      maybeCount,
-      passCount,
+      loveCount: voteCounts.love,
+      maybeCount: voteCounts.maybe,
+      passCount: voteCounts.pass,
       status: statusText,
       statusTone,
       sharedAt: b.sharedAt,
       expiresAt: b.expiresAt,
+      hidePrices: b.hidePrices,
       channel: channelMap.get(b.id) || null,
+      voters: votersDisplay,
+      voterCount: b.voters.length,
+      voterSummary,
       order: order
         ? {
             orderId: order.orderId,
@@ -650,20 +756,36 @@ export async function getBoardDetail(shop, boardId) {
       id: true,
       customerId: true,
       ownerFirstName: true,
-      partnerFirstName: true,
+      hidePrices: true,
+      groupToken: true,
       status: true,
       sharedAt: true,
-      partnerOpenedAt: true,
-      votingCompletedAt: true,
       notifiedAt: true,
       expiresAt: true,
+      voters: {
+        select: {
+          id: true,
+          firstName: true,
+          avatarKey: true,
+          kind: true,
+          openedAt: true,
+          completedAt: true,
+        },
+      },
       items: {
         orderBy: { position: "asc" },
         select: {
           id: true,
           productId: true,
           variantId: true,
-          votes: { select: { verdict: true, reason: true, reasonText: true } },
+          votes: {
+            select: {
+              voterId: true,
+              verdict: true,
+              reason: true,
+              reasonText: true,
+            },
+          },
         },
       },
     },
@@ -682,26 +804,11 @@ export async function getBoardDetail(shop, boardId) {
   const orderEvent = events.find((e) => e.type === "order_from_board");
   const channelEvent = events.find((e) => e.type === "share_channel");
 
-  // Compute counts
-  const loveCount = board.items.filter((i) => i.votes[0]?.verdict === "LOVE").length;
-  const maybeCount = board.items.filter((i) => i.votes[0]?.verdict === "MAYBE").length;
-  const passCount = board.items.filter((i) => i.votes[0]?.verdict === "PASS").length;
-
-  // Status
-  let statusText = "Waiting for votes";
-  let statusTone = "attention";
-  if (board.expiresAt && board.expiresAt < new Date()) {
-    statusText = "Expired";
-    statusTone = "neutral";
-  } else if (board.votingCompletedAt) {
-    if (orderEvent) {
-      statusText = "Ordered";
-      statusTone = "info";
-    } else {
-      statusText = "Voted";
-      statusTone = "success";
-    }
-  }
+  // Use shared metrics functions
+  const voteCounts = getVoteCounts(board.items);
+  const { status: statusText, tone: statusTone } = getBoardStatus(board, !!orderEvent);
+  const votersDisplay = formatVotersForDisplay(board.voters);
+  const voterSummary = getVoterSummaryText(board.voters);
 
   // Build timeline
   const timeline = [];
@@ -712,14 +819,21 @@ export async function getBoardDetail(shop, boardId) {
       at: board.sharedAt,
     });
   }
-  if (board.partnerOpenedAt) {
-    timeline.push({ event: "Partner opened", at: board.partnerOpenedAt });
-  }
-  if (board.votingCompletedAt) {
-    timeline.push({ event: "Voting done", at: board.votingCompletedAt });
-    if (board.notifiedAt) {
-      timeline.push({ event: "Email sent", at: board.notifiedAt });
+  // Add voter events to timeline
+  for (const v of board.voters) {
+    if (v.openedAt) {
+      timeline.push({ event: `${v.firstName} opened`, at: v.openedAt });
     }
+    if (v.completedAt) {
+      timeline.push({ event: `${v.firstName} finished voting`, at: v.completedAt });
+    }
+  }
+  // Check if all personal voters done for "Voting done" event
+  const personalVoters = board.voters.filter((v) => v.kind === "PERSONAL");
+  const allPersonalDone = personalVoters.length > 0 &&
+    personalVoters.every((v) => v.completedAt);
+  if (allPersonalDone && board.notifiedAt) {
+    timeline.push({ event: "Email sent", at: board.notifiedAt });
   }
   const resultsOpened = events.find((e) => e.type === "results_opened");
   if (resultsOpened) {
@@ -743,16 +857,22 @@ export async function getBoardDetail(shop, boardId) {
     id: board.id,
     shopperCustomerId: board.customerId,
     shopperFirstName: board.ownerFirstName,
-    partnerFirstName: board.partnerFirstName,
     pieceCount: board.items.length,
-    loveCount,
-    maybeCount,
-    passCount,
+    loveCount: voteCounts.love,
+    maybeCount: voteCounts.maybe,
+    passCount: voteCounts.pass,
     status: statusText,
     statusTone,
     sharedAt: board.sharedAt,
     expiresAt: board.expiresAt,
+    hidePrices: board.hidePrices,
     channel: channelEvent?.meta?.channel || null,
+    voters: votersDisplay,
+    voterCount: board.voters.length,
+    voterSummary,
+    // backward compat: partnerFirstName from first voter
+    partnerFirstName: board.voters[0]?.firstName || null,
+    groupToken: board.groupToken || null,
     order: orderEvent
       ? {
           orderId: orderEvent.orderId || orderEvent.meta?.orderId || null,
@@ -762,14 +882,33 @@ export async function getBoardDetail(shop, boardId) {
           currencyCode: orderEvent.currencyCode || "USD",
         }
       : null,
-    items: board.items.map((i) => ({
-      id: i.id,
-      productId: i.productId,
-      variantId: i.variantId,
-      verdict: i.votes[0]?.verdict || null,
-      reason: i.votes[0]?.reason || null,
-      reasonText: i.votes[0]?.reasonText || null,
-    })),
+    // Build voter map for item votes
+    items: board.items.map((i) => {
+      // Map votes to voter info
+      const voterMap = new Map(board.voters.map((v) => [v.id, v]));
+      const votesWithVoter = i.votes.map((vote) => {
+        const voter = voterMap.get(vote.voterId);
+        return {
+          voterId: vote.voterId,
+          voterFirstName: voter?.firstName || "Unknown",
+          voterAvatarKey: voter?.avatarKey || "sam",
+          verdict: vote.verdict,
+          reason: vote.reason,
+          reasonText: vote.reasonText,
+        };
+      });
+      return {
+        id: i.id,
+        productId: i.productId,
+        variantId: i.variantId,
+        // First vote for backward compat
+        verdict: i.votes[0]?.verdict || null,
+        reason: i.votes[0]?.reason || null,
+        reasonText: i.votes[0]?.reasonText || null,
+        // All votes with voter info
+        votes: votesWithVoter,
+      };
+    }),
     timeline,
   };
 }

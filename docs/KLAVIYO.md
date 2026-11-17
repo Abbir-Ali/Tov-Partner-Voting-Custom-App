@@ -45,11 +45,14 @@ Sent once when the partner submits their final vote.
 | Property | Type | Example |
 |----------|------|---------|
 | `owner_first_name` | string | `"Sarah"` |
-| `partner_first_name` | string | `"Alex"` |
+| `voter_first_name` | string | `"Alex"` |
+| `partner_first_name` | string | `"Alex"` (deprecated, same as voter_first_name) |
 | `loved_count` | number | `3` |
 | `maybe_count` | number | `1` |
 | `pass_count` | number | `1` |
 | `total` | number | `5` |
+| `voters_done` | number | `2` |
+| `voters_invited` | number | `3` |
 | `results_url` | string | `"https://store.myshopify.com/apps/board/results/abc123"` |
 | `board_name` | string | `"Living Room Ideas"` |
 | `loved_items` | array | See below |
@@ -82,8 +85,8 @@ Each item in the array:
 
 | Setting | Value |
 |---------|-------|
-| Subject | `{{ event.partner_first_name }} voted on your board` |
-| Preview text | `Loved {{ event.loved_count }} of {{ event.total }}. Your cart is ready.` |
+| Subject | `{{ event.voter_first_name }} voted on your board: loved {{ event.loved_count }} of {{ event.total }}` |
+| Preview text | `{% if event.voters_invited > 1 %}{{ event.voters_done }} of {{ event.voters_invited }} have voted.{% else %}Your cart is ready.{% endif %}` |
 | Smart Sending | **OFF** (this email is the answer the shopper is waiting for) |
 | UTM tracking | ON |
 

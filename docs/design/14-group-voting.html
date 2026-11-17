@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Group Voting</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="ds/tov/colors_and_type.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0}
+.ph{width:390px;height:844px;border-radius:40px;background:#F1ECE5;box-shadow:0 20px 50px -20px rgba(63,61,62,0.45);overflow:hidden;display:flex;flex-direction:column;box-sizing:border-box;position:relative}
+.top{display:flex;justify-content:center;padding:28px 24px 0}
+.store{font-size:12px;font-weight:700;letter-spacing:0.045em;text-transform:uppercase;color:#82736C}
+.eb{font-size:12px;font-weight:700;letter-spacing:0.045em;text-transform:uppercase}
+.serif{font-family:'GT Ultra Fine',Georgia,serif}
+.note{font-size:12px;line-height:18px;color:#606060}
+.field{height:46px;border-radius:12px;background:#FFFFFF;border:1px solid #CFC3C3;display:flex;align-items:center;justify-content:space-between;padding:0 14px;font-size:14px;box-sizing:border-box}
+.cta{height:54px;width:100%;border:0;border-radius:999px;background:#3F3D3E;color:#FEFBF6;font-family:Montserrat,Helvetica,Arial,sans-serif;font-size:13px;font-weight:700;letter-spacing:0.045em;text-transform:uppercase}
+.ghost{height:46px;width:100%;border-radius:999px;border:1px solid #3F3D3E;background:transparent;color:#3F3D3E;font-family:Montserrat,Helvetica,Arial,sans-serif;font-size:12px;font-weight:700;letter-spacing:0.045em;text-transform:uppercase}
+.row{display:flex;align-items:center;gap:12px;background:#FFFFFF;border-radius:14px;padding:8px 12px 8px 8px}
+.thumb{width:56px;height:56px;border-radius:10px;background:#FEFBF6;padding:6px;box-sizing:border-box;flex-shrink:0}
+.thumb img{width:100%;height:100%;object-fit:contain;mix-blend-mode:multiply;display:block}
+.name{font-size:13px;font-weight:600;line-height:17px}
+.sub{font-size:12px;color:#82736C;line-height:16px}
+.av{width:28px;height:28px;border-radius:999px;background:#F9D2D2;font-size:12px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0}
+.tag{font-size:10px;font-weight:700;letter-spacing:0.045em;text-transform:uppercase;padding:4px 9px;border-radius:999px;flex-shrink:0}
+.tog{width:40px;height:24px;border-radius:999px;background:#485B59;position:relative;flex-shrink:0}
+.tog i{position:absolute;right:3px;top:3px;width:18px;height:18px;border-radius:999px;background:#FFFFFF}
+.btn{width:100%;height:220px;border-radius:24px;background:#FFFFFF;display:flex;flex-direction:column;overflow:hidden}
+</style>
+</helmet>
+<div style="width:1830px;height:1060px;box-sizing:border-box;background:#FEFBF6;color:#3F3D3E;font-family:Montserrat,Helvetica,Arial,sans-serif;padding:40px 60px;display:flex;flex-direction:column;gap:24px">
+  <div style="display:flex;justify-content:space-between;align-items:flex-end">
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <div class="eb" style="color:#82736C">Group voting + Hide prices · Task 13d proposal</div>
+      <div class="serif" style="font-size:36px;line-height:40px">Ask up to 5 people. Keep prices private if you want.</div>
+    </div>
+    <div style="font-size:13px;line-height:20px;color:#606060;max-width:560px;text-align:right">Personal link per person (or one group link). Votes stay independent: each voter sees the others only after finishing. The cart takes pieces loved by most voters. Names and pieces are sample data.</div>
+  </div>
+
+  <div style="display:flex;gap:50px;align-items:flex-start">
+
+    <!-- 1 · Share form -->
+    <div style="display:flex;flex-direction:column;gap:12px;width:390px">
+      <div class="eb">1 · Shopper invites people</div>
+      <div class="ph">
+        <div class="top"><span class="store">TOV Furniture</span></div>
+        <div style="flex-grow:1;padding:22px 24px 0;display:flex;flex-direction:column;gap:14px">
+          <div class="serif" style="font-size:28px;line-height:32px">Who should weigh in?</div>
+          <div class="note">Each person gets their own private link. Up to 5.</div>
+          <div class="field"><span>Alex</span><span class="sub">Remove</span></div>
+          <div class="field"><span>Zaid</span><span class="sub">Remove</span></div>
+          <div class="field"><span style="color:#82736C">Add a first name</span></div>
+          <div style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#3F3D3E" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>Add Another Person</div>
+          <div style="height:1px;background:#E5DCDC;margin:2px 0"></div>
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:12px">
+            <div style="display:flex;flex-direction:column;gap:2px"><span style="font-size:14px;font-weight:600">Hide prices from voters</span><span class="sub">They see the pieces, not the prices.</span></div>
+            <span class="tog"><i></i></span>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:12px">
+            <div style="display:flex;flex-direction:column;gap:2px"><span style="font-size:14px;font-weight:600">Also make a group link</span><span class="sub">Anyone with it can vote once.</span></div>
+            <span class="tog" style="background:#CFC3C3"><i style="right:auto;left:3px"></i></span>
+          </div>
+        </div>
+        <div style="padding:14px 24px 30px;display:flex;flex-direction:column;gap:8px;align-items:center">
+          <button class="cta">Create 2 Links</button>
+          <span class="note">Next: send each link by WhatsApp, Messages or Email.</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 2 · Voter, prices hidden -->
+    <div style="display:flex;flex-direction:column;gap:12px;width:390px">
+      <div class="eb">2 · Zaid votes (prices hidden)</div>
+      <div class="ph">
+        <div class="top" style="justify-content:space-between"><span class="store">TOV Furniture</span><span style="font-size:12px;color:#82736C">2 of 4</span></div>
+        <div style="flex-grow:1;padding:22px 24px 0;display:flex;flex-direction:column;gap:16px">
+          <div style="display:flex;flex-direction:column;gap:4px">
+            <div class="serif" style="font-size:26px;line-height:30px">Sara wants your take, Zaid.</div>
+            <div class="note">Your votes stay private until you finish.</div>
+          </div>
+          <div style="background:#FFFFFF;border-radius:24px;overflow:hidden;display:flex;flex-direction:column">
+            <div style="height:300px;background:#FEFBF6;padding:26px;box-sizing:border-box"><img src="/_blob/86c22272f5363293e173eb00649913d7" alt="Sage Oval Coffee Table" style="width:100%;height:100%;object-fit:contain;mix-blend-mode:multiply;display:block"></div>
+            <div style="padding:14px 18px;display:flex;flex-direction:column;gap:4px">
+              <span style="font-size:16px;font-weight:600">Sage Oval Coffee Table</span>
+              <span class="sub">Sage · View on TOV</span>
+            </div>
+          </div>
+          <div class="note" style="text-align:center">No price shown: Sara chose to keep prices private.</div>
+        </div>
+        <div style="padding:14px 24px 30px;display:flex;gap:10px">
+          <button class="ghost" style="flex:1;height:54px">Not For Us</button>
+          <button class="ghost" style="flex:0.8;height:54px">Maybe</button>
+          <button class="cta" style="flex:1">Love It</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 3 · Voter done, sees the group -->
+    <div style="display:flex;flex-direction:column;gap:12px;width:390px">
+      <div class="eb">3 · Zaid finishes, then sees the group</div>
+      <div class="ph">
+        <div class="top"><span class="store">TOV Furniture</span></div>
+        <div style="flex-grow:1;padding:22px 24px 0;display:flex;flex-direction:column;gap:14px">
+          <div style="display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center">
+            <div class="serif" style="font-size:28px;line-height:32px">Thanks, Zaid. Sara has your votes.</div>
+            <div class="note">2 of 3 people have voted.</div>
+          </div>
+          <div class="eb" style="margin-top:4px">How the group feels so far</div>
+          <div class="row"><div class="thumb"><img src="/_blob/86c22272f5363293e173eb00649913d7" alt=""></div><div style="flex-grow:1;display:flex;flex-direction:column;gap:2px"><span class="name">Sage Oval Coffee Table</span><span class="sub">You and Alex loved it</span></div><span class="tag" style="background:#485B59;color:#FFFFFF">2 Loved</span></div>
+          <div class="row"><div class="thumb"><img src="/_blob/93d858188eaf4fa2506571eb25b733eb" alt=""></div><div style="flex-grow:1;display:flex;flex-direction:column;gap:2px"><span class="name">Cognac Swivel Club Chair</span><span class="sub">You loved it · Alex: Maybe</span></div><span class="tag" style="background:#F1ECE5;color:#3F3D3E;border:1px solid #CFC3C3">Split</span></div>
+          <div class="row"><div class="thumb"><img src="/_blob/f1acbac330843cb4d4d661f03e47d046" alt=""></div><div style="flex-grow:1;display:flex;flex-direction:column;gap:2px"><span class="name">Ceramic Table Lamp</span><span class="sub">Both said Maybe</span></div><span class="tag" style="background:#F1ECE5;color:#3F3D3E;border:1px solid #CFC3C3">2 Maybe</span></div>
+          <div class="note">Only first names are shown. Notes stay with Sara.</div>
+        </div>
+        <div style="padding:14px 24px 30px;display:flex;flex-direction:column;gap:8px;align-items:center">
+          <button class="ghost">Start Your Own Board</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 4 · Shopper results -->
+    <div style="display:flex;flex-direction:column;gap:12px;width:390px">
+      <div class="eb">4 · Sara's results</div>
+      <div class="ph">
+        <div class="top"><span class="store">TOV Furniture</span></div>
+        <div style="flex-grow:1;padding:20px 24px 0;display:flex;flex-direction:column;gap:12px">
+          <div style="display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center">
+            <div style="display:flex"><span class="av">A</span><span class="av" style="margin-left:-6px;background:#F1ECE5;border:1px solid #CFC3C3">Z</span><span class="av" style="margin-left:-6px;background:#FFFFFF;border:1px dashed #82736C;color:#82736C">M</span></div>
+            <div class="serif" style="font-size:28px;line-height:32px">2 of 3 have voted.</div>
+            <div class="note">Mia hasn't voted yet · <span style="text-decoration:underline">Copy Mia's Link</span></div>
+          </div>
+          <div style="display:flex;gap:6px;font-size:12px;font-weight:600">
+            <span style="padding:6px 12px;border-radius:999px;background:#3F3D3E;color:#FEFBF6">Everyone</span>
+            <span style="padding:6px 12px;border-radius:999px;background:#FFFFFF">Alex</span>
+            <span style="padding:6px 12px;border-radius:999px;background:#FFFFFF">Zaid</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:baseline"><span class="eb">Loved by most · 1</span><span class="sub">$599</span></div>
+          <div class="row"><div class="thumb"><img src="/_blob/86c22272f5363293e173eb00649913d7" alt=""></div><div style="flex-grow:1;display:flex;flex-direction:column;gap:2px"><span class="name">Sage Oval Coffee Table</span><span class="sub">Loved by Alex, Zaid · $599</span></div></div>
+          <div style="display:flex;justify-content:space-between;align-items:baseline"><span class="eb">Split · 2</span></div>
+          <div class="row"><div class="thumb"><img src="/_blob/93d858188eaf4fa2506571eb25b733eb" alt=""></div><div style="flex-grow:1;display:flex;flex-direction:column;gap:2px"><span class="name">Cognac Swivel Club Chair</span><span class="sub">Loved: Zaid · Maybe: Alex · $749</span></div><button class="ghost" style="width:auto;height:34px;padding:0 12px;font-size:10px">Add</button></div>
+          <div class="row"><div class="thumb"><img src="/_blob/f1acbac330843cb4d4d661f03e47d046" alt=""></div><div style="flex-grow:1;display:flex;flex-direction:column;gap:2px"><span class="name">Ceramic Table Lamp</span><span class="sub">Maybe: Alex, Zaid · $189</span></div><button class="ghost" style="width:auto;height:34px;padding:0 12px;font-size:10px">Add</button></div>
+        </div>
+        <div style="padding:14px 24px 30px;box-shadow:0 -10px 20px -14px rgba(63,61,62,0.35);display:flex;flex-direction:column;gap:8px;align-items:center">
+          <button class="cta">Add Loved by Most to Cart · $599</button>
+          <span class="note">Sara still sees prices. A new email arrives after each vote.</span>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1830,"height":1060}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

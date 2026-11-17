@@ -235,7 +235,6 @@ export default function NotificationSettings() {
                   </s-button>
                   <s-text-field
                     label="Test email"
-                    name="testEmail"
                     type="email"
                     value={testEmail}
                     error={fetcherErrors.testEmail}
