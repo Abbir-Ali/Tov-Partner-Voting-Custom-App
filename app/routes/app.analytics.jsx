@@ -412,7 +412,7 @@ export default function AnalyticsPage() {
       {/* Products */}
       <s-section heading="Products">
         <p className="pvb-section-help">
-          Which products get shared most, and how partners react to them.
+          Which products get shared most, and how people react to them.
         </p>
         <div className="pvb-insights-row">
           {/* Top shared */}
@@ -435,7 +435,7 @@ export default function AnalyticsPage() {
           {/* Partner feedback */}
           <div className="pvb-insight-card">
             <div className="pvb-insight-header">
-              <div className="pvb-insight-title">What partners think</div>
+              <div className="pvb-insight-title">What people think</div>
               <div className="pvb-insight-legend">
                 <span className="pvb-legend-item">
                   <span className="pvb-legend-dot" style={{ background: "#485B59" }} />

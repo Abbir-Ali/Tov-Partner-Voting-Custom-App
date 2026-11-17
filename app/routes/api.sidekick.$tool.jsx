@@ -16,6 +16,8 @@ const VALID_TOOLS = new Set([
   "shares_by_channel",
   "notification_health",
   "top_board_customers",
+  "partner_reasons",
+  "group_voting_stats",
 ]);
 
 // Valid days values

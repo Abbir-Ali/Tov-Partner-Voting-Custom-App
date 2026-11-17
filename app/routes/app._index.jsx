@@ -167,7 +167,7 @@ export const loader = async ({ request }) => {
     const priceLabel = getReasonLabel("PASS", "price", settings.reasonChips);
     needsAttention.push({
       type: "price_feedback",
-      title: `${pricePassCount} partners passed on ${priceLabel}`,
+      title: `${pricePassCount} people passed on ${priceLabel}`,
       action: { label: "See Products", href: "/app/analytics" },
     });
   }

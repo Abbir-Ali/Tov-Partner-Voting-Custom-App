@@ -185,18 +185,25 @@ export function validateCreateInput(body, settings, { isLoggedIn = false } = {})
     }
   }
 
-  // groupVoting — optional boolean, but disabled if 5 personal voters
+  // groupVoting — optional boolean, but disabled if 5 personal voters or if setting is off
   const maxPersonalVoters = 5;
   const voterCount = data.voterNames ? data.voterNames.length : 1;
-  if (body.groupVoting === true && voterCount >= maxPersonalVoters) {
+  if (!settings.allowGroupLinks) {
+    // Server setting disables group links
+    data.groupVoting = false;
+  } else if (body.groupVoting === true && voterCount >= maxPersonalVoters) {
     // Can't have group link if already at max personal voters
     data.groupVoting = false;
   } else {
     data.groupVoting = body.groupVoting === true;
   }
 
-  // hidePrices — optional boolean
-  data.hidePrices = body.hidePrices === true;
+  // hidePrices — optional boolean, but ignored if setting is off
+  if (!settings.allowHidePrices) {
+    data.hidePrices = false;
+  } else {
+    data.hidePrices = body.hidePrices === true;
+  }
 
   // maxVoters — fixed at 5 (removed user input)
   data.maxVoters = 5;

@@ -96,8 +96,6 @@ export function formatVotersForDisplay(voters = []) {
 export function getVoterSummaryText(voters = []) {
   const counts = getVoterCounts(voters);
   if (counts.invited === 0) return "No voters";
-  if (counts.done === counts.invited) {
-    return counts.invited === 1 ? "1 voted" : `${counts.invited} voted`;
-  }
+  // Always show "X of Y voted" format for consistency
   return `${counts.done} of ${counts.invited} voted`;
 }

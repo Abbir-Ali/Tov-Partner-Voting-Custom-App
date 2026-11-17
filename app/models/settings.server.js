@@ -43,6 +43,9 @@ export async function getSettings(shop) {
       askReasons:           true,
       excludeTag:           "pvb-exclude",
       buyerTag:             "pvb-board-buyer",
+      allowHidePrices:      true,
+      hidePricesDefault:    false,
+      allowGroupLinks:      true,
       copy:                 { ...DEFAULT_COPY },
       reasonChips:          defaultReasonChips,
       klaviyoKeyEncrypted:  null,
@@ -204,6 +207,9 @@ export function validateGeneralSettings(input) {
   // Boolean
   const parseBool = (v) => v === "on" || v === "true" || v === true;
   data.enabled = parseBool(input.enabled);
+  data.allowHidePrices = parseBool(input.allowHidePrices);
+  data.hidePricesDefault = parseBool(input.hidePricesDefault);
+  data.allowGroupLinks = parseBool(input.allowGroupLinks);
 
   // Integers within ranges.
   const validateInt = (key, raw, [min, max]) => {

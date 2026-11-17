@@ -17,6 +17,9 @@ export const loader = async ({ request }) => {
     maxItemsPerBoard: settings.maxItemsPerBoard,
     maxSharesPerDay: settings.maxSharesPerDay,
     excludeTag: settings.excludeTag,
+    allowHidePrices: settings.allowHidePrices,
+    hidePricesDefault: settings.hidePricesDefault,
+    allowGroupLinks: settings.allowGroupLinks,
   };
 };
 
@@ -30,6 +33,9 @@ export const action = async ({ request }) => {
     maxItemsPerBoard: formData.get("maxItemsPerBoard"),
     maxSharesPerDay: formData.get("maxSharesPerDay"),
     excludeTag: formData.get("excludeTag"),
+    allowHidePrices: formData.get("allowHidePrices"),
+    hidePricesDefault: formData.get("hidePricesDefault"),
+    allowGroupLinks: formData.get("allowGroupLinks"),
   };
 
   const { data, errors } = validateGeneralSettings(input);
@@ -161,6 +167,52 @@ export default function GeneralSettings() {
                 name="excludeTag"
                 value={settings.excludeTag}
                 error={errors.excludeTag}
+              />
+            </div>
+          </div>
+        </s-section>
+
+        <s-section>
+          <div className="pvb-settings-layout">
+            <div className="pvb-settings-help">
+              <h3>Prices</h3>
+              <p>
+                Control whether shoppers can hide prices from voters.
+              </p>
+            </div>
+            <div className="pvb-settings-fields">
+              <s-switch
+                label="Let shoppers hide prices from voters"
+                name="allowHidePrices"
+                checked={settings.allowHidePrices || undefined}
+              />
+              <s-switch
+                label="Hide prices by default"
+                name="hidePricesDefault"
+                checked={settings.hidePricesDefault || undefined}
+                help-text="Turn this on for the B2B dealer store so clients never see dealer pricing."
+              />
+            </div>
+          </div>
+        </s-section>
+
+        <s-section>
+          <div className="pvb-settings-layout">
+            <div className="pvb-settings-help">
+              <h3>Group Voting</h3>
+              <p>
+                Let shoppers invite multiple people to vote on the same board.
+              </p>
+            </div>
+            <div className="pvb-settings-fields">
+              <p style={{ margin: 0, fontSize: "14px", color: "#202223" }}>
+                Up to 5 people per board
+              </p>
+              <s-switch
+                label="Allow group links"
+                name="allowGroupLinks"
+                checked={settings.allowGroupLinks || undefined}
+                help-text="When on, shoppers can create a single link anyone can use to vote once."
               />
             </div>
           </div>

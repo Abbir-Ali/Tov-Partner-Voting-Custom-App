@@ -132,11 +132,15 @@ export async function sendTestEvent(shop, email) {
       unique_id: `test_${Date.now()}`,
       properties: {
         owner_first_name: "Test",
+        voter_first_name: "Alex",
+        // Keep partner_first_name for backward compatibility with existing flows
         partner_first_name: "Alex",
         loved_count: 2,
         maybe_count: 1,
         pass_count: 1,
         total: 4,
+        voters_done: 2,
+        voters_invited: 3,
         results_url: storeUrl,
         board_name: "Living Room Ideas",
         loved_items: [

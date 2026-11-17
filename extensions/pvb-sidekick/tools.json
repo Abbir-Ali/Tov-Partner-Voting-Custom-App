@@ -2,7 +2,7 @@
   {
     "$schema": "https://extensions.shopifycdn.com/shopifycloud/schemas/v1/tool.json",
     "name": "board_performance",
-    "description": "Get partner voting board performance: revenue from boards, order count, AOV, partner vote rate, and funnel counts for a time period. Early funnel (button seen, saved) comes from storefront tracking and may not match later funnel steps.",
+    "description": "Get partner voting board performance: revenue from boards, order count, AOV, vote rate (people who finished voting / people invited), and funnel counts for a time period. Opened = boards with at least one voter who opened. Voted = boards with at least one voter done. Early funnel (button seen, saved) comes from storefront tracking.",
     "inputSchema": {
       "type": "object",
       "properties": {
@@ -18,7 +18,7 @@
   {
     "$schema": "https://extensions.shopifycdn.com/shopifycloud/schemas/v1/tool.json",
     "name": "top_shared_products",
-    "description": "Get the most shared products on voting boards: product title, GID, board count, and percent loved by partners",
+    "description": "Get the most shared products on voting boards: product title, GID, board count, and percent loved by voters",
     "inputSchema": {
       "type": "object",
       "properties": {
@@ -41,7 +41,7 @@
   {
     "$schema": "https://extensions.shopifycdn.com/shopifycloud/schemas/v1/tool.json",
     "name": "product_partner_feedback",
-    "description": "Get partner votes for a specific product: loved, maybe, not for us counts and percent loved. Requires 5+ votes.",
+    "description": "Get voter reactions for a specific product: loved, maybe, not for us counts (counting every voter's vote) and percent loved. Requires 5+ votes.",
     "inputSchema": {
       "type": "object",
       "properties": {
@@ -82,7 +82,7 @@
   {
     "$schema": "https://extensions.shopifycdn.com/shopifycloud/schemas/v1/tool.json",
     "name": "shares_by_channel",
-    "description": "Get board share counts by channel (WhatsApp, Email, SMS, Copy link, Share sheet) and vote rate per channel",
+    "description": "Get board share counts by channel (WhatsApp, Email, SMS, Copy link, Share sheet) and vote rate per channel (boards with at least one voter done)",
     "inputSchema": {
       "type": "object",
       "properties": {
@@ -135,7 +135,23 @@
   {
     "$schema": "https://extensions.shopifycdn.com/shopifycloud/schemas/v1/tool.json",
     "name": "partner_reasons",
-    "description": "Get why partners chose Maybe or Pass: reason counts for each verdict. Use to identify product feedback patterns.",
+    "description": "Get why voters chose Maybe or Pass: reason counts for each verdict (counting every voter's reason). Use to identify product feedback patterns.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "days": {
+          "type": "integer",
+          "description": "Time period in days (7, 14, 30, or 60)",
+          "enum": [7, 14, 30, 60],
+          "default": 30
+        }
+      }
+    }
+  },
+  {
+    "$schema": "https://extensions.shopifycdn.com/shopifycloud/schemas/v1/tool.json",
+    "name": "group_voting_stats",
+    "description": "Get group voting statistics: boards by voter count (1, 2-3, 4-5), percent group boards, average voters per board, vote rate by group size, percent with prices hidden, percent with group links. Numbers only, no voter names.",
     "inputSchema": {
       "type": "object",
       "properties": {

@@ -31,7 +31,10 @@
     shopName: '',
     customerFirstName: '',
     customerEmail: '',
-    isLoggedIn: false
+    isLoggedIn: false,
+    allowHidePrices: true,
+    hidePricesDefault: false,
+    allowGroupLinks: true
   };
 
   // ─── Config Loading ─────────────────────────────────────────────────────────
@@ -42,6 +45,9 @@
     config.customerFirstName = d.dataset.customerFirstName || '';
     config.customerEmail = d.dataset.customerEmail || '';
     config.isLoggedIn = d.dataset.loggedIn === 'true';
+    config.allowHidePrices = d.dataset.allowHidePrices !== 'false';
+    config.hidePricesDefault = d.dataset.hidePricesDefault === 'true';
+    config.allowGroupLinks = d.dataset.allowGroupLinks !== 'false';
   }
 
   // ─── Owner Name Storage ─────────────────────────────────────────────────────
@@ -197,6 +203,7 @@
 
     // Group link toggle
     var groupField = el('div', 'pvb-field pvb-field-toggle', { id: 'pvb-group-field' });
+    if (!config.allowGroupLinks) groupField.style.display = 'none';
     var groupLabel = el('label', 'pvb-toggle-row');
     groupLabel.innerHTML =
       '<span class="pvb-toggle-text">Also make a group link</span>' +
@@ -209,13 +216,17 @@
     form.appendChild(groupField);
 
     // Hide prices toggle
-    var hidePricesField = el('div', 'pvb-field pvb-field-toggle');
+    var hidePricesField = el('div', 'pvb-field pvb-field-toggle', { id: 'pvb-hide-prices-field' });
+    if (!config.allowHidePrices) hidePricesField.style.display = 'none';
     var hidePricesLabel = el('label', 'pvb-toggle-row');
     hidePricesLabel.innerHTML =
       '<span class="pvb-toggle-text">Hide prices from voters</span>' +
       '<input type="checkbox" name="hidePrices" id="pvb-hide-prices" class="pvb-toggle-input">' +
       '<span class="pvb-toggle-switch"></span>';
     hidePricesField.appendChild(hidePricesLabel);
+    // Set checked property after DOM insertion
+    var hidePricesInput = hidePricesLabel.querySelector('input');
+    if (hidePricesInput && config.hidePricesDefault) hidePricesInput.checked = true;
     var hidePricesHint = el('span', 'pvb-toggle-hint');
     hidePricesHint.textContent = 'They see the pieces, not the prices.';
     hidePricesField.appendChild(hidePricesHint);

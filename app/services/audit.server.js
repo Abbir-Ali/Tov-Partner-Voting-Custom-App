@@ -20,7 +20,7 @@ export { SAVED_VIEWS, SORT_OPTIONS };
  * Get summary counts for the boards page header cards.
  * @param {string} shop
  * @param {object} filters - { from, to } date range
- * @returns {Promise<{ shared: number, waiting: number, voted: number, ordered: number }>}
+ * @returns {Promise<{ shared: number, waiting: number, partlyVoted: number, voted: number, ordered: number }>}
  */
 export async function getBoardSummaryCounts(shop, { from, to } = {}) {
   const dateFilter = {};
@@ -34,21 +34,21 @@ export async function getBoardSummaryCounts(shop, { from, to } = {}) {
     ...(hasDateFilter ? { sharedAt: dateFilter } : {}),
   };
 
-  // Get boards with voter status for waiting/voted counts
+  // Get boards with voter status for waiting/partlyVoted/voted counts
   const boards = await prisma.board.findMany({
     where: baseWhere,
     select: {
       id: true,
       expiresAt: true,
       voters: {
-        where: { kind: "PERSONAL" },
-        select: { completedAt: true },
+        select: { kind: true, completedAt: true },
       },
     },
   });
 
   const shared = boards.length;
   let waiting = 0;
+  let partlyVoted = 0;
   let voted = 0;
   const now = new Date();
 
@@ -56,12 +56,16 @@ export async function getBoardSummaryCounts(shop, { from, to } = {}) {
     const isExpired = b.expiresAt && b.expiresAt < now;
     if (isExpired) continue;
 
-    const personalVoters = b.voters;
-    const allDone = personalVoters.length > 0 &&
-      personalVoters.every((v) => v.completedAt);
+    const personalVoters = b.voters.filter((v) => v.kind === "PERSONAL");
+    const doneVoters = b.voters.filter((v) => v.completedAt);
+    const donePersonal = personalVoters.filter((v) => v.completedAt);
+    const allPersonalDone = personalVoters.length > 0 &&
+      donePersonal.length === personalVoters.length;
 
-    if (allDone) {
+    if (allPersonalDone) {
       voted++;
+    } else if (doneVoters.length > 0) {
+      partlyVoted++;
     } else {
       waiting++;
     }
@@ -79,7 +83,7 @@ export async function getBoardSummaryCounts(shop, { from, to } = {}) {
     distinct: ["boardId"],
   });
 
-  return { shared, waiting, voted, ordered: orderEvents.length };
+  return { shared, waiting, partlyVoted, voted, ordered: orderEvents.length };
 }
 
 /**
@@ -359,6 +363,32 @@ export async function getAuditBoards(shop, options = {}, admin = null) {
     }
   }
 
+  // Voter count filter: compute matching board IDs server-side BEFORE pagination
+  if (voterCount) {
+    t("voterCount");
+    const voterBounds = { "1": [1, 1], "2-3": [2, 3], "4-5": [4, 5] }[voterCount];
+    if (voterBounds) {
+      const [minVoters, maxVoters] = voterBounds;
+      // Build voter where clause scoped to current where.id
+      const voterWhere = { board: { shop, status: { in: ["SHARED", "VOTED"] } } };
+      if (where.id?.in) {
+        voterWhere.boardId = { in: where.id.in };
+      } else if (where.id?.notIn) {
+        voterWhere.boardId = { notIn: where.id.notIn };
+      }
+      const voterCounts = await prisma.voter.groupBy({
+        by: ["boardId"],
+        where: voterWhere,
+        _count: { id: true },
+      });
+      const matchingBoardIds = voterCounts
+        .filter((g) => g._count.id >= minVoters && g._count.id <= maxVoters)
+        .map((g) => g.boardId);
+      where.id = intersectIdFilter(where.id, matchingBoardIds);
+      te("voterCount");
+    }
+  }
+
   // Determine sort strategy
   t("main-query");
   const sortOpt = SORT_OPTIONS[sort] || SORT_OPTIONS.newest;
@@ -538,15 +568,6 @@ export async function getAuditBoards(shop, options = {}, admin = null) {
   }
   te("main-query");
 
-  // Apply voter count filter (post-query since Prisma can't filter by relation count)
-  if (voterCount) {
-    const bounds = { "1": [1, 1], "2-3": [2, 3], "4-5": [4, 5] }[voterCount];
-    if (bounds) {
-      const [min, max] = bounds;
-      boards = boards.filter((b) => b.voters.length >= min && b.voters.length <= max);
-    }
-  }
-
   // For "voted" status filter, post-filter to ensure ALL personal voters are done
   if (status === "voted" || view === "voted_no_order") {
     boards = boards.filter((b) => {
@@ -557,7 +578,7 @@ export async function getAuditBoards(shop, options = {}, admin = null) {
 
   // Recalculate total after post-filters
   // shortcut: only if filters were applied that change the count
-  const postFilterApplied = voterCount || status === "voted" || view === "voted_no_order";
+  const postFilterApplied = status === "voted" || view === "voted_no_order";
   if (postFilterApplied) {
     // For accurate pagination we'd need to re-query, but that's expensive.
     // For now, show what we have. The count may be slightly off.
@@ -736,6 +757,7 @@ export async function getBoardDetail(shop, boardId) {
       customerId: true,
       ownerFirstName: true,
       hidePrices: true,
+      groupToken: true,
       status: true,
       sharedAt: true,
       notifiedAt: true,
@@ -756,7 +778,14 @@ export async function getBoardDetail(shop, boardId) {
           id: true,
           productId: true,
           variantId: true,
-          votes: { select: { verdict: true, reason: true, reasonText: true } },
+          votes: {
+            select: {
+              voterId: true,
+              verdict: true,
+              reason: true,
+              reasonText: true,
+            },
+          },
         },
       },
     },
@@ -843,6 +872,7 @@ export async function getBoardDetail(shop, boardId) {
     voterSummary,
     // backward compat: partnerFirstName from first voter
     partnerFirstName: board.voters[0]?.firstName || null,
+    groupToken: board.groupToken || null,
     order: orderEvent
       ? {
           orderId: orderEvent.orderId || orderEvent.meta?.orderId || null,
@@ -852,14 +882,33 @@ export async function getBoardDetail(shop, boardId) {
           currencyCode: orderEvent.currencyCode || "USD",
         }
       : null,
-    items: board.items.map((i) => ({
-      id: i.id,
-      productId: i.productId,
-      variantId: i.variantId,
-      verdict: i.votes[0]?.verdict || null,
-      reason: i.votes[0]?.reason || null,
-      reasonText: i.votes[0]?.reasonText || null,
-    })),
+    // Build voter map for item votes
+    items: board.items.map((i) => {
+      // Map votes to voter info
+      const voterMap = new Map(board.voters.map((v) => [v.id, v]));
+      const votesWithVoter = i.votes.map((vote) => {
+        const voter = voterMap.get(vote.voterId);
+        return {
+          voterId: vote.voterId,
+          voterFirstName: voter?.firstName || "Unknown",
+          voterAvatarKey: voter?.avatarKey || "sam",
+          verdict: vote.verdict,
+          reason: vote.reason,
+          reasonText: vote.reasonText,
+        };
+      });
+      return {
+        id: i.id,
+        productId: i.productId,
+        variantId: i.variantId,
+        // First vote for backward compat
+        verdict: i.votes[0]?.verdict || null,
+        reason: i.votes[0]?.reason || null,
+        reasonText: i.votes[0]?.reasonText || null,
+        // All votes with voter info
+        votes: votesWithVoter,
+      };
+    }),
     timeline,
   };
 }

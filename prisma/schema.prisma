@@ -158,6 +158,9 @@ model ShopSettings {
   askReasons              Boolean   @default(true)
   excludeTag              String    @default("pvb-exclude")
   buyerTag                String    @default("pvb-board-buyer")
+  allowHidePrices         Boolean   @default(true)
+  hidePricesDefault       Boolean   @default(false)
+  allowGroupLinks         Boolean   @default(true)
   copy                    Json      @default("{}")
   reasonChips             Json?
   setupGuide              Json?
