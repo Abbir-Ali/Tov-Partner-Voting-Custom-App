@@ -196,13 +196,13 @@ export default function AnalyticsPage() {
     dashboard.revenue.previousValueCents
   );
 
-  // Funnel
+  // Funnel (uses voter-based counts: Opened = boards with ≥1 voter.openedAt)
   const funnelSteps = [
     { label: "Button seen", count: dashboard.funnel.buttonSeen },
     { label: "Saved to board", count: dashboard.funnel.saved },
     { label: "Shared", count: dashboard.funnel.shared },
-    { label: "Partner opened", count: dashboard.funnel.partnerOpened },
-    { label: "Voting done", count: dashboard.funnel.votingDone },
+    { label: "Opened", count: dashboard.funnel.opened },
+    { label: "Voted", count: dashboard.funnel.votingDone },
     { label: "Added to cart", count: dashboard.funnel.addedToCart },
     { label: "Ordered", count: dashboard.funnel.ordered },
   ];
@@ -326,9 +326,9 @@ export default function AnalyticsPage() {
                 ? `${Math.round((dashboard.voteRate.voted / dashboard.voteRate.total) * 100)}%`
                 : "—"}
             </div>
-            <div className="pvb-kpi-label">Partner vote rate</div>
-            <div className="pvb-kpi-sub">
-              {dashboard.voteRate.voted} of {dashboard.voteRate.total} partners voted
+            <div className="pvb-kpi-label">Vote rate</div>
+            <div className="pvb-kpi-sub" title="Share of invited people who finished voting.">
+              {dashboard.voteRate.voted} of {dashboard.voteRate.total} people voted
             </div>
           </div>
           <div className="pvb-kpi-card">
@@ -469,6 +469,42 @@ export default function AnalyticsPage() {
             ) : (
               <p className="pvb-empty">Need 5+ votes per product.</p>
             )}
+          </div>
+        </div>
+      </s-section>
+
+      {/* Group voting */}
+      <s-section heading="Group voting">
+        <p className="pvb-section-help">
+          How shoppers use group boards (multiple voters per board).
+        </p>
+        <div className="pvb-kpi-grid">
+          <div className="pvb-kpi-card">
+            <div className="pvb-kpi-value">{dashboard.groupVotingStats.avgVotersPerBoard}</div>
+            <div className="pvb-kpi-label">Avg people per board</div>
+          </div>
+          <div className="pvb-kpi-card">
+            <div className="pvb-kpi-value">{dashboard.groupVotingStats.pctHidePrices}%</div>
+            <div className="pvb-kpi-label">Hide prices</div>
+          </div>
+          <div className="pvb-kpi-card">
+            <div className="pvb-kpi-value">{dashboard.groupVotingStats.pctGroupLink}%</div>
+            <div className="pvb-kpi-label">Group link enabled</div>
+          </div>
+        </div>
+        <div className="pvb-insight-card" style={{ marginTop: "16px" }}>
+          <div className="pvb-insight-title">Boards by voter count</div>
+          <div className="pvb-channel-row">
+            <span>1 voter (solo)</span>
+            <span className="pvb-product-count">{dashboard.groupVotingStats.byVoterCount.solo}</span>
+          </div>
+          <div className="pvb-channel-row">
+            <span>2–3 voters</span>
+            <span className="pvb-product-count">{dashboard.groupVotingStats.byVoterCount.small}</span>
+          </div>
+          <div className="pvb-channel-row">
+            <span>4–5 voters</span>
+            <span className="pvb-product-count">{dashboard.groupVotingStats.byVoterCount.large}</span>
           </div>
         </div>
       </s-section>

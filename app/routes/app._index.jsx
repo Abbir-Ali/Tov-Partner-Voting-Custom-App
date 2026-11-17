@@ -27,6 +27,9 @@ import {
 } from "../services/dashboard.server.js";
 import { DEFAULT_COPY } from "../models/settings.shared.js";
 import { DEFAULT_PASS_CHIPS, DEFAULT_MAYBE_CHIPS, getReasonLabel } from "../models/reasons.shared.js";
+import { formatVotersForDisplay, getVoterSummaryText } from "../models/board-metrics.shared.js";
+import { AVATAR_SPRITE } from "../models/avatars.shared.js";
+import { VoterFaces, VOTER_FACES_STYLES } from "../components/VoterFaces.jsx";
 import prisma from "../db.server.js";
 
 export const loader = async ({ request }) => {
@@ -104,12 +107,13 @@ export const loader = async ({ request }) => {
     take: 5,
     select: {
       id: true,
-      partnerFirstName: true,
       sharedAt: true,
       status: true,
-      votingCompletedAt: true,
       expiresAt: true,
       _count: { select: { items: true } },
+      voters: {
+        select: { firstName: true, avatarKey: true, completedAt: true },
+      },
     },
   });
 
@@ -125,16 +129,22 @@ export const loader = async ({ request }) => {
     });
   }
 
-  // 2. Boards expiring soon without votes (within 3 days)
+  // 2. Boards expiring soon without any votes (within 3 days)
   const threeDaysFromNow = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000);
-  const expiringBoards = await prisma.board.count({
+  const expiringBoardsData = await prisma.board.findMany({
     where: {
       shop,
       status: "SHARED",
-      votingCompletedAt: null,
       expiresAt: { lte: threeDaysFromNow, gte: new Date() },
     },
+    select: {
+      voters: { select: { completedAt: true } },
+    },
   });
+  // Only count boards where no voter has completed
+  const expiringBoards = expiringBoardsData.filter(
+    (b) => !b.voters.some((v) => v.completedAt)
+  ).length;
   if (expiringBoards > 0) {
     needsAttention.push({
       type: "expiring_boards",
@@ -370,11 +380,13 @@ export default function Index() {
         .pvb-boards-table td { padding: 8px; border-bottom: 1px solid #e1e3e5; color: #202223; }
         .pvb-status-badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; }
         .pvb-status-voted { background: #d4edda; color: #0d5435; }
+        .pvb-status-partly { background: #fff3cd; color: #856404; }
         .pvb-status-shared { background: #e4e5e7; color: #6d7175; }
         .pvb-status-expired { background: #fed3a8; color: #573b00; }
         .pvb-view-all { display: block; text-align: center; padding: 12px; font-size: 13px; color: #485B59; text-decoration: none; }
         .pvb-view-all:hover { text-decoration: underline; }
         .pvb-empty { color: #6d7175; font-size: 13px; font-style: italic; padding: 24px 0; text-align: center; }
+        ${VOTER_FACES_STYLES}
       `}</style>
 
       {/* Self-heal banners */}
@@ -481,9 +493,9 @@ export default function Index() {
                 ? `${Math.round((dashboard.voteRate.voted / dashboard.voteRate.total) * 100)}%`
                 : "—"}
             </div>
-            <div className="pvb-kpi-label">Partner vote rate</div>
+            <div className="pvb-kpi-label">Vote rate</div>
             <div className="pvb-kpi-sub">
-              {dashboard.voteRate.voted} of {dashboard.voteRate.total} voted
+              {dashboard.voteRate.voted} of {dashboard.voteRate.total} people voted
             </div>
           </div>
         </div>
@@ -521,30 +533,39 @@ export default function Index() {
       <s-section heading="Latest boards">
         {latestBoards.length > 0 ? (
           <>
+            {/* Avatar sprite (hidden) */}
+            <div dangerouslySetInnerHTML={{ __html: AVATAR_SPRITE }} />
             <table className="pvb-boards-table">
               <thead>
                 <tr>
                   <th>Shared</th>
-                  <th>Partner</th>
+                  <th>Voters</th>
                   <th>Pieces</th>
                   <th>Status</th>
                 </tr>
               </thead>
               <tbody>
                 {latestBoards.map((board) => {
+                  const voters = formatVotersForDisplay(board.voters);
+                  const voterSummary = getVoterSummaryText(board.voters);
+                  const anyDone = board.voters.some((v) => v.completedAt);
+                  const allDone = board.voters.length > 0 && board.voters.every((v) => v.completedAt);
                   let status = "Waiting for votes";
                   let statusClass = "pvb-status-shared";
                   if (board.expiresAt && new Date(board.expiresAt) < new Date()) {
                     status = "Expired";
                     statusClass = "pvb-status-expired";
-                  } else if (board.votingCompletedAt) {
+                  } else if (allDone) {
                     status = "Voted";
                     statusClass = "pvb-status-voted";
+                  } else if (anyDone) {
+                    status = "Partly voted";
+                    statusClass = "pvb-status-partly";
                   }
                   return (
                     <tr key={board.id}>
                       <td>{formatDate(board.sharedAt)}</td>
-                      <td>{board.partnerFirstName}</td>
+                      <td><VoterFaces voters={voters} summary={voterSummary} /></td>
                       <td>{board._count.items}</td>
                       <td>
                         <span className={`pvb-status-badge ${statusClass}`}>

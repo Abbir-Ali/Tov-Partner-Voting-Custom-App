@@ -148,33 +148,43 @@ async function getBoardsShared(shop, days) {
 }
 
 /**
- * KPI: partner vote rate (boards with votingCompletedAt among boards shared).
- * Both counts use same filter: status SHARED or VOTED, sharedAt in range.
+ * KPI: vote rate = voters done / voters invited.
+ * Counts across boards shared in range with SHARED or VOTED status.
  * @param {string} shop
  * @param {number} days
  */
 async function getVoteRate(shop, days) {
   const { since } = getDateRange(days);
 
-  const baseWhere = {
-    shop,
-    status: { in: ["SHARED", "VOTED"] },
-    sharedAt: { gte: since },
-  };
+  // Get boards in range with their voter counts
+  const boards = await prisma.board.findMany({
+    where: {
+      shop,
+      status: { in: ["SHARED", "VOTED"] },
+      sharedAt: { gte: since },
+    },
+    select: {
+      voters: {
+        select: { completedAt: true },
+      },
+    },
+  });
 
-  const [total, voted] = await Promise.all([
-    prisma.board.count({ where: baseWhere }),
-    prisma.board.count({
-      where: { ...baseWhere, votingCompletedAt: { not: null } },
-    }),
-  ]);
+  let invited = 0;
+  let done = 0;
+  for (const b of boards) {
+    invited += b.voters.length;
+    done += b.voters.filter((v) => v.completedAt).length;
+  }
 
-  return { voted, total };
+  return { voted: done, total: invited };
 }
 
 /**
- * Funnel data: mixes event counts and board table counts.
- * Shared, Partner opened, Voting done from boards table (same base as KPIs).
+ * Funnel data: mixes event counts and board/voter table counts.
+ * Shared = boards shared in range.
+ * Opened = boards with at least one voter.openedAt.
+ * Voted = boards with at least one voter.completedAt.
  * Button seen, Saved, Added to cart, Ordered from events.
  * @param {string} shop
  * @param {number} days
@@ -209,24 +219,33 @@ async function getFunnelData(shop, days) {
     countMap[row.type] = row._count;
   }
 
-  // Board-based counts (same base as KPIs: status SHARED or VOTED, sharedAt in range)
-  const baseWhere = {
-    shop,
-    status: { in: ["SHARED", "VOTED"] },
-    sharedAt: { gte: since },
-  };
+  // Board-based counts with voter data
+  const boards = await prisma.board.findMany({
+    where: {
+      shop,
+      status: { in: ["SHARED", "VOTED"] },
+      sharedAt: { gte: since },
+    },
+    select: {
+      voters: {
+        select: { openedAt: true, completedAt: true },
+      },
+    },
+  });
 
-  const [shared, partnerOpened, votingDone] = await Promise.all([
-    prisma.board.count({ where: baseWhere }),
-    prisma.board.count({ where: { ...baseWhere, partnerOpenedAt: { not: null } } }),
-    prisma.board.count({ where: { ...baseWhere, votingCompletedAt: { not: null } } }),
-  ]);
+  const shared = boards.length;
+  let opened = 0;
+  let votingDone = 0;
+  for (const b of boards) {
+    if (b.voters.some((v) => v.openedAt)) opened++;
+    if (b.voters.some((v) => v.completedAt)) votingDone++;
+  }
 
   return {
     buttonSeen: impressionVisitors.length,
     saved: countMap["button_save"] || 0,
     shared,
-    partnerOpened,
+    opened,
     votingDone,
     addedToCart: countMap["results_add_loved"] || 0,
     ordered: countMap["order_from_board"] || 0,
@@ -376,6 +395,7 @@ async function getTopSharedProducts(shop, days, limit = 6) {
 
 /**
  * Partner feedback per product: votes breakdown.
+ * Counts ALL voters' votes per product (not just first vote per item).
  * @param {string} shop
  * @param {number} days
  * @param {number} minVotes
@@ -397,7 +417,7 @@ async function getProductFeedback(shop, days, minVotes = 5, limit = 6) {
 
   const boardIds = boards.map((b) => b.id);
 
-  // Get all items with votes in these boards
+  // Get all items with ALL votes (not just first)
   const items = await prisma.boardItem.findMany({
     where: { boardId: { in: boardIds } },
     select: {
@@ -406,19 +426,18 @@ async function getProductFeedback(shop, days, minVotes = 5, limit = 6) {
     },
   });
 
-  // Aggregate by product
+  // Aggregate by product: count every vote from every voter
   const productMap = new Map();
   for (const item of items) {
-    if (!item.votes.length) continue;
-    const v = item.votes[0].verdict;
-
-    if (!productMap.has(item.productId)) {
-      productMap.set(item.productId, { love: 0, maybe: 0, pass: 0 });
+    for (const vote of item.votes) {
+      if (!productMap.has(item.productId)) {
+        productMap.set(item.productId, { love: 0, maybe: 0, pass: 0 });
+      }
+      const p = productMap.get(item.productId);
+      if (vote.verdict === "LOVE") p.love++;
+      else if (vote.verdict === "MAYBE") p.maybe++;
+      else if (vote.verdict === "PASS") p.pass++;
     }
-    const p = productMap.get(item.productId);
-    if (v === "LOVE") p.love++;
-    else if (v === "MAYBE") p.maybe++;
-    else if (v === "PASS") p.pass++;
   }
 
   // Filter and sort by total votes
@@ -496,6 +515,7 @@ async function getSharesByChannel(shop, days) {
 
 /**
  * Vote rate by channel: for channels with 5+ boards.
+ * Uses voter-based completion (at least one voter done).
  * @param {string} shop
  * @param {number} days
  * @param {number} minBoards
@@ -526,16 +546,20 @@ async function getVoteRateByChannel(shop, days, minBoards = 5) {
     }
   }
 
-  // Get boards with votingCompletedAt
+  // Get boards with at least one voter done
   const votedBoards = await prisma.board.findMany({
     where: {
       id: { in: Array.from(boardChannel.keys()) },
-      votingCompletedAt: { not: null },
     },
-    select: { id: true },
+    select: {
+      id: true,
+      voters: { select: { completedAt: true } },
+    },
   });
 
-  const votedIds = new Set(votedBoards.map((b) => b.id));
+  const votedIds = new Set(
+    votedBoards.filter((b) => b.voters.some((v) => v.completedAt)).map((b) => b.id)
+  );
 
   // Aggregate by channel
   const channelStats = {};
@@ -663,6 +687,61 @@ async function getPartnerReasons(shop, days) {
 }
 
 /**
+ * Group voting stats for analytics card.
+ * Returns: boards by voter count, avg people per board, % with prices hidden, % with group link.
+ * @param {string} shop
+ * @param {number} days
+ */
+async function getGroupVotingStats(shop, days) {
+  const { since } = getDateRange(days);
+
+  const boards = await prisma.board.findMany({
+    where: {
+      shop,
+      status: { in: ["SHARED", "VOTED"] },
+      sharedAt: { gte: since },
+    },
+    select: {
+      hidePrices: true,
+      groupToken: true,
+      _count: { select: { voters: true } },
+    },
+  });
+
+  if (boards.length === 0) {
+    return {
+      byVoterCount: { solo: 0, small: 0, large: 0 },
+      avgVotersPerBoard: 0,
+      pctHidePrices: 0,
+      pctGroupLink: 0,
+    };
+  }
+
+  // Count boards by voter count: 1 (solo), 2-3 (small), 4-5 (large)
+  let solo = 0, small = 0, large = 0;
+  let totalVoters = 0;
+  let hidePricesCount = 0;
+  let groupLinkCount = 0;
+
+  for (const b of boards) {
+    const vc = b._count.voters;
+    totalVoters += vc;
+    if (vc === 1) solo++;
+    else if (vc <= 3) small++;
+    else large++;
+    if (b.hidePrices) hidePricesCount++;
+    if (b.groupToken) groupLinkCount++;
+  }
+
+  return {
+    byVoterCount: { solo, small, large },
+    avgVotersPerBoard: Math.round((totalVoters / boards.length) * 10) / 10,
+    pctHidePrices: Math.round((hidePricesCount / boards.length) * 100),
+    pctGroupLink: Math.round((groupLinkCount / boards.length) * 100),
+  };
+}
+
+/**
  * Main dashboard data loader.
  * Runs queries in parallel for performance.
  * @param {string} shop
@@ -683,6 +762,7 @@ export async function getDashboardData(shop, days) {
     sharesByChannel,
     voteRateByChannel,
     partnerReasons,
+    groupVotingStats,
     notifyStats,
     firstEventDate,
   ] = await Promise.all([
@@ -697,6 +777,7 @@ export async function getDashboardData(shop, days) {
     getSharesByChannel(shop, validDays),
     getVoteRateByChannel(shop, validDays),
     getPartnerReasons(shop, validDays),
+    getGroupVotingStats(shop, validDays),
     getNotificationStats(shop),
     getFirstEventDate(shop),
   ]);
@@ -720,6 +801,7 @@ export async function getDashboardData(shop, days) {
     sharesByChannel,
     voteRateByChannel,
     partnerReasons,
+    groupVotingStats,
     notifyStats,
     aov,
     firstEventDate,

@@ -9,6 +9,7 @@ import {
 } from "../services/audit.server.js";
 import { SAVED_VIEWS, SORT_OPTIONS } from "../models/boards-list.shared.js";
 import { getSettings } from "../models/settings.server.js";
+import { AVATAR_SPRITE } from "../models/avatars.shared.js";
 
 export const loader = async ({ request }) => {
   const { admin, session } = await authenticate.admin(request);
@@ -280,52 +281,8 @@ function StatusBadge({ status, tone }) {
   );
 }
 
-// Avatar colors based on avatarKey (or firstName fallback)
-const AVATAR_COLORS = [
-  "#485B59", // Forest
-  "#82736C", // Truffle
-  "#A40713", // Bold Lip
-  "#6B5B4F", // darker taupe
-  "#3F5B59", // darker forest
-];
-
-function getAvatarColor(key, index) {
-  if (key) {
-    // Hash the key to pick a color
-    let hash = 0;
-    for (let i = 0; i < key.length; i++) {
-      hash = key.charCodeAt(i) + ((hash << 5) - hash);
-    }
-    return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
-  }
-  return AVATAR_COLORS[index % AVATAR_COLORS.length];
-}
-
-// Voter faces component: up to 5 overlapping circles + summary text
-function VoterFaces({ voters, summary }) {
-  if (!voters || voters.length === 0) {
-    return <span style={{ color: "#6d7175" }}>No voters</span>;
-  }
-
-  return (
-    <div className="pvb-voters">
-      <div className="pvb-voter-faces">
-        {voters.map((v, i) => (
-          <span
-            key={i}
-            className="pvb-voter-face"
-            data-done={v.done}
-            style={{ backgroundColor: getAvatarColor(v.avatarKey, i) }}
-            title={`${v.firstName}${v.done ? " (voted)" : ""}`}
-          >
-            {v.firstName?.[0]?.toUpperCase() || "?"}
-          </span>
-        ))}
-      </div>
-      <span className="pvb-voter-summary">{summary}</span>
-    </div>
-  );
-}
+// Voter faces: now uses shared component
+import { VoterFaces } from "../components/VoterFaces.jsx";
 /* eslint-enable react/prop-types */
 
 export default function BoardsPage() {
@@ -468,7 +425,7 @@ export default function BoardsPage() {
       </s-button>
 
       <style>{`
-        .pvb-summary-strip { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 16px; }
+        .pvb-summary-strip { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin-bottom: 16px; }
         .pvb-summary-card { background: #fff; border: 1px solid #e1e3e5; border-radius: 8px; padding: 12px 16px; text-align: center; }
         .pvb-summary-value { font-size: 24px; font-weight: 600; color: #202223; }
         .pvb-summary-label { font-size: 12px; color: #6d7175; margin-top: 2px; }
@@ -504,24 +461,31 @@ export default function BoardsPage() {
         .pvb-guest { color: #6d7175; font-style: italic; }
         .pvb-voters { display: flex; align-items: center; gap: 8px; }
         .pvb-voter-faces { display: flex; }
-        .pvb-voter-face { width: 20px; height: 20px; border-radius: 50%; border: 2px solid #fff; margin-left: -6px; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 500; color: #fff; }
+        .pvb-voter-face { width: 20px; height: 20px; border-radius: 50%; border: 2px solid #fff; margin-left: -6px; overflow: hidden; }
         .pvb-voter-face:first-child { margin-left: 0; }
         .pvb-voter-face[data-done="true"] { box-shadow: 0 0 0 2px #485B59; }
-        .pvb-voter-face[data-done="false"] { opacity: 0.6; }
+        .pvb-voter-face[data-done="false"] { opacity: 0.5; }
         .pvb-voter-summary { font-size: 11px; color: #6d7175; white-space: nowrap; }
+        .pvb-badge-prices-hidden { display: inline-block; margin-left: 6px; padding: 2px 6px; border-radius: 4px; font-size: 11px; background: #F1F1F1; color: #6D7175; }
         .pvb-pagination { display: flex; justify-content: space-between; align-items: center; padding: 16px 0; }
         .pvb-pagination-info { font-size: 13px; color: #6d7175; }
         .pvb-pagination-btns { display: flex; gap: 8px; }
         .pvb-empty { text-align: center; padding: 48px 24px; color: #6d7175; }
         .pvb-empty-title { font-size: 15px; font-weight: 500; color: #202223; margin-bottom: 8px; }
-        @media (max-width: 768px) {
+        @media (max-width: 900px) {
+          .pvb-summary-strip { grid-template-columns: repeat(3, 1fr); }
+        }
+        @media (max-width: 600px) {
           .pvb-summary-strip { grid-template-columns: repeat(2, 1fr); }
           .pvb-table { font-size: 12px; }
           .pvb-table th, .pvb-table td { padding: 8px 4px; }
         }
       `}</style>
 
-      {/* Summary strip */}
+      {/* Avatar sprite (hidden) */}
+      <div dangerouslySetInnerHTML={{ __html: AVATAR_SPRITE }} />
+
+      {/* Summary strip - 5 cards */}
       <div className="pvb-summary-strip">
         <div className="pvb-summary-card">
           <div className="pvb-summary-value">{counts.shared}</div>
@@ -530,7 +494,11 @@ export default function BoardsPage() {
         </div>
         <div className="pvb-summary-card">
           <div className="pvb-summary-value">{counts.waiting}</div>
-          <div className="pvb-summary-label">Waiting for votes</div>
+          <div className="pvb-summary-label">Waiting</div>
+        </div>
+        <div className="pvb-summary-card">
+          <div className="pvb-summary-value">{counts.partlyVoted}</div>
+          <div className="pvb-summary-label">Partly voted</div>
         </div>
         <div className="pvb-summary-card">
           <div className="pvb-summary-value">{counts.voted}</div>
@@ -563,7 +531,7 @@ export default function BoardsPage() {
             type="text"
             name="q"
             className="pvb-search-input"
-            placeholder="Search partner, shopper, order #, product..."
+            placeholder="Search voter, shopper, order #, product…"
             defaultValue={params.q}
           />
         </form>
@@ -811,6 +779,9 @@ export default function BoardsPage() {
                     </td>
                     <td>
                       <StatusBadge status={b.status} tone={b.statusTone} />
+                      {b.hidePrices && (
+                        <span className="pvb-badge-prices-hidden">Prices hidden</span>
+                      )}
                     </td>
                     <td>
                       {b.order ? (
