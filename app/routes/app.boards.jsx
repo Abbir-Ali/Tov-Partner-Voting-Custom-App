@@ -29,6 +29,8 @@ export const loader = async ({ request }) => {
     productId: url.searchParams.get("product") || undefined,
     reason: url.searchParams.get("reason") || undefined,
     pieces: url.searchParams.get("pieces") || undefined,
+    voterCount: url.searchParams.get("voters") || undefined,
+    hidePrices: url.searchParams.get("hidePrices") || undefined,
     sort: url.searchParams.get("sort") || "newest",
     page: parseInt(url.searchParams.get("page") || "1", 10),
   };
@@ -182,6 +184,7 @@ const DATE_RANGE_OPTIONS = [
 // Status options
 const STATUS_OPTIONS = [
   { value: "waiting", label: "Waiting for votes" },
+  { value: "partly", label: "Partly voted" },
   { value: "voted", label: "Voted" },
   { value: "expired", label: "Expired" },
 ];
@@ -212,6 +215,19 @@ const PIECES_OPTIONS = [
   { value: "1-2", label: "1–2 pieces" },
   { value: "3-5", label: "3–5 pieces" },
   { value: "6+", label: "6+ pieces" },
+];
+
+// Voter count options
+const VOTER_COUNT_OPTIONS = [
+  { value: "1", label: "1 voter" },
+  { value: "2-3", label: "2–3 voters" },
+  { value: "4-5", label: "4–5 voters" },
+];
+
+// Hide prices options
+const HIDE_PRICES_OPTIONS = [
+  { value: "yes", label: "Yes" },
+  { value: "no", label: "No" },
 ];
 
 // Build reason options from per-verdict chips
@@ -261,6 +277,53 @@ function StatusBadge({ status, tone }) {
     >
       {status}
     </span>
+  );
+}
+
+// Avatar colors based on avatarKey (or firstName fallback)
+const AVATAR_COLORS = [
+  "#485B59", // Forest
+  "#82736C", // Truffle
+  "#A40713", // Bold Lip
+  "#6B5B4F", // darker taupe
+  "#3F5B59", // darker forest
+];
+
+function getAvatarColor(key, index) {
+  if (key) {
+    // Hash the key to pick a color
+    let hash = 0;
+    for (let i = 0; i < key.length; i++) {
+      hash = key.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
+  }
+  return AVATAR_COLORS[index % AVATAR_COLORS.length];
+}
+
+// Voter faces component: up to 5 overlapping circles + summary text
+function VoterFaces({ voters, summary }) {
+  if (!voters || voters.length === 0) {
+    return <span style={{ color: "#6d7175" }}>No voters</span>;
+  }
+
+  return (
+    <div className="pvb-voters">
+      <div className="pvb-voter-faces">
+        {voters.map((v, i) => (
+          <span
+            key={i}
+            className="pvb-voter-face"
+            data-done={v.done}
+            style={{ backgroundColor: getAvatarColor(v.avatarKey, i) }}
+            title={`${v.firstName}${v.done ? " (voted)" : ""}`}
+          >
+            {v.firstName?.[0]?.toUpperCase() || "?"}
+          </span>
+        ))}
+      </div>
+      <span className="pvb-voter-summary">{summary}</span>
+    </div>
   );
 }
 /* eslint-enable react/prop-types */
@@ -358,6 +421,21 @@ export default function BoardsPage() {
       clear: () => navigate(buildUrl(params, { pieces: undefined, page: 1 })),
     });
   }
+  if (params.voterCount) {
+    const label = VOTER_COUNT_OPTIONS.find((o) => o.value === params.voterCount)?.label || params.voterCount;
+    activeFilters.push({
+      key: "voters",
+      label,
+      clear: () => navigate(buildUrl(params, { voterCount: undefined, page: 1 })),
+    });
+  }
+  if (params.hidePrices) {
+    activeFilters.push({
+      key: "hidePrices",
+      label: `Prices hidden: ${params.hidePrices}`,
+      clear: () => navigate(buildUrl(params, { hidePrices: undefined, page: 1 })),
+    });
+  }
   if (params.reason) {
     activeFilters.push({
       key: "reason",
@@ -424,6 +502,13 @@ export default function BoardsPage() {
         .pvb-votes-other { color: #6d7175; font-size: 12px; }
         .pvb-expiry-urgent { color: #A40713; font-weight: 500; }
         .pvb-guest { color: #6d7175; font-style: italic; }
+        .pvb-voters { display: flex; align-items: center; gap: 8px; }
+        .pvb-voter-faces { display: flex; }
+        .pvb-voter-face { width: 20px; height: 20px; border-radius: 50%; border: 2px solid #fff; margin-left: -6px; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 500; color: #fff; }
+        .pvb-voter-face:first-child { margin-left: 0; }
+        .pvb-voter-face[data-done="true"] { box-shadow: 0 0 0 2px #485B59; }
+        .pvb-voter-face[data-done="false"] { opacity: 0.6; }
+        .pvb-voter-summary { font-size: 11px; color: #6d7175; white-space: nowrap; }
         .pvb-pagination { display: flex; justify-content: space-between; align-items: center; padding: 16px 0; }
         .pvb-pagination-info { font-size: 13px; color: #6d7175; }
         .pvb-pagination-btns { display: flex; gap: 8px; }
@@ -563,6 +648,28 @@ export default function BoardsPage() {
           ))}
         </select>
 
+        <select
+          className="pvb-filter-select"
+          value={params.voterCount || ""}
+          onChange={(e) => handleFilterChange("voterCount", e.target.value)}
+        >
+          <option value="">Voters</option>
+          {VOTER_COUNT_OPTIONS.map((opt) => (
+            <option key={opt.value} value={opt.value}>{opt.label}</option>
+          ))}
+        </select>
+
+        <select
+          className="pvb-filter-select"
+          value={params.hidePrices || ""}
+          onChange={(e) => handleFilterChange("hidePrices", e.target.value)}
+        >
+          <option value="">Prices hidden</option>
+          {HIDE_PRICES_OPTIONS.map((opt) => (
+            <option key={opt.value} value={opt.value}>{opt.label}</option>
+          ))}
+        </select>
+
         {/* Reason filter with optgroups */}
         <select
           className="pvb-filter-select"
@@ -632,7 +739,7 @@ export default function BoardsPage() {
               <tr>
                 <th>Board</th>
                 <th>Shopper</th>
-                <th>Partner</th>
+                <th>Voters</th>
                 <th>Pieces</th>
                 <th>Votes</th>
                 <th>Status</th>
@@ -663,7 +770,9 @@ export default function BoardsPage() {
                         <span className="pvb-guest">{b.shopperName}</span>
                       )}
                     </td>
-                    <td>{b.partnerFirstName}</td>
+                    <td>
+                      <VoterFaces voters={b.voters} summary={b.voterSummary} />
+                    </td>
                     <td>
                       <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
                         {b.thumbnails.length > 0 && (
