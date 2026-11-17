@@ -434,11 +434,13 @@ export default function BoardsPage() {
         .pvb-tab { padding: 12px 16px; font-size: 13px; color: #6d7175; cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap; background: none; border-top: none; border-left: none; border-right: none; }
         .pvb-tab:hover { color: #202223; }
         .pvb-tab[data-active="true"] { color: #202223; border-bottom-color: #485B59; font-weight: 600; background: #f6f6f7; }
-        .pvb-controls-row1 { display: flex; gap: 12px; margin-bottom: 12px; align-items: center; }
-        .pvb-search { flex: 1; }
-        .pvb-search-input { width: 100%; padding: 8px 12px 8px 36px; border: 1px solid #c9cccf; border-radius: 8px; font-size: 14px; background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='%236d7175'%3E%3Cpath d='M11.5 11.5L15 15M7 13A6 6 0 107 1a6 6 0 000 12z' stroke='%236d7175' stroke-width='1.5' fill='none'/%3E%3C/svg%3E") 12px center no-repeat; }
+        .pvb-controls-row1 { display: flex; gap: 12px; margin-bottom: 12px; align-items: center; flex-wrap: wrap; }
+        .pvb-search { flex: 1; min-width: 0; }
+        .pvb-search-input { width: 100%; box-sizing: border-box; padding: 8px 12px 8px 36px; border: 1px solid #c9cccf; border-radius: 8px; font-size: 14px; height: 36px; background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='%236d7175'%3E%3Cpath d='M11.5 11.5L15 15M7 13A6 6 0 107 1a6 6 0 000 12z' stroke='%236d7175' stroke-width='1.5' fill='none'/%3E%3C/svg%3E") 12px center no-repeat; }
         .pvb-controls-row2 { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; align-items: center; }
-        .pvb-sort-select { padding: 6px 28px 6px 10px; border: 1px solid #c9cccf; border-radius: 6px; font-size: 13px; background: #fff; height: 32px; }
+        .pvb-sort-wrapper { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+        .pvb-sort-label { font-size: 13px; color: #6d7175; }
+        .pvb-sort-select { padding: 8px 32px 8px 10px; border: 1px solid #c9cccf; border-radius: 8px; font-size: 14px; background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%236d7175'%3E%3Cpath d='M2 4l4 4 4-4'/%3E%3C/svg%3E") right 10px center no-repeat; height: 36px; min-width: 140px; box-sizing: border-box; appearance: none; cursor: pointer; }
         .pvb-filter-select { padding: 6px 24px 6px 10px; border: 1px solid #c9cccf; border-radius: 6px; font-size: 13px; background: #fff; height: 32px; min-width: 90px; }
         .pvb-filters { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
         .pvb-filter-pill { display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; border: 1px solid #d3d3d3; border-radius: 16px; font-size: 12px; color: #202223; background: #f6f6f7; }
@@ -535,17 +537,21 @@ export default function BoardsPage() {
             defaultValue={params.q}
           />
         </form>
-        <select
-          className="pvb-sort-select"
-          value={params.sort}
-          onChange={(e) => handleSortChange(e.target.value)}
-        >
-          {Object.entries(SORT_OPTIONS).map(([key, { label }]) => (
-            <option key={key} value={key}>
-              {label}
-            </option>
-          ))}
-        </select>
+        <div className="pvb-sort-wrapper">
+          <span className="pvb-sort-label">Sort:</span>
+          <select
+            className="pvb-sort-select"
+            value={params.sort}
+            onChange={(e) => handleSortChange(e.target.value)}
+            aria-label="Sort boards"
+          >
+            {Object.entries(SORT_OPTIONS).map(([key, { label }]) => (
+              <option key={key} value={key}>
+                {label}
+              </option>
+            ))}
+          </select>
+        </div>
       </div>
 
       {/* Row 2: Filter selects */}
